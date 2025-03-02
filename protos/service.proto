@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package microservice;
+
+// Service definition
+service ServiceTwo {
+  rpc ProcessRequest (Request) returns (Response) {}
+}
+
+// Request message
+message Request {
+  string data = 1;
+}
+
+// Response message
+message Response {
+  string result = 1;
+} 

@@ -1,0 +1,23 @@
+version: '3'
+services:
+  service1:
+    build:
+      context: .
+      dockerfile: service1/Dockerfile
+    depends_on:
+      - service2
+    networks:
+      - microservices-net
+    restart: on-failure
+
+  service2:
+    build:
+      context: .
+      dockerfile: service2/Dockerfile
+    networks:
+      - microservices-net
+    restart: on-failure
+
+networks:
+  microservices-net:
+    driver: bridge 
