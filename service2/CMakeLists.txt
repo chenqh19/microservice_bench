@@ -4,7 +4,14 @@ project(service2)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Protobuf REQUIRED)
+# Set custom Protobuf paths
+set(Protobuf_ROOT /home/czarkos/dev/protobuf)
+set(Protobuf_INCLUDE_DIR ${Protobuf_ROOT}/src)
+set(Protobuf_LIBRARY ${Protobuf_ROOT}/libprotobuf.a)
+set(Protobuf_PROTOC_EXECUTABLE ${Protobuf_ROOT}/protoc)
+
+# Use the custom Protobuf
+find_package(Protobuf REQUIRED PATHS ${Protobuf_ROOT} NO_DEFAULT_PATH)
 
 # Use pkg-config to find gRPC
 include(FindPkgConfig)
