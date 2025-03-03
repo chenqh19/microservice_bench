@@ -1,34 +1,69 @@
-FROM ubuntu:24.04
+FROM ubuntu:latest
 
+# Install build essentials and dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
-    manpages-dev \
     cmake \
+    git \
     pkg-config \
-    libgrpc++-dev
+    autoconf \
+    libtool \
+    curl \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
 
-#RUN wget http://ftp.gnu.org/gnu/libc/glibc-2.38.tar.gz && \
-#    tar -xvzf glibc-2.38.tar.gz && cd glibc-2.38 && \
-#    mkdir build && cd build && \
-#    ../configure --prefix=/usr && make -j$(nproc) && make install
-
-# Copy custom Protobuf installation
-COPY protobuf /usr/local/protobuf
-
-# Set environment variables for Protobuf
-ENV Protobuf_ROOT=/usr/local/protobuf
-ENV PATH="/usr/local/protobuf/bin:${PATH}"
-ENV LD_LIBRARY_PATH="/usr/local/protobuf/src:${LD_LIBRARY_PATH}"
-
+# Set working directory
 WORKDIR /app
-COPY service2 .
-COPY protos /app/protos/
 
-RUN which grpc_cpp_plugin
-RUN mkdir build && cd build && \
-    /usr/local/protobuf/protoc -I ../protos --cpp_out=. --grpc_out=. \
-    --plugin=protoc-gen-grpc=`which grpc_cpp_plugin` ../protos/service.proto && \
+# Copy the entire project including the protobuf submodule
+COPY . .
+
+# Build and install Abseil first
+RUN git clone https://github.com/abseil/abseil-cpp.git && \
+    cd abseil-cpp && \
+    git checkout lts_2023_08_02 && \
+    mkdir build && cd build && \
+    cmake -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+          -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j4 && \
+    make install && \
+    cd ../.. && \
+    rm -rf abseil-cpp
+
+# Install gRPC
+RUN git clone --recurse-submodules -b v1.60.0 --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+    cd grpc && \
+    mkdir -p cmake/build && \
+    cd cmake/build && \
+    cmake -DgRPC_INSTALL=ON \
+          -DgRPC_BUILD_TESTS=OFF \
+          -DgRPC_ABSL_PROVIDER=package \
+          -DCMAKE_INSTALL_PREFIX=/usr/local \
+          ../.. && \
+    make -j4 && \
+    make install && \
+    cd ../../.. && \
+    rm -rf grpc
+
+# Build and install local protobuf
+RUN cd protobuf && \
+    git submodule update --init --recursive && \
+    cmake -B build -DCMAKE_BUILD_TYPE=Release \
+                   -Dprotobuf_BUILD_TESTS=OFF \
+                   -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+                   -Dprotobuf_ABSL_PROVIDER=package && \
+    cmake --build build --parallel 4 && \
+    cmake --install build && \
+    cd .. && \
+    rm -rf protobuf/build
+
+# Build the service
+RUN cd service2 && \
+    mkdir build && \
+    cd build && \
     cmake .. && \
     make
 
-CMD ["./build/service2"] 
+# Run the service
+CMD ["./service2/build/service2"] 
+
