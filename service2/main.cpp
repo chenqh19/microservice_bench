@@ -1,37 +1,29 @@
 #include <iostream>
-#include <memory>
 #include <string>
-#include <grpcpp/grpcpp.h>
-#include "service.grpc.pb.h"
-
-using grpc::Server;
-using grpc::ServerBuilder;
-using grpc::ServerContext;
-using grpc::Status;
-using microservice::ServiceTwo;
-using microservice::Request;
-using microservice::Response;
-
-class ServiceTwoImpl final : public ServiceTwo::Service {
-  Status ProcessRequest(ServerContext* context, const Request* request,
-                       Response* response) override {
-    std::string prefix("Processed by Service 2: ");
-    response->set_result(prefix + request->data());
-    return Status::OK;
-  }
-};
+#include "service.pb.h"
+#include "serialization_utils.h"
+#include <httplib.h>
 
 int main() {
-  std::string server_address("0.0.0.0:50051");
-  ServiceTwoImpl service;
+    httplib::Server svr;
 
-  ServerBuilder builder;
-  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-  builder.RegisterService(&service);
+    svr.Post("/process", [](const httplib::Request& req, httplib::Response& res) {
+        microservice::Request request;
+        if (microservice::utils::deserialize_message(req.body, request)) {
+            microservice::Response response;
+            std::string prefix("Processed by Service 2: ");
+            response.set_result(prefix + request.data());
+            
+            std::string serialized_response = microservice::utils::serialize_message(response);
+            res.set_content(serialized_response, "application/x-protobuf");
+        } else {
+            res.status = 400;
+            res.set_content("Failed to parse request", "text/plain");
+        }
+    });
 
-  std::unique_ptr<Server> server(builder.BuildAndStart());
-  std::cout << "Service 2 listening on " << server_address << std::endl;
-  server->Wait();
+    std::cout << "Service 2 listening on 0.0.0.0:50051" << std::endl;
+    svr.listen("0.0.0.0", 50051);
 
-  return 0;
+    return 0;
 } 
