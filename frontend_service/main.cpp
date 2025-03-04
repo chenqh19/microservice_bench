@@ -4,6 +4,8 @@
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
 #include <httplib.h>
+#include <thread>
+#include <mutex>
 
 class FrontEndService {
 private:
@@ -12,6 +14,7 @@ private:
     httplib::Client recommend_client_;
     httplib::Client user_client_;
     httplib::Client reservation_client_;
+    std::mutex clients_mutex_;  // Protect client access
 
     // Helper function to convert JSON to protobuf messages
     hotelreservation::SearchRequest parseSearchRequest(const Json::Value& json) {
@@ -113,6 +116,7 @@ public:
         reservation_client_("reservation", 50055) {}
 
     std::string HandleSearch(const std::string& json_str) {
+        std::lock_guard<std::mutex> lock(clients_mutex_);
         Json::Value json;
         Json::Reader reader;
         if (!reader.parse(json_str, json)) {
@@ -138,6 +142,7 @@ public:
     }
 
     std::string HandleRecommend(const std::string& json_str) {
+        std::lock_guard<std::mutex> lock(clients_mutex_);
         Json::Value json;
         Json::Reader reader;
         if (!reader.parse(json_str, json)) {
@@ -161,6 +166,7 @@ public:
     }
 
     std::string HandleUser(const std::string& json_str) {
+        std::lock_guard<std::mutex> lock(clients_mutex_);
         Json::Value json;
         Json::Reader reader;
         if (!reader.parse(json_str, json)) {
@@ -186,6 +192,7 @@ public:
     }
 
     std::string HandleReservation(const std::string& json_str) {
+        std::lock_guard<std::mutex> lock(clients_mutex_);
         Json::Value json;
         Json::Reader reader;
         if (!reader.parse(json_str, json)) {
@@ -215,6 +222,18 @@ int main() {
     httplib::Server svr;
     FrontEndService service;
 
+    // Configure thread pool for the server
+    auto num_threads = std::thread::hardware_concurrency();
+    svr.new_task_queue = [num_threads]() { 
+        return new httplib::ThreadPool(num_threads); 
+    };
+
+    // Configure server settings
+    svr.set_keep_alive_max_count(20000);  // Maximum number of keep-alive requests
+    svr.set_read_timeout(5);              // Read timeout in seconds
+    svr.set_write_timeout(5);             // Write timeout in seconds
+    svr.set_idle_interval(0, 100000);     // Idle interval in microseconds
+
     svr.Post("/search", [&](const httplib::Request& req, httplib::Response& res) {
         res.set_content(service.HandleSearch(req.body), "application/json");
     });
@@ -231,8 +250,8 @@ int main() {
         res.set_content(service.HandleReservation(req.body), "application/json");
     });
 
-    std::cout << "Frontend service listening on 0.0.0.0:50050" << std::endl;
+    std::cout << "Frontend service listening on 0.0.0.0:50050 with " << num_threads << " threads" << std::endl;
     svr.listen("0.0.0.0", 50050);
 
     return 0;
-} 
+}

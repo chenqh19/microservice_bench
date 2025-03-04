@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Protobuf REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(Threads REQUIRED)
 pkg_check_modules(JSONCPP jsoncpp)
 
 include(FetchContent)
@@ -25,6 +26,7 @@ target_link_libraries(frontend_service
     ${Protobuf_LIBRARIES}
     httplib::httplib
     ${JSONCPP_LIBRARIES}
+    Threads::Threads
 )
 
 target_include_directories(frontend_service PRIVATE 
