@@ -1,0 +1,156 @@
+syntax = "proto3";
+
+package hotelreservation;
+
+message Point {
+  string pid = 1;
+  double plat = 2;
+  double plon = 3;
+}
+
+message User {
+  string username = 1;
+  string password = 2;
+}
+
+message RoomType {
+  double bookable_rate = 1;
+  string code = 2;
+  string room_description = 3;
+  double total_rate = 4;
+  double total_rate_inclusive = 5;
+}
+
+message RatePlan {
+  string hotel_id = 1;
+  string code = 2;
+  string in_date = 3;
+  string out_date = 4;
+  RoomType room_type = 5;
+}
+
+message Reservation {
+  string hotel_id = 1;
+  string customer_name = 2;
+  string in_date = 3;
+  string out_date = 4;
+  int64 number = 5;
+}
+
+message HotelNumber {
+  string hotel_id = 1;
+  int64 number = 2;
+}
+
+message Hotel {
+  string h_id = 1;
+  double h_lat = 2;
+  double h_lon = 3;
+  double h_rate = 4;
+  double h_price = 5;
+}
+
+message Address {
+  string street_number = 1;
+  string street_name = 2;
+  string city = 3;
+  string state = 4;
+  string country = 5;
+  string postal_code = 6;
+  double lat = 7;
+  double lon = 8;
+}
+
+message HotelProfile {
+  string id = 1;
+  string name = 2;
+  string phone_number = 3;
+  string description = 4;
+  Address address = 5;
+}
+
+// Service Requests/Responses
+
+message SearchRequest {
+  string customer_name = 1;
+  string in_date = 2;
+  string out_date = 3;
+  double lat = 4;
+  double lon = 5;
+  string locale = 6;
+}
+
+message SearchResponse {
+  repeated HotelProfile hotels = 1;
+}
+
+message RecommendRequest {
+  double lat = 1;
+  double lon = 2;
+  string require = 3;
+  string locale = 4;
+}
+
+message RecommendResponse {
+  repeated HotelProfile hotels = 1;
+}
+
+message UserRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message UserResponse {
+  string message = 1;
+}
+
+message ReservationRequest {
+  string in_date = 1;
+  string out_date = 2;
+  string hotel_id = 3;
+  string customer_name = 4;
+  string username = 5;
+  string password = 6;
+  int64 room_number = 7;
+}
+
+message ReservationResponse {
+  string message = 1;
+}
+
+message NearbyRequest {
+  double lat = 1;
+  double lon = 2;
+}
+
+message NearbyResponse {
+  repeated string hotel_ids = 1;
+}
+
+message GetProfilesRequest {
+  repeated string hotel_ids = 1;
+  string locale = 2;
+}
+
+message GetProfilesResponse {
+  repeated HotelProfile profiles = 1;
+}
+
+message GetRatesRequest {
+  repeated string hotel_ids = 1;
+  string in_date = 2;
+  string out_date = 3;
+}
+
+message GetRatesResponse {
+  repeated RatePlan rate_plans = 1;
+}
+
+message CheckUserRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message CheckUserResponse {
+  bool exists = 1;
+} 

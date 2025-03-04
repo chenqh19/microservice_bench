@@ -1,7 +1,7 @@
 #pragma once
 
 #include <string>
-#include "service.pb.h"
+#include "hotel_reservation.pb.h"
 
 namespace microservice {
 namespace utils {

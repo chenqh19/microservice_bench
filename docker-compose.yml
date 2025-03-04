@@ -1,23 +1,64 @@
 version: '3'
-services:
-  service1:
-    build:
-      context: .
-      dockerfile: service1/Dockerfile
-    depends_on:
-      - service2
-    networks:
-      - microservices-net
-    restart: on-failure
 
-  service2:
-    build:
+services:
+  frontend:
+    build: 
       context: .
-      dockerfile: service2/Dockerfile
+      dockerfile: frontend_service/Dockerfile
+    ports:
+      - "50050:50050"
     networks:
-      - microservices-net
-    restart: on-failure
+      - hotel_network
+
+  search:
+    build: 
+      context: .
+      dockerfile: search_service/Dockerfile
+    networks:
+      - hotel_network
+
+  profile:
+    build: 
+      context: .
+      dockerfile: profile_service/Dockerfile
+    networks:
+      - hotel_network
+
+  recommendation:
+    build: 
+      context: .
+      dockerfile: recommendation_service/Dockerfile
+    networks:
+      - hotel_network
+
+  user:
+    build: 
+      context: .
+      dockerfile: user_service/Dockerfile
+    networks:
+      - hotel_network
+
+  reservation:
+    build: 
+      context: .
+      dockerfile: reservation_service/Dockerfile
+    networks:
+      - hotel_network
+
+  rate:
+    build: 
+      context: .
+      dockerfile: rate_service/Dockerfile
+    networks:
+      - hotel_network
+
+  geo:
+    build: 
+      context: .
+      dockerfile: geo_service/Dockerfile
+    networks:
+      - hotel_network
 
 networks:
-  microservices-net:
+  hotel_network:
     driver: bridge 
