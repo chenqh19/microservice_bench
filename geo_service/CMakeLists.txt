@@ -22,6 +22,7 @@ add_executable(geo_service
 target_link_libraries(geo_service
     ${Protobuf_LIBRARIES}
     httplib::httplib
+    pthread
 )
 
 target_include_directories(geo_service PRIVATE 

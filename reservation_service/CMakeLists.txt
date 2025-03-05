@@ -22,6 +22,7 @@ add_executable(reservation_service
 target_link_libraries(reservation_service
     ${Protobuf_LIBRARIES}
     httplib::httplib
+    pthread
 )
 
 target_include_directories(reservation_service PRIVATE 

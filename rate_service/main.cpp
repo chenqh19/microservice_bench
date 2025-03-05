@@ -67,6 +67,9 @@ int main() {
     httplib::Server svr;
     RateService service;
 
+    // Set up multi-threading options
+    svr.new_task_queue = [] { return new httplib::ThreadPool(8); }; // Create thread pool with 8 threads
+
     svr.Post("/get_rates", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::GetRatesRequest request;
         if (microservice::utils::deserialize_message(req.body, request)) {
@@ -78,7 +81,7 @@ int main() {
         }
     });
 
-    std::cout << "Rate service listening on 0.0.0.0:50057" << std::endl;
+    std::cout << "Rate service listening on 0.0.0.0:50057 with 8 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50057);
 
     return 0;

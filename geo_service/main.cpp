@@ -103,6 +103,9 @@ int main() {
     httplib::Server svr;
     GeoService service;
 
+    // Set up multi-threading options
+    svr.new_task_queue = [] { return new httplib::ThreadPool(8); }; // Create thread pool with 8 threads
+
     svr.Post("/nearby", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::NearbyRequest request;
         if (microservice::utils::deserialize_message(req.body, request)) {
@@ -121,7 +124,7 @@ int main() {
         res.set_content(serialized_response, "application/x-protobuf");
     });
 
-    std::cout << "Geo service listening on 0.0.0.0:50056" << std::endl;
+    std::cout << "Geo service listening on 0.0.0.0:50056 with 8 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50056);
 
     return 0;

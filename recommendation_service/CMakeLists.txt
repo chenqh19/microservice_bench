@@ -22,6 +22,7 @@ add_executable(recommendation_service
 target_link_libraries(recommendation_service
     ${Protobuf_LIBRARIES}
     httplib::httplib
+    pthread
 )
 
 target_include_directories(recommendation_service PRIVATE 

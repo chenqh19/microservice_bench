@@ -22,6 +22,7 @@ add_executable(profile_service
 target_link_libraries(profile_service
     ${Protobuf_LIBRARIES}
     httplib::httplib
+    pthread
 )
 
 target_include_directories(profile_service PRIVATE 

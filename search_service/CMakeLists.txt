@@ -22,6 +22,7 @@ add_executable(search_service
 target_link_libraries(search_service
     ${Protobuf_LIBRARIES}
     httplib::httplib
+    pthread
 )
 
 target_include_directories(search_service PRIVATE 

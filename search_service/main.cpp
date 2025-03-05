@@ -81,6 +81,9 @@ int main() {
     httplib::Server svr;
     SearchService service;
 
+    // Set up multi-threading options
+    svr.new_task_queue = [] { return new httplib::ThreadPool(8); }; // Create thread pool with 8 threads
+
     svr.Post("/search", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::SearchRequest request;
         if (microservice::utils::deserialize_message(req.body, request)) {
@@ -92,7 +95,7 @@ int main() {
         }
     });
 
-    std::cout << "Search service listening on 0.0.0.0:50051" << std::endl;
+    std::cout << "Search service listening on 0.0.0.0:50051 with 8 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50051);
 
     return 0;

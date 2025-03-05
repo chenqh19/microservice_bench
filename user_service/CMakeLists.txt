@@ -22,6 +22,7 @@ add_executable(user_service
 target_link_libraries(user_service
     ${Protobuf_LIBRARIES}
     httplib::httplib
+    pthread
 )
 
 target_include_directories(user_service PRIVATE 

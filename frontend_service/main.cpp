@@ -138,6 +138,7 @@ public:
 
         Json::Value response_json = searchResponseToJson(response);
         Json::FastWriter writer;
+        std::cout << "Search response: " << writer.write(response_json) << std::endl;
         return writer.write(response_json);
     }
 
@@ -222,35 +223,79 @@ int main() {
     httplib::Server svr;
     FrontEndService service;
 
-    // Configure thread pool for the server
-    auto num_threads = std::thread::hardware_concurrency();
-    svr.new_task_queue = [num_threads]() { 
-        return new httplib::ThreadPool(num_threads); 
-    };
+    // Set up multi-threading options
+    svr.new_task_queue = [] { return new httplib::ThreadPool(8); };
 
     // Configure server settings
-    svr.set_keep_alive_max_count(20000);  // Maximum number of keep-alive requests
-    svr.set_read_timeout(5);              // Read timeout in seconds
-    svr.set_write_timeout(5);             // Write timeout in seconds
-    svr.set_idle_interval(0, 100000);     // Idle interval in microseconds
+    svr.set_keep_alive_max_count(20000);
+    svr.set_read_timeout(5);
+    svr.set_write_timeout(5);
+    svr.set_idle_interval(0, 100000);
 
+    // Handle both POST and GET requests for search
     svr.Post("/search", [&](const httplib::Request& req, httplib::Response& res) {
         res.set_content(service.HandleSearch(req.body), "application/json");
     });
+    svr.Get("/search", [&](const httplib::Request& req, httplib::Response& res) {
+        Json::Value json;
+        json["customerName"] = req.get_param_value("customerName");
+        json["inDate"] = req.get_param_value("inDate");
+        json["outDate"] = req.get_param_value("outDate");
+        json["latitude"] = std::stod(req.get_param_value("latitude"));
+        json["longitude"] = std::stod(req.get_param_value("longitude"));
+        json["locale"] = req.get_param_value("locale");
+        
+        Json::FastWriter writer;
+        res.set_content(service.HandleSearch(writer.write(json)), "application/json");
+    });
 
+    // Handle both POST and GET requests for recommend
     svr.Post("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
         res.set_content(service.HandleRecommend(req.body), "application/json");
     });
+    svr.Get("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
+        Json::Value json;
+        json["latitude"] = std::stod(req.get_param_value("latitude"));
+        json["longitude"] = std::stod(req.get_param_value("longitude"));
+        json["require"] = req.get_param_value("require");
+        json["locale"] = req.get_param_value("locale");
+        
+        Json::FastWriter writer;
+        res.set_content(service.HandleRecommend(writer.write(json)), "application/json");
+    });
 
+    // Handle both POST and GET requests for user
     svr.Post("/user", [&](const httplib::Request& req, httplib::Response& res) {
         res.set_content(service.HandleUser(req.body), "application/json");
     });
+    svr.Get("/user", [&](const httplib::Request& req, httplib::Response& res) {
+        Json::Value json;
+        json["username"] = req.get_param_value("username");
+        json["password"] = req.get_param_value("password");
+        
+        Json::FastWriter writer;
+        res.set_content(service.HandleUser(writer.write(json)), "application/json");
+    });
 
+    // Handle both POST and GET requests for reservation
     svr.Post("/reservation", [&](const httplib::Request& req, httplib::Response& res) {
         res.set_content(service.HandleReservation(req.body), "application/json");
     });
+    svr.Get("/reservation", [&](const httplib::Request& req, httplib::Response& res) {
+        Json::Value json;
+        json["customerName"] = req.get_param_value("customerName");
+        json["hotelId"] = req.get_param_value("hotelId");
+        json["inDate"] = req.get_param_value("inDate");
+        json["outDate"] = req.get_param_value("outDate");
+        json["roomNumber"] = std::stoi(req.get_param_value("roomNumber"));
+        json["username"] = req.get_param_value("username");
+        json["password"] = req.get_param_value("password");
+        
+        Json::FastWriter writer;
+        res.set_content(service.HandleReservation(writer.write(json)), "application/json");
+    });
 
-    std::cout << "Frontend service listening on 0.0.0.0:50050 with " << num_threads << " threads" << std::endl;
+    std::cout << "Frontend service listening on 0.0.0.0:50050 with 8 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50050);
 
     return 0;

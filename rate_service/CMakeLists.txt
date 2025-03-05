@@ -22,6 +22,7 @@ add_executable(rate_service
 target_link_libraries(rate_service
     ${Protobuf_LIBRARIES}
     httplib::httplib
+    pthread
 )
 
 target_include_directories(rate_service PRIVATE 
