@@ -224,7 +224,7 @@ int main() {
     FrontEndService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(8); };
+    svr.new_task_queue = [] { return new httplib::ThreadPool(100); };
 
     // Configure server settings
     svr.set_keep_alive_max_count(20000);
@@ -295,7 +295,7 @@ int main() {
         res.set_content(service.HandleReservation(writer.write(json)), "application/json");
     });
 
-    std::cout << "Frontend service listening on 0.0.0.0:50050 with 8 worker threads" << std::endl;
+    std::cout << "Frontend service listening on 0.0.0.0:50050 with 100 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50050);
 
     return 0;

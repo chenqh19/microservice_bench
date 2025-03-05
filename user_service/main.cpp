@@ -59,7 +59,7 @@ int main() {
     UserService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(8); }; // Create thread pool with 8 threads
+    svr.new_task_queue = [] { return new httplib::ThreadPool(100); }; // Create thread pool with 8 threads
 
     svr.Post("/user", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::UserRequest request;
@@ -84,7 +84,7 @@ int main() {
         }
     });
 
-    std::cout << "User service listening on 0.0.0.0:50054 with 8 worker threads" << std::endl;
+    std::cout << "User service listening on 0.0.0.0:50054 with 100 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50054);
 
     return 0;

@@ -166,7 +166,7 @@ int main() {
     RecommendationService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(8); }; // Create thread pool with 8 threads
+    svr.new_task_queue = [] { return new httplib::ThreadPool(100); }; // Create thread pool with 8 threads
 
     svr.Post("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::RecommendRequest request;
@@ -179,7 +179,7 @@ int main() {
         }
     });
 
-    std::cout << "Recommendation service listening on 0.0.0.0:50053 with 8 worker threads" << std::endl;
+    std::cout << "Recommendation service listening on 0.0.0.0:50053 with 100 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50053);
 
     return 0;
