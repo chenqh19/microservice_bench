@@ -6,6 +6,7 @@
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
 #include <httplib.h>
+#include <chrono>
 
 class GeoService {
 private:
@@ -107,14 +108,45 @@ int main() {
     svr.new_task_queue = [] { return new httplib::ThreadPool(256); }; // Create thread pool with 8 threads
 
     svr.Post("/nearby", [&](const httplib::Request& req, httplib::Response& res) {
+        auto start_time = std::chrono::steady_clock::now();
+
+        auto check_timeout = [&start_time]() -> bool {
+            auto current_time = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                current_time - start_time).count();
+            return elapsed > 100; // 100ms timeout
+        };
+
         hotelreservation::NearbyRequest request;
-        if (microservice::utils::deserialize_message(req.body, request)) {
-            auto response = service.GetNearbyHotels(request);
-            std::string serialized_response = microservice::utils::serialize_message(response);
-            res.set_content(serialized_response, "application/x-protobuf");
-        } else {
+        if (!microservice::utils::deserialize_message(req.body, request)) {
             res.status = 400;
+            res.set_content("{\"error\": \"Failed to deserialize request\"}", "application/json");
+            return;
         }
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout during deserialization\"}", "application/json");
+            return;
+        }
+
+        auto response = service.GetNearbyHotels(request);
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+            return;
+        }
+
+        std::string serialized_response = microservice::utils::serialize_message(response);
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout during serialization\"}", "application/json");
+            return;
+        }
+
+        res.set_content(serialized_response, "application/x-protobuf");
     });
 
     svr.Get("/point/:hotel_id", [&](const httplib::Request& req, httplib::Response& res) {

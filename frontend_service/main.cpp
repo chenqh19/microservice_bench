@@ -14,7 +14,6 @@ class FrontEndService {
 private:
     static const int POOL_SIZE = 256;
     std::atomic<uint64_t> search_requests_received_{0};
-    std::atomic<uint64_t> search_requests_sent_{0};
     std::atomic<uint64_t> search_requests_completed_{0};
     std::atomic<bool> monitoring_active_{true};
     std::thread monitoring_thread_;
@@ -184,8 +183,7 @@ private:
             uint64_t current_count = search_requests_received_.load();
             if (current_count >= last_logged_count + 1000) {
                 std::cout << "Search requests - Received: " << current_count 
-                         << ", Completed: " << search_requests_completed_.load()
-                         << ", Sent: " << search_requests_sent_.load() << std::endl;
+                         << ", Completed: " << search_requests_completed_.load() << std::endl;
                 last_logged_count = current_count;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -230,8 +228,6 @@ public:
             return "{\"error\": \"No available clients\"}";
         }
 
-        search_requests_sent_++;
-
         auto result = client->Post("/search", serialized_request, "application/x-protobuf");
 
         releaseClient(search_clients_, client);
@@ -251,6 +247,7 @@ public:
         }
 
         Json::Value response_json = searchResponseToJson(response);
+        search_requests_completed_++;
         Json::FastWriter writer;
         return writer.write(response_json);
     }

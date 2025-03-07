@@ -187,21 +187,45 @@ int main() {
     svr.new_task_queue = [] { return new httplib::ThreadPool(256); };
 
     svr.Post("/search", [&](const httplib::Request& req, httplib::Response& res) {
-        static std::atomic<size_t> received{0};
-        size_t current = received.fetch_add(1);
-        if (current % 1000 == 0) {
-            std::cout << "HTTP server received " << current + 1 << " total requests" << std::endl;
-        }
+        auto start_time = std::chrono::steady_clock::now();
+
+        auto check_timeout = [&start_time]() -> bool {
+            auto current_time = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                current_time - start_time).count();
+            return elapsed > 1000; // 1 second timeout
+        };
 
         hotelreservation::SearchRequest request;
-        if (microservice::utils::deserialize_message(req.body, request)) {
-            auto response = service.Search(request);
-            std::string serialized_response = microservice::utils::serialize_message(response);
-            res.set_content(serialized_response, "application/x-protobuf");
-        } else {
-            std::cout << "Failed to deserialize request" << std::endl;
+        if (!microservice::utils::deserialize_message(req.body, request)) {
             res.status = 400;
+            res.set_content("{\"error\": \"Failed to deserialize request\"}", "application/json");
+            return;
         }
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout during deserialization\"}", "application/json");
+            return;
+        }
+
+        auto response = service.Search(request);
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+            return;
+        }
+
+        std::string serialized_response = microservice::utils::serialize_message(response);
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout during serialization\"}", "application/json");
+            return;
+        }
+
+        res.set_content(serialized_response, "application/x-protobuf");
     });
 
     std::cout << "Search service listening on 0.0.0.0:50051 with 256 worker threads" << std::endl;
