@@ -1,0 +1,69 @@
+Metadata-Version: 2.2
+Name: locust-plugins
+Version: 4.6.0
+Summary: Useful plugins/extensions for Locust
+Home-page: https://github.com/SvenskaSpel/locust-plugins
+Author: Lars Holmberg
+License: Apache-2.0
+Classifier: Topic :: Software Development :: Testing :: Traffic Generation
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Requires-Python: >=3.8, <4
+License-File: LICENSE
+Requires-Dist: locust>=2.20.0
+Requires-Dist: typing-extensions
+Provides-Extra: websocket
+Requires-Dist: websocket-client; extra == "websocket"
+Provides-Extra: playwright
+Requires-Dist: playwright>=1.40.0; extra == "playwright"
+Provides-Extra: dashboards
+Requires-Dist: psycogreen; extra == "dashboards"
+Requires-Dist: psycopg2-binary; extra == "dashboards"
+Provides-Extra: kafka
+Requires-Dist: confluent-kafka; extra == "kafka"
+Provides-Extra: mongo
+Requires-Dist: pymongo; extra == "mongo"
+Provides-Extra: mqtt
+Requires-Dist: paho-mqtt>=2.1.0; extra == "mqtt"
+Provides-Extra: appinsights
+Requires-Dist: opencensus-ext-azure; extra == "appinsights"
+Provides-Extra: resource
+Requires-Dist: lxml; extra == "resource"
+Provides-Extra: boto3
+Requires-Dist: boto3; extra == "boto3"
+Provides-Extra: all
+Requires-Dist: websocket-client; extra == "all"
+Requires-Dist: playwright>=1.40.0; extra == "all"
+Requires-Dist: psycogreen; extra == "all"
+Requires-Dist: psycopg2-binary; extra == "all"
+Requires-Dist: confluent-kafka; extra == "all"
+Requires-Dist: pymongo; extra == "all"
+Requires-Dist: paho-mqtt>=2.1.0; extra == "all"
+Requires-Dist: opencensus-ext-azure; extra == "all"
+Requires-Dist: lxml; extra == "all"
+Requires-Dist: boto3; extra == "all"
+Provides-Extra: webdriver
+Requires-Dist: selenium>=4.0.0; extra == "webdriver"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+https://github.com/SvenskaSpel/locust-plugins

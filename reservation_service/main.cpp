@@ -6,20 +6,88 @@
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
 #include <httplib.h>
+#include <atomic>
+#include <thread>
+#include <chrono>
 
 class ReservationService {
 private:
+    static const int POOL_SIZE = 1000;
+    
+    struct ClientInfo {
+        std::unique_ptr<httplib::Client> client;
+        std::atomic<bool> in_use;
+
+        ClientInfo() : client(nullptr), in_use(false) {}
+        
+        ClientInfo(std::unique_ptr<httplib::Client>&& c) 
+            : client(std::move(c)), in_use(false) {}
+        
+        ClientInfo(const ClientInfo&) = delete;
+        ClientInfo& operator=(const ClientInfo&) = delete;
+        
+        ClientInfo(ClientInfo&& other) noexcept
+            : client(std::move(other.client)), in_use(false) {}
+        
+        ClientInfo& operator=(ClientInfo&& other) noexcept {
+            client = std::move(other.client);
+            bool expected = other.in_use.load();
+            in_use.store(expected);
+            return *this;
+        }
+    };
+
     struct HotelReservations {
         std::vector<hotelreservation::Reservation> reservations;
-        int total_rooms;  // Changed from fixed 100 to variable
+        int total_rooms;
     };
 
     std::unordered_map<std::string, HotelReservations> hotel_reservations_;
     std::mutex reservations_mutex_;
-    httplib::Client user_client_;
+    std::vector<ClientInfo> user_clients_;
+    std::atomic<size_t> current_user_idx_{0};
+
+    httplib::Client* getNextAvailableClient(std::vector<ClientInfo>& clients, std::atomic<size_t>& current_idx) {
+        size_t start_idx = current_idx.fetch_add(1) % POOL_SIZE;
+        size_t current = start_idx;
+        
+        do {
+            bool expected = false;
+            if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                return clients[current].client.get();
+            }
+            current = (current + 1) % POOL_SIZE;
+        } while (current != start_idx);
+        
+        // If no client is available, try one more round with a small delay
+        current = start_idx;
+        do {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            bool expected = false;
+            if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                return clients[current].client.get();
+            }
+            current = (current + 1) % POOL_SIZE;
+        } while (current != start_idx);
+        
+        return nullptr;
+    }
+
+    void releaseClient(std::vector<ClientInfo>& clients, httplib::Client* client) {
+        for (auto& info : clients) {
+            if (info.client.get() == client) {
+                info.in_use.store(false);
+                break;
+            }
+        }
+    }
 
 public:
-    ReservationService() : user_client_("user", 50054) {
+    ReservationService() {
+        // Initialize user client pool
+        for (int i = 0; i < POOL_SIZE; i++) {
+            user_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("user", 50054)));
+        }
         InitializeSampleData();
     }
 
@@ -73,14 +141,21 @@ public:
         
         hotelreservation::ReservationResponse response;
 
-        // First, verify user credentials
+        // First, verify user credentials using client pool
         hotelreservation::CheckUserRequest user_req;
         user_req.set_username(req.username());
         user_req.set_password(req.password());
 
-        auto user_result = user_client_.Post("/check-user", 
+        auto* user_client = getNextAvailableClient(user_clients_, current_user_idx_);
+        if (!user_client) {
+            response.set_message("No available clients to verify user credentials");
+            return response;
+        }
+
+        auto user_result = user_client->Post("/check-user", 
             microservice::utils::serialize_message(user_req), 
             "application/x-protobuf");
+        releaseClient(user_clients_, user_client);
 
         if (!user_result || user_result->status != 200) {
             response.set_message("Failed to verify user credentials");
@@ -122,7 +197,7 @@ int main() {
     ReservationService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(100); }; // Create thread pool with 8 threads
+    svr.new_task_queue = [] { return new httplib::ThreadPool(1000); }; // Create thread pool with 8 threads
 
     svr.Post("/reservation", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::ReservationRequest request;

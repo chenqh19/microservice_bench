@@ -1,0 +1,26 @@
+Metadata-Version: 2.1
+Name: locust-swarm
+Version: 6.1.1
+Summary: Load test + test data distribution & launching tool for Locust
+Home-page: https://github.com/SvenskaSpel/locust-swarm
+Author: Lars Holmberg
+License: Apache-2.0
+Classifier: Topic :: Software Development :: Testing :: Traffic Generation
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Requires-Python: >=3.7, <4
+License-File: LICENSE
+Requires-Dist: locust >=2.23.0
+
+https://github.com/SvenskaSpel/locust-swarm

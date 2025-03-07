@@ -7,9 +7,38 @@
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
 #include <httplib.h>
+#include <memory>
+#include <atomic>
+#include <thread>
+#include <chrono>
 
 class RecommendationService {
 private:
+    static const int POOL_SIZE = 1000;
+    
+    struct ClientInfo {
+        std::unique_ptr<httplib::Client> client;
+        std::atomic<bool> in_use;
+
+        ClientInfo() : client(nullptr), in_use(false) {}
+        
+        ClientInfo(std::unique_ptr<httplib::Client>&& c) 
+            : client(std::move(c)), in_use(false) {}
+        
+        ClientInfo(const ClientInfo&) = delete;
+        ClientInfo& operator=(const ClientInfo&) = delete;
+        
+        ClientInfo(ClientInfo&& other) noexcept
+            : client(std::move(other.client)), in_use(false) {}
+        
+        ClientInfo& operator=(ClientInfo&& other) noexcept {
+            client = std::move(other.client);
+            bool expected = other.in_use.load();
+            in_use.store(expected);
+            return *this;
+        }
+    };
+
     struct Hotel {
         std::string id;
         double lat;
@@ -17,14 +46,56 @@ private:
         double rate;
         double price;
     };
-    
-    std::unordered_map<std::string, Hotel> hotels_;
-    httplib::Client profile_client_;
 
-    static constexpr double EARTH_RADIUS = 6371.0; // Earth's radius in kilometers
+    std::vector<ClientInfo> profile_clients_;
+    std::vector<ClientInfo> rate_clients_;
+    std::atomic<size_t> current_profile_idx_{0};
+    std::atomic<size_t> current_rate_idx_{0};
+    std::unordered_map<std::string, Hotel> hotels_;
+    static constexpr double EARTH_RADIUS = 6371.0;
+
+    httplib::Client* getNextAvailableClient(std::vector<ClientInfo>& clients, std::atomic<size_t>& current_idx) {
+        size_t start_idx = current_idx.fetch_add(1) % POOL_SIZE;
+        size_t current = start_idx;
+        
+        do {
+            bool expected = false;
+            if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                return clients[current].client.get();
+            }
+            current = (current + 1) % POOL_SIZE;
+        } while (current != start_idx);
+        
+        // If no client is available, try one more round with a small delay
+        current = start_idx;
+        do {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            bool expected = false;
+            if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                return clients[current].client.get();
+            }
+            current = (current + 1) % POOL_SIZE;
+        } while (current != start_idx);
+        
+        return nullptr;
+    }
+
+    void releaseClient(std::vector<ClientInfo>& clients, httplib::Client* client) {
+        for (auto& info : clients) {
+            if (info.client.get() == client) {
+                info.in_use.store(false);
+                break;
+            }
+        }
+    }
 
 public:
-    RecommendationService() : profile_client_("profile", 50052) {
+    RecommendationService() {
+        // Initialize client pools
+        for (int i = 0; i < POOL_SIZE; i++) {
+            profile_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("profile", 50052)));
+            rate_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("rate", 50057)));
+        }
         InitializeSampleData();
     }
 
@@ -85,78 +156,60 @@ public:
         return EARTH_RADIUS * c;
     }
 
-    hotelreservation::RecommendResponse GetRecommendations(const hotelreservation::RecommendRequest& req) {
+    hotelreservation::RecommendResponse Recommend(const hotelreservation::RecommendRequest& req) {
+        // Get hotel profiles first
+        hotelreservation::GetProfilesRequest profile_req;
+        for (int i = 1; i <= 10; i++) {
+            profile_req.add_hotel_ids(std::to_string(i));
+        }
+        profile_req.set_locale(req.locale());
+
+        auto* profile_client = getNextAvailableClient(profile_clients_, current_profile_idx_);
+        if (!profile_client) {
+            return hotelreservation::RecommendResponse();
+        }
+
+        auto profile_result = profile_client->Post("/get_profiles", 
+            microservice::utils::serialize_message(profile_req), 
+            "application/x-protobuf");
+        releaseClient(profile_clients_, profile_client);
+
+        hotelreservation::GetProfilesResponse profile_resp;
+        if (!profile_result || profile_result->status != 200 || 
+            !microservice::utils::deserialize_message(profile_result->body, profile_resp)) {
+            return hotelreservation::RecommendResponse();
+        }
+
+        // Get rates for these hotels
+        hotelreservation::GetRatesRequest rate_req;
+        for (const auto& profile : profile_resp.profiles()) {
+            rate_req.add_hotel_ids(profile.id());
+        }
+        rate_req.set_in_date("2023-12-01");
+        rate_req.set_out_date("2023-12-02");
+
+        auto* rate_client = getNextAvailableClient(rate_clients_, current_rate_idx_);
+        if (!rate_client) {
+            return hotelreservation::RecommendResponse();
+        }
+
+        auto rate_result = rate_client->Post("/get_rates", 
+            microservice::utils::serialize_message(rate_req), 
+            "application/x-protobuf");
+        releaseClient(rate_clients_, rate_client);
+
+        hotelreservation::GetRatesResponse rate_resp;
+        if (!rate_result || rate_result->status != 200 || 
+            !microservice::utils::deserialize_message(rate_result->body, rate_resp)) {
+            return hotelreservation::RecommendResponse();
+        }
+
+        // Combine results
         hotelreservation::RecommendResponse response;
-        std::vector<std::string> recommended_ids;
-
-        if (req.require() == "dis") {
-            // Find hotels with minimum distance
-            double min_distance = std::numeric_limits<double>::max();
-            std::unordered_map<std::string, double> distances;
-
-            // Calculate all distances first
-            for (const auto& [id, hotel] : hotels_) {
-                double distance = calculateDistance(req.lat(), req.lon(), hotel.lat, hotel.lon);
-                distances[id] = distance;
-                min_distance = std::min(min_distance, distance);
-            }
-
-            // Find all hotels with minimum distance
-            for (const auto& [id, distance] : distances) {
-                if (std::abs(distance - min_distance) < 1e-10) {  // Use epsilon comparison for doubles
-                    recommended_ids.push_back(id);
-                }
-            }
-        } 
-        else if (req.require() == "rate") {
-            // Find hotels with maximum rate
-            double max_rate = -std::numeric_limits<double>::max();
-            for (const auto& [_, hotel] : hotels_) {
-                max_rate = std::max(max_rate, hotel.rate);
-            }
-
-            for (const auto& [id, hotel] : hotels_) {
-                if (std::abs(hotel.rate - max_rate) < 1e-10) {
-                    recommended_ids.push_back(id);
-                }
-            }
+        for (const auto& profile : profile_resp.profiles()) {
+            *response.add_hotels() = profile;
         }
-        else if (req.require() == "price") {
-            // Find hotels with minimum price
-            double min_price = std::numeric_limits<double>::max();
-            for (const auto& [_, hotel] : hotels_) {
-                min_price = std::min(min_price, hotel.price);
-            }
-
-            for (const auto& [id, hotel] : hotels_) {
-                if (std::abs(hotel.price - min_price) < 1e-10) {
-                    recommended_ids.push_back(id);
-                }
-            }
-        }
-
-        // Get hotel profiles for recommended hotels
-        if (!recommended_ids.empty()) {
-            hotelreservation::GetProfilesRequest profile_req;
-            for (const auto& id : recommended_ids) {
-                profile_req.add_hotel_ids(id);
-            }
-            profile_req.set_locale(req.locale());
-
-            auto profile_result = profile_client_.Post("/get_profiles", 
-                microservice::utils::serialize_message(profile_req), 
-                "application/x-protobuf");
-
-            if (profile_result && profile_result->status == 200) {
-                hotelreservation::GetProfilesResponse profile_resp;
-                if (microservice::utils::deserialize_message(profile_result->body, profile_resp)) {
-                    for (const auto& profile : profile_resp.profiles()) {
-                        *response.add_hotels() = profile;
-                    }
-                }
-            }
-        }
-
+        
         return response;
     }
 };
@@ -166,12 +219,12 @@ int main() {
     RecommendationService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(100); }; // Create thread pool with 8 threads
+    svr.new_task_queue = [] { return new httplib::ThreadPool(1000); };
 
     svr.Post("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::RecommendRequest request;
         if (microservice::utils::deserialize_message(req.body, request)) {
-            auto response = service.GetRecommendations(request);
+            auto response = service.Recommend(request);
             std::string serialized_response = microservice::utils::serialize_message(response);
             res.set_content(serialized_response, "application/x-protobuf");
         } else {

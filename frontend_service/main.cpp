@@ -6,15 +6,86 @@
 #include <httplib.h>
 #include <thread>
 #include <mutex>
+#include <chrono>
+#include <vector>
+#include <atomic>
 
 class FrontEndService {
 private:
-    httplib::Client search_client_;
-    httplib::Client profile_client_;
-    httplib::Client recommend_client_;
-    httplib::Client user_client_;
-    httplib::Client reservation_client_;
-    std::mutex clients_mutex_;  // Protect client access
+    static const int POOL_SIZE = 3000;
+    std::atomic<uint64_t> search_requests_received_{0};
+    std::atomic<uint64_t> search_requests_sent_{0};
+    std::atomic<uint64_t> search_requests_completed_{0};
+    std::atomic<bool> monitoring_active_{true};
+    std::thread monitoring_thread_;
+    
+    struct ClientInfo {
+        std::unique_ptr<httplib::Client> client;
+        std::atomic<bool> in_use;
+
+        ClientInfo() : client(nullptr), in_use(false) {}
+        
+        ClientInfo(std::unique_ptr<httplib::Client>&& c) 
+            : client(std::move(c)), in_use(false) {}
+        
+        ClientInfo(const ClientInfo&) = delete;
+        ClientInfo& operator=(const ClientInfo&) = delete;
+        
+        ClientInfo(ClientInfo&& other) noexcept
+            : client(std::move(other.client)), in_use(false) {}
+        
+        ClientInfo& operator=(ClientInfo&& other) noexcept {
+            client = std::move(other.client);
+            bool expected = other.in_use.load();
+            in_use.store(expected);
+            return *this;
+        }
+    };
+
+    std::vector<ClientInfo> search_clients_;
+    std::vector<ClientInfo> recommend_clients_;
+    std::vector<ClientInfo> user_clients_;
+    std::vector<ClientInfo> reservation_clients_;
+    std::atomic<size_t> current_search_idx_{0};
+    std::atomic<size_t> current_recommend_idx_{0};
+    std::atomic<size_t> current_user_idx_{0};
+    std::atomic<size_t> current_reservation_idx_{0};
+
+    httplib::Client* getNextAvailableClient(std::vector<ClientInfo>& clients, 
+                                          std::atomic<size_t>& current_idx) {
+        size_t start_idx = current_idx.fetch_add(1) % POOL_SIZE;
+        size_t current = start_idx;
+        
+        do {
+            bool expected = false;
+            if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                return clients[current].client.get();
+            }
+            current = (current + 1) % POOL_SIZE;
+        } while (current != start_idx);
+        
+        // If no client is available, try one more round with a small delay
+        current = start_idx;
+        do {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            bool expected = false;
+            if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                return clients[current].client.get();
+            }
+            current = (current + 1) % POOL_SIZE;
+        } while (current != start_idx);
+        
+        return nullptr;
+    }
+
+    void releaseClient(std::vector<ClientInfo>& clients, httplib::Client* client) {
+        for (auto& info : clients) {
+            if (info.client.get() == client) {
+                info.in_use.store(false);
+                break;
+            }
+        }
+    }
 
     // Helper function to convert JSON to protobuf messages
     hotelreservation::SearchRequest parseSearchRequest(const Json::Value& json) {
@@ -107,16 +178,44 @@ private:
         return json;
     }
 
+    void monitorRequests() {
+        uint64_t last_logged_count = 0;
+        while (monitoring_active_.load()) {
+            uint64_t current_count = search_requests_received_.load();
+            if (current_count >= last_logged_count + 1000) {
+                std::cout << "Search requests - Received: " << current_count 
+                         << ", Completed: " << search_requests_completed_.load()
+                         << ", Sent: " << search_requests_sent_.load() << std::endl;
+                last_logged_count = current_count;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+
 public:
-    FrontEndService() :
-        search_client_("search", 50051),
-        profile_client_("profile", 50052),
-        recommend_client_("recommendation", 50053),
-        user_client_("user", 50054),
-        reservation_client_("reservation", 50055) {}
+    FrontEndService() {
+        // Initialize client pools
+        for (int i = 0; i < POOL_SIZE; i++) {
+            search_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("search", 50051)));
+            recommend_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("recommendation", 50053)));
+            user_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("user", 50054)));
+            reservation_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("reservation", 50055)));
+        }
+        
+        // Start monitoring thread
+        monitoring_thread_ = std::thread(&FrontEndService::monitorRequests, this);
+    }
+
+    ~FrontEndService() {
+        monitoring_active_.store(false);
+        if (monitoring_thread_.joinable()) {
+            monitoring_thread_.join();
+        }
+    }
 
     std::string HandleSearch(const std::string& json_str) {
-        std::lock_guard<std::mutex> lock(clients_mutex_);
+        search_requests_received_++;
+        
         Json::Value json;
         Json::Reader reader;
         if (!reader.parse(json_str, json)) {
@@ -125,12 +224,23 @@ public:
 
         auto search_req = parseSearchRequest(json);
         std::string serialized_request = microservice::utils::serialize_message(search_req);
-        auto result = search_client_.Post("/search", serialized_request, "application/x-protobuf");
+        
+        auto* client = getNextAvailableClient(search_clients_, current_search_idx_);
+        if (!client) {
+            return "{\"error\": \"No available clients\"}";
+        }
+
+        search_requests_sent_++;
+
+        auto result = client->Post("/search", serialized_request, "application/x-protobuf");
+        releaseClient(search_clients_, client);
         
         if (!result || result->status != 200) {
             return "{\"error\": \"Search service unavailable\"}";
         }
 
+        search_requests_completed_++;
+        
         hotelreservation::SearchResponse response;
         if (!microservice::utils::deserialize_message(result->body, response)) {
             return "{\"error\": \"Failed to process search results\"}";
@@ -138,12 +248,10 @@ public:
 
         Json::Value response_json = searchResponseToJson(response);
         Json::FastWriter writer;
-        std::cout << "Search response: " << writer.write(response_json) << std::endl;
         return writer.write(response_json);
     }
 
     std::string HandleRecommend(const std::string& json_str) {
-        std::lock_guard<std::mutex> lock(clients_mutex_);
         Json::Value json;
         Json::Reader reader;
         if (!reader.parse(json_str, json)) {
@@ -152,7 +260,14 @@ public:
 
         auto req = parseRecommendRequest(json);
         std::string serialized_request = microservice::utils::serialize_message(req);
-        auto result = recommend_client_.Post("/recommend", serialized_request, "application/x-protobuf");
+        
+        auto* client = getNextAvailableClient(recommend_clients_, current_recommend_idx_);
+        if (!client) {
+            return "{\"error\": \"No available clients\"}";
+        }
+
+        auto result = client->Post("/recommend", serialized_request, "application/x-protobuf");
+        releaseClient(recommend_clients_, client);
         
         if (!result || result->status != 200) {
             return "{\"error\": \"Recommendation service unavailable\"}";
@@ -167,7 +282,6 @@ public:
     }
 
     std::string HandleUser(const std::string& json_str) {
-        std::lock_guard<std::mutex> lock(clients_mutex_);
         Json::Value json;
         Json::Reader reader;
         if (!reader.parse(json_str, json)) {
@@ -176,7 +290,14 @@ public:
 
         auto req = parseUserRequest(json);
         std::string serialized_request = microservice::utils::serialize_message(req);
-        auto result = user_client_.Post("/user", serialized_request, "application/x-protobuf");
+        
+        auto* client = getNextAvailableClient(user_clients_, current_user_idx_);
+        if (!client) {
+            return "{\"error\": \"No available clients\"}";
+        }
+
+        auto result = client->Post("/user", serialized_request, "application/x-protobuf");
+        releaseClient(user_clients_, client);
         
         if (!result || result->status != 200) {
             return "{\"error\": \"User service unavailable\"}";
@@ -193,7 +314,6 @@ public:
     }
 
     std::string HandleReservation(const std::string& json_str) {
-        std::lock_guard<std::mutex> lock(clients_mutex_);
         Json::Value json;
         Json::Reader reader;
         if (!reader.parse(json_str, json)) {
@@ -202,7 +322,14 @@ public:
 
         auto req = parseReservationRequest(json);
         std::string serialized_request = microservice::utils::serialize_message(req);
-        auto result = reservation_client_.Post("/reservation", serialized_request, "application/x-protobuf");
+        
+        auto* client = getNextAvailableClient(reservation_clients_, current_reservation_idx_);
+        if (!client) {
+            return "{\"error\": \"No available clients\"}";
+        }
+
+        auto result = client->Post("/reservation", serialized_request, "application/x-protobuf");
+        releaseClient(reservation_clients_, client);
         
         if (!result || result->status != 200) {
             return "{\"error\": \"Reservation service unavailable\"}";
@@ -224,7 +351,7 @@ int main() {
     FrontEndService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(100); };
+    svr.new_task_queue = [] { return new httplib::ThreadPool(3000); };
 
     // Configure server settings
     svr.set_keep_alive_max_count(20000);
@@ -243,8 +370,7 @@ int main() {
         json["outDate"] = req.get_param_value("outDate");
         json["latitude"] = std::stod(req.get_param_value("latitude"));
         json["longitude"] = std::stod(req.get_param_value("longitude"));
-        json["locale"] = req.get_param_value("locale");
-        
+        json["locale"] = req.get_param_value("locale");    
         Json::FastWriter writer;
         res.set_content(service.HandleSearch(writer.write(json)), "application/json");
     });
@@ -295,7 +421,7 @@ int main() {
         res.set_content(service.HandleReservation(writer.write(json)), "application/json");
     });
 
-    std::cout << "Frontend service listening on 0.0.0.0:50050 with 100 worker threads" << std::endl;
+    std::cout << "Frontend service listening on 0.0.0.0:50050 with 3000 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50050);
 
     return 0;

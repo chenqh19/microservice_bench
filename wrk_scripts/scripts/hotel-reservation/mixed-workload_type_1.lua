@@ -34,14 +34,13 @@ local function search_hotel()
   local lon = -122.4194 + (math.random(0, 325) - 157.0)/1000.0
 
   local method = "GET"
-  local path = url .. "/search?customerName=John&inDate=2023-12-01&outDate=2023-12-02&latitude=37.7749&longitude=-122.4194&locale=en"
+  local path = url .. "/search" -- ?customerName=John&inDate=2023-12-01&outDate=2023-12-02&latitude=37.7749&longitude=-122.4194&locale=en"
   local headers = {}
   -- headers["Content-Type"] = "application/json"
   -- local body = string.format(
   --   '{"customerName":"%s","inDate":"%s","outDate":"%s","latitude":%f,"longitude":%f,"locale":"en"}',
   --   "John", in_date_str, out_date_str, lat, lon
   -- )
-  print(method, path, headers, nil)
   return wrk.format(method, path, headers, nil)
 end
 

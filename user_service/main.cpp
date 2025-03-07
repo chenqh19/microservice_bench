@@ -59,7 +59,7 @@ int main() {
     UserService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(100); }; // Create thread pool with 8 threads
+    svr.new_task_queue = [] { return new httplib::ThreadPool(1000); }; // Create thread pool with 8 threads
 
     svr.Post("/user", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::UserRequest request;

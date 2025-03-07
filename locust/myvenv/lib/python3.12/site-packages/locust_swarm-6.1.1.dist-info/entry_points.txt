@@ -1,0 +1,2 @@
+[console_scripts]
+swarm = locust_swarm.swarm:main

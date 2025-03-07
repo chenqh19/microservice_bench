@@ -1,8 +1,8 @@
 import time
-from locust import HttpUser, task, between, constant_throughput
+from locust import FastHttpUser, task, between, constant_throughput
 
-class QuickstartUser(HttpUser):
-    wait_time = constant_throughput(3000)  # 100 RPS
+class QuickstartUser(FastHttpUser):
+    wait_time = constant_throughput(20)
 
     run_time = "30s"
 
