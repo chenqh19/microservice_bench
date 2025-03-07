@@ -12,7 +12,7 @@
 
 class FrontEndService {
 private:
-    static const int POOL_SIZE = 3000;
+    static const int POOL_SIZE = 256;
     std::atomic<uint64_t> search_requests_received_{0};
     std::atomic<uint64_t> search_requests_sent_{0};
     std::atomic<uint64_t> search_requests_completed_{0};
@@ -233,13 +233,17 @@ public:
         search_requests_sent_++;
 
         auto result = client->Post("/search", serialized_request, "application/x-protobuf");
+
         releaseClient(search_clients_, client);
         
-        if (!result || result->status != 200) {
+        if (!result) {
             return "{\"error\": \"Search service unavailable\"}";
         }
 
-        search_requests_completed_++;
+        if (result->status != 200) {
+            std::cout << "Search service returned status " << result->status << std::endl;
+            return "{\"error\": \"Search service unavailable\"}";
+        }
         
         hotelreservation::SearchResponse response;
         if (!microservice::utils::deserialize_message(result->body, response)) {
@@ -351,7 +355,7 @@ int main() {
     FrontEndService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(3000); };
+    svr.new_task_queue = [] { return new httplib::ThreadPool(256); };
 
     // Configure server settings
     svr.set_keep_alive_max_count(20000);
@@ -421,7 +425,7 @@ int main() {
         res.set_content(service.HandleReservation(writer.write(json)), "application/json");
     });
 
-    std::cout << "Frontend service listening on 0.0.0.0:50050 with 3000 worker threads" << std::endl;
+    std::cout << "Frontend service listening on 0.0.0.0:50050 with 256 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50050);
 
     return 0;

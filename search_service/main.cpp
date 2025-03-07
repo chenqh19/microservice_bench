@@ -9,7 +9,7 @@
 
 class SearchService {
 private:
-    static const int POOL_SIZE = 3000;
+    static const int POOL_SIZE = 256;
     std::atomic<size_t> successful_searches_{0};
     std::atomic<size_t> total_searches_{0};
     std::atomic<size_t> total_received_{0};
@@ -184,13 +184,7 @@ int main() {
     SearchService service;
 
     // Match the thread pool size with client pool size
-    svr.new_task_queue = [] { return new httplib::ThreadPool(3000); };
-
-    // Add server configurations
-    svr.set_keep_alive_max_count(20000);  // Allow more keep-alive connections
-    svr.set_read_timeout(5);              // 5 second read timeout
-    svr.set_write_timeout(5);             // 5 second write timeout
-    svr.set_payload_max_length(1024*1024); // Set maximum request size if needed
+    svr.new_task_queue = [] { return new httplib::ThreadPool(256); };
 
     svr.Post("/search", [&](const httplib::Request& req, httplib::Response& res) {
         static std::atomic<size_t> received{0};
@@ -210,7 +204,7 @@ int main() {
         }
     });
 
-    std::cout << "Search service listening on 0.0.0.0:50051 with 3000 worker threads" << std::endl;
+    std::cout << "Search service listening on 0.0.0.0:50051 with 256 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50051);
 
     return 0;

@@ -68,7 +68,7 @@ int main() {
     RateService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(1000); }; // Create thread pool with 8 threads
+    svr.new_task_queue = [] { return new httplib::ThreadPool(256); }; // Create thread pool with 8 threads
 
     svr.Post("/get_rates", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::GetRatesRequest request;
@@ -81,7 +81,7 @@ int main() {
         }
     });
 
-    std::cout << "Rate service listening on 0.0.0.0:50057 with 100 worker threads" << std::endl;
+    std::cout << "Rate service listening on 0.0.0.0:50057 with 256 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50057);
 
     return 0;

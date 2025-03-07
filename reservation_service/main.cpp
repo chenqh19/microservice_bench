@@ -12,7 +12,7 @@
 
 class ReservationService {
 private:
-    static const int POOL_SIZE = 1000;
+    static const int POOL_SIZE = 256;
     
     struct ClientInfo {
         std::unique_ptr<httplib::Client> client;
@@ -197,7 +197,7 @@ int main() {
     ReservationService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(1000); }; // Create thread pool with 8 threads
+    svr.new_task_queue = [] { return new httplib::ThreadPool(256); }; // Create thread pool with 8 threads
 
     svr.Post("/reservation", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::ReservationRequest request;
@@ -210,7 +210,7 @@ int main() {
         }
     });
 
-    std::cout << "Reservation service listening on 0.0.0.0:50055 with 100 worker threads" << std::endl;
+    std::cout << "Reservation service listening on 0.0.0.0:50055 with 256 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50055);
 
     return 0;

@@ -159,7 +159,7 @@ int main() {
     ProfileService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(1000); }; // Create thread pool with 8 threads
+    svr.new_task_queue = [] { return new httplib::ThreadPool(256); }; // Create thread pool with 8 threads
 
     svr.Post("/get_profiles", [&](const httplib::Request& req, httplib::Response& res) {
         hotelreservation::GetProfilesRequest request;
@@ -172,7 +172,7 @@ int main() {
         }
     });
 
-    std::cout << "Profile service listening on 0.0.0.0:50052 with 100 worker threads" << std::endl;
+    std::cout << "Profile service listening on 0.0.0.0:50052 with 256 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50052);
 
     return 0;
