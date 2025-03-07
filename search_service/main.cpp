@@ -193,7 +193,7 @@ int main() {
             auto current_time = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 current_time - start_time).count();
-            return elapsed > 1000; // 1 second timeout
+            return elapsed > 100; // 1 second timeout
         };
 
         hotelreservation::SearchRequest request;

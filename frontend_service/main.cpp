@@ -360,11 +360,22 @@ int main() {
     svr.set_write_timeout(5);
     svr.set_idle_interval(0, 100000);
 
-    // Handle both POST and GET requests for search
-    svr.Post("/search", [&](const httplib::Request& req, httplib::Response& res) {
-        res.set_content(service.HandleSearch(req.body), "application/json");
-    });
     svr.Get("/search", [&](const httplib::Request& req, httplib::Response& res) {
+        auto start_time = std::chrono::steady_clock::now();
+        
+        auto check_timeout = [&start_time]() -> bool {
+            auto current_time = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                current_time - start_time).count();
+            return elapsed > 100; // 100ms timeout
+        };
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout\"}", "application/json");
+            return;
+        }
+
         Json::Value json;
         json["customerName"] = req.get_param_value("customerName");
         json["inDate"] = req.get_param_value("inDate");
@@ -372,43 +383,95 @@ int main() {
         json["latitude"] = std::stod(req.get_param_value("latitude"));
         json["longitude"] = std::stod(req.get_param_value("longitude"));
         json["locale"] = req.get_param_value("locale");    
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+            return;
+        }
+
         Json::FastWriter writer;
         res.set_content(service.HandleSearch(writer.write(json)), "application/json");
     });
 
-    // Handle both POST and GET requests for recommend
-    svr.Post("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
-        res.set_content(service.HandleRecommend(req.body), "application/json");
-    });
     svr.Get("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
+        auto start_time = std::chrono::steady_clock::now();
+        
+        auto check_timeout = [&start_time]() -> bool {
+            auto current_time = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                current_time - start_time).count();
+            return elapsed > 100;
+        };
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout\"}", "application/json");
+            return;
+        }
+
         Json::Value json;
         json["latitude"] = std::stod(req.get_param_value("latitude"));
         json["longitude"] = std::stod(req.get_param_value("longitude"));
         json["require"] = req.get_param_value("require");
         json["locale"] = req.get_param_value("locale");
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+            return;
+        }
         
         Json::FastWriter writer;
         res.set_content(service.HandleRecommend(writer.write(json)), "application/json");
     });
 
-    // Handle both POST and GET requests for user
-    svr.Post("/user", [&](const httplib::Request& req, httplib::Response& res) {
-        res.set_content(service.HandleUser(req.body), "application/json");
-    });
     svr.Get("/user", [&](const httplib::Request& req, httplib::Response& res) {
+        auto start_time = std::chrono::steady_clock::now();
+        
+        auto check_timeout = [&start_time]() -> bool {
+            auto current_time = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                current_time - start_time).count();
+            return elapsed > 100;
+        };
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout\"}", "application/json");
+            return;
+        }
+
         Json::Value json;
         json["username"] = req.get_param_value("username");
         json["password"] = req.get_param_value("password");
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+            return;
+        }
         
         Json::FastWriter writer;
         res.set_content(service.HandleUser(writer.write(json)), "application/json");
     });
 
-    // Handle both POST and GET requests for reservation
-    svr.Post("/reservation", [&](const httplib::Request& req, httplib::Response& res) {
-        res.set_content(service.HandleReservation(req.body), "application/json");
-    });
     svr.Get("/reservation", [&](const httplib::Request& req, httplib::Response& res) {
+        auto start_time = std::chrono::steady_clock::now();
+        
+        auto check_timeout = [&start_time]() -> bool {
+            auto current_time = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                current_time - start_time).count();
+            return elapsed > 100;
+        };
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout\"}", "application/json");
+            return;
+        }
+
         Json::Value json;
         json["customerName"] = req.get_param_value("customerName");
         json["hotelId"] = req.get_param_value("hotelId");
@@ -417,6 +480,12 @@ int main() {
         json["roomNumber"] = std::stoi(req.get_param_value("roomNumber"));
         json["username"] = req.get_param_value("username");
         json["password"] = req.get_param_value("password");
+
+        if (check_timeout()) {
+            res.status = 408;
+            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+            return;
+        }
         
         Json::FastWriter writer;
         res.set_content(service.HandleReservation(writer.write(json)), "application/json");
