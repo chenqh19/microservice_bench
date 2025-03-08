@@ -17,6 +17,8 @@ Note: intel machines may have to run with virtual environment to run python. To 
 python3 -m venv venv
 source venv/bin/activate
 pip install locust
+pip install locust-plugins
+pip install locust-swarm
 ```
 
 To generate workload, please run the following command:
