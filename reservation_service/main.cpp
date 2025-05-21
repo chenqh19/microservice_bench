@@ -84,9 +84,9 @@ private:
 
 public:
     ReservationService() {
-        // Initialize user client pool
+        // Initialize user client pool with localhost instead of Docker service name
         for (int i = 0; i < POOL_SIZE; i++) {
-            user_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("user", 50054)));
+            user_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("localhost", 50054)));
         }
         InitializeSampleData();
     }

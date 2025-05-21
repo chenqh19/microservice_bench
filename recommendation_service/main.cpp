@@ -91,10 +91,10 @@ private:
 
 public:
     RecommendationService() {
-        // Initialize client pools
+        // Initialize client pools with localhost instead of Docker service names
         for (int i = 0; i < POOL_SIZE; i++) {
-            profile_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("profile", 50052)));
-            rate_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("rate", 50057)));
+            profile_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("localhost", 50052)));
+            rate_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("localhost", 50057)));
         }
         InitializeSampleData();
     }

@@ -192,12 +192,12 @@ private:
 
 public:
     FrontEndService() {
-        // Initialize client pools
+        // Initialize client pools with localhost instead of Docker service names
         for (int i = 0; i < POOL_SIZE; i++) {
-            search_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("search", 50051)));
-            recommend_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("recommendation", 50053)));
-            user_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("user", 50054)));
-            reservation_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("reservation", 50055)));
+            search_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("localhost", 50051)));
+            recommend_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("localhost", 50053)));
+            user_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("localhost", 50054)));
+            reservation_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("localhost", 50055)));
         }
         
         // Start monitoring thread

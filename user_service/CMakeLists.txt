@@ -5,6 +5,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(Protobuf REQUIRED)
+find_package(PkgConfig REQUIRED)
+find_package(Threads REQUIRED)
+pkg_check_modules(JSONCPP jsoncpp)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -14,6 +17,15 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(httplib)
 
+# Generate protobuf files
+execute_process(
+    COMMAND protoc -I${CMAKE_SOURCE_DIR}/../protos --cpp_out=${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_SOURCE_DIR}/../protos/hotel_reservation.proto
+    RESULT_VARIABLE PROTOC_RESULT
+)
+if(NOT PROTOC_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to generate protobuf files")
+endif()
+
 add_executable(user_service 
     main.cpp 
     ${CMAKE_CURRENT_BINARY_DIR}/hotel_reservation.pb.cc
@@ -22,11 +34,13 @@ add_executable(user_service
 target_link_libraries(user_service
     ${Protobuf_LIBRARIES}
     httplib::httplib
-    pthread
+    ${JSONCPP_LIBRARIES}
+    Threads::Threads
 )
 
 target_include_directories(user_service PRIVATE 
     ${CMAKE_CURRENT_BINARY_DIR}
     ${Protobuf_INCLUDE_DIRS}
+    ${JSONCPP_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/../protos
 ) 
