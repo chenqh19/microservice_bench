@@ -9,29 +9,39 @@
 #include <chrono>
 #include <vector>
 #include <atomic>
+#include <sched.h>
+#include <unordered_map>
+#include <queue>
 
 class FrontEndService {
 private:
     static const int POOL_SIZE = 256;
+    static const int MAX_RETRIES = 3;
+    static const int RETRY_DELAY_MS = 10;
+    
     std::atomic<uint64_t> search_requests_received_{0};
     std::atomic<uint64_t> search_requests_completed_{0};
+    std::atomic<uint64_t> search_requests_failed_{0};
+    std::atomic<uint64_t> search_requests_retried_{0};
     std::atomic<bool> monitoring_active_{true};
     std::thread monitoring_thread_;
     
     struct ClientInfo {
         std::unique_ptr<httplib::Client> client;
         std::atomic<bool> in_use;
+        std::atomic<uint64_t> last_used;
+        std::atomic<uint64_t> error_count;
 
-        ClientInfo() : client(nullptr), in_use(false) {}
+        ClientInfo() : client(nullptr), in_use(false), last_used(0), error_count(0) {}
         
         ClientInfo(std::unique_ptr<httplib::Client>&& c) 
-            : client(std::move(c)), in_use(false) {}
+            : client(std::move(c)), in_use(false), last_used(0), error_count(0) {}
         
         ClientInfo(const ClientInfo&) = delete;
         ClientInfo& operator=(const ClientInfo&) = delete;
         
         ClientInfo(ClientInfo&& other) noexcept
-            : client(std::move(other.client)), in_use(false) {}
+            : client(std::move(other.client)), in_use(false), last_used(0), error_count(0) {}
         
         ClientInfo& operator=(ClientInfo&& other) noexcept {
             client = std::move(other.client);
@@ -50,14 +60,28 @@ private:
     std::atomic<size_t> current_user_idx_{0};
     std::atomic<size_t> current_reservation_idx_{0};
 
+    // Metrics collection
+    struct Metrics {
+        std::atomic<uint64_t> total_requests{0};
+        std::atomic<uint64_t> successful_requests{0};
+        std::atomic<uint64_t> failed_requests{0};
+        std::atomic<uint64_t> retried_requests{0};
+        std::atomic<uint64_t> total_latency{0};
+    };
+    Metrics metrics_;
+
     httplib::Client* getNextAvailableClient(std::vector<ClientInfo>& clients, 
                                           std::atomic<size_t>& current_idx) {
         size_t start_idx = current_idx.fetch_add(1) % POOL_SIZE;
         size_t current = start_idx;
+        uint64_t current_time = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now().time_since_epoch()).count();
         
+        // First try to find an available client
         do {
             bool expected = false;
             if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                clients[current].last_used.store(current_time);
                 return clients[current].client.get();
             }
             current = (current + 1) % POOL_SIZE;
@@ -69,6 +93,7 @@ private:
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             bool expected = false;
             if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                clients[current].last_used.store(current_time);
                 return clients[current].client.get();
             }
             current = (current + 1) % POOL_SIZE;
@@ -77,13 +102,26 @@ private:
         return nullptr;
     }
 
-    void releaseClient(std::vector<ClientInfo>& clients, httplib::Client* client) {
+    void releaseClient(std::vector<ClientInfo>& clients, httplib::Client* client, bool had_error = false) {
         for (auto& info : clients) {
             if (info.client.get() == client) {
                 info.in_use.store(false);
+                if (had_error) {
+                    info.error_count++;
+                } else {
+                    info.error_count.store(0);
+                }
                 break;
             }
         }
+    }
+
+    // Helper function to set CPU affinity for a thread
+    void setThreadAffinity(int cpu_id) {
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(cpu_id, &cpuset);
+        pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
     }
 
     // Helper function to convert JSON to protobuf messages
@@ -183,16 +221,43 @@ private:
             uint64_t current_count = search_requests_received_.load();
             if (current_count >= last_logged_count + 1000) {
                 std::cout << "Search requests - Received: " << current_count 
-                         << ", Completed: " << search_requests_completed_.load() << std::endl;
+                         << ", Completed: " << search_requests_completed_.load()
+                         << ", Failed: " << search_requests_failed_.load()
+                         << ", Retried: " << search_requests_retried_.load() << std::endl;
                 last_logged_count = current_count;
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
 
+    // Retry logic for failed requests
+    template<typename T>
+    std::string retryRequest(std::function<std::string()> request_func, 
+                           std::vector<ClientInfo>& clients,
+                           httplib::Client* client) {
+        for (int retry = 0; retry < MAX_RETRIES; retry++) {
+            try {
+                std::string result = request_func();
+                if (result.find("\"error\"") == std::string::npos) {
+                    return result;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
+            } catch (const std::exception& e) {
+                std::cerr << "Request failed on retry " << retry + 1 << ": " << e.what() << std::endl;
+                if (retry == MAX_RETRIES - 1) {
+                    releaseClient(clients, client, true);
+                    throw;
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(RETRY_DELAY_MS));
+            }
+        }
+        releaseClient(clients, client, true);
+        return "{\"error\": \"Max retries exceeded\"}";
+    }
+
 public:
     FrontEndService() {
-        // Initialize client pools
+        // Initialize client pools with CPU affinity
         for (int i = 0; i < POOL_SIZE; i++) {
             search_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("search", 50051)));
             recommend_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("recommendation", 50053)));
@@ -213,10 +278,13 @@ public:
 
     std::string HandleSearch(const std::string& json_str) {
         search_requests_received_++;
+        metrics_.total_requests++;
+        auto start_time = std::chrono::steady_clock::now();
         
         Json::Value json;
         Json::Reader reader;
         if (!reader.parse(json_str, json)) {
+            metrics_.failed_requests++;
             return "{\"error\": \"Invalid JSON format\"}";
         }
 
@@ -225,31 +293,38 @@ public:
         
         auto* client = getNextAvailableClient(search_clients_, current_search_idx_);
         if (!client) {
+            metrics_.failed_requests++;
             return "{\"error\": \"No available clients\"}";
         }
 
-        auto result = client->Post("/search", serialized_request, "application/x-protobuf");
+        try {
+            auto result = client->Post("/search", serialized_request, "application/x-protobuf");
+            releaseClient(search_clients_, client);
+            
+            if (!result || result->status != 200) {
+                metrics_.failed_requests++;
+                return "{\"error\": \"Search service unavailable\"}";
+            }
 
-        releaseClient(search_clients_, client);
-        
-        if (!result) {
-            return "{\"error\": \"Search service unavailable\"}";
-        }
+            hotelreservation::SearchResponse response;
+            if (!microservice::utils::deserialize_message(result->body, response)) {
+                metrics_.failed_requests++;
+                return "{\"error\": \"Failed to process search results\"}";
+            }
 
-        if (result->status != 200) {
-            std::cout << "Search service returned status " << result->status << std::endl;
-            return "{\"error\": \"Search service unavailable\"}";
+            Json::Value response_json = searchResponseToJson(response);
+            search_requests_completed_++;
+            metrics_.successful_requests++;
+            metrics_.total_latency += std::chrono::duration_cast<std::chrono::microseconds>(
+                std::chrono::steady_clock::now() - start_time).count();
+            
+            Json::FastWriter writer;
+            return writer.write(response_json);
+        } catch (const std::exception& e) {
+            metrics_.failed_requests++;
+            releaseClient(search_clients_, client, true);
+            return "{\"error\": \"Search request failed: " + std::string(e.what()) + "\"}";
         }
-        
-        hotelreservation::SearchResponse response;
-        if (!microservice::utils::deserialize_message(result->body, response)) {
-            return "{\"error\": \"Failed to process search results\"}";
-        }
-
-        Json::Value response_json = searchResponseToJson(response);
-        search_requests_completed_++;
-        Json::FastWriter writer;
-        return writer.write(response_json);
     }
 
     std::string HandleRecommend(const std::string& json_str) {
@@ -351,8 +426,20 @@ int main() {
     httplib::Server svr;
     FrontEndService service;
 
-    // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(256); };
+    // Set up multi-threading options with CPU affinity
+    svr.new_task_queue = [] { 
+        auto pool = new httplib::ThreadPool(256);
+        // Set CPU affinity for each thread in the pool
+        for (int i = 0; i < 256; i++) {
+            pool->enqueue([i]() {
+                cpu_set_t cpuset;
+                CPU_ZERO(&cpuset);
+                CPU_SET(i % 256, &cpuset);  // Distribute threads across all cores
+                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
+            });
+        }
+        return pool;
+    };
 
     // Configure server settings
     svr.set_keep_alive_max_count(20000);
