@@ -363,20 +363,13 @@ int main() {
     svr.Get("/search", [&](const httplib::Request& req, httplib::Response& res) {
         auto start_time = std::chrono::steady_clock::now();
         
-        std::cout << "Search request received with params:" << std::endl;
-        std::cout << "  customerName: " << req.get_param_value("customerName") << std::endl;
-        std::cout << "  inDate: " << req.get_param_value("inDate") << std::endl;
-        std::cout << "  outDate: " << req.get_param_value("outDate") << std::endl;
-        std::cout << "  latitude: " << req.get_param_value("latitude") << std::endl;
-        std::cout << "  longitude: " << req.get_param_value("longitude") << std::endl;
-        std::cout << "  locale: " << req.get_param_value("locale") << std::endl;
-        
         auto check_timeout = [&start_time]() -> bool {
             auto current_time = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 current_time - start_time).count();
             return elapsed > 100; // 100ms timeout
         };
+        std::cout << "Search request received" << std::endl;
 
         if (check_timeout()) {
             std::cerr << "Search request timeout - Request took too long to process" << std::endl;
@@ -402,9 +395,7 @@ int main() {
             }
 
             Json::FastWriter writer;
-            std::string response = service.HandleSearch(writer.write(json));
-            std::cout << "Search response: " << response << std::endl;
-            res.set_content(response, "application/json");
+            res.set_content(service.HandleSearch(writer.write(json)), "application/json");
         } catch (const std::exception& e) {
             std::cerr << "Search request error: " << e.what() << std::endl;
             res.status = 400;

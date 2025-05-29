@@ -10,3 +10,11 @@ sudo docker update --cpuset-cpus="36-36" microservice_bench-profile-1
 sudo docker update --cpuset-cpus="37-37" microservice_bench-reservation-1
 
 echo "All containers have been pinned to CPU cores" 
+
+# For the main dockerd process
+sudo taskset -pc 40-50 $(pgrep -f "dockerd --containerd=/run/containerd/containerd.sock")
+
+# For all dockerd threads
+for pid in $(ps -eLf | grep dockerd | awk '{print $4}'); do
+    sudo taskset -pc 40-49 $pid
+done
