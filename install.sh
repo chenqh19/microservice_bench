@@ -11,4 +11,4 @@ make clean
 make
 
 
-./wrk2/wrk -D exp -t 100 -c 100 -d 50 -L -s ./wrk_scripts/scripts/hotel-reservation/mixed-workload_type_1.lua http://localhost:12345 -R 2000
+./wrk2/wrk -D exp -t 100 -c 100 -d 50 -L -s ./wrk_scripts/scripts/hotel-reservation/mixed-workload_type_1.lua http://localhost:50050 -R 2000

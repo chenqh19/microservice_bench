@@ -363,6 +363,14 @@ int main() {
     svr.Get("/search", [&](const httplib::Request& req, httplib::Response& res) {
         auto start_time = std::chrono::steady_clock::now();
         
+        std::cout << "Search request received with params:" << std::endl;
+        std::cout << "  customerName: " << req.get_param_value("customerName") << std::endl;
+        std::cout << "  inDate: " << req.get_param_value("inDate") << std::endl;
+        std::cout << "  outDate: " << req.get_param_value("outDate") << std::endl;
+        std::cout << "  latitude: " << req.get_param_value("latitude") << std::endl;
+        std::cout << "  longitude: " << req.get_param_value("longitude") << std::endl;
+        std::cout << "  locale: " << req.get_param_value("locale") << std::endl;
+        
         auto check_timeout = [&start_time]() -> bool {
             auto current_time = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -371,27 +379,37 @@ int main() {
         };
 
         if (check_timeout()) {
+            std::cerr << "Search request timeout - Request took too long to process" << std::endl;
             res.status = 408;
             res.set_content("{\"error\": \"Request timeout\"}", "application/json");
             return;
         }
 
-        Json::Value json;
-        json["customerName"] = req.get_param_value("customerName");
-        json["inDate"] = req.get_param_value("inDate");
-        json["outDate"] = req.get_param_value("outDate");
-        json["latitude"] = std::stod(req.get_param_value("latitude"));
-        json["longitude"] = std::stod(req.get_param_value("longitude"));
-        json["locale"] = req.get_param_value("locale");    
+        try {
+            Json::Value json;
+            json["customerName"] = req.get_param_value("customerName");
+            json["inDate"] = req.get_param_value("inDate");
+            json["outDate"] = req.get_param_value("outDate");
+            json["latitude"] = std::stod(req.get_param_value("latitude"));
+            json["longitude"] = std::stod(req.get_param_value("longitude"));
+            json["locale"] = req.get_param_value("locale");    
 
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
+            if (check_timeout()) {
+                std::cerr << "Search request timeout during parameter processing" << std::endl;
+                res.status = 408;
+                res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                return;
+            }
+
+            Json::FastWriter writer;
+            std::string response = service.HandleSearch(writer.write(json));
+            std::cout << "Search response: " << response << std::endl;
+            res.set_content(response, "application/json");
+        } catch (const std::exception& e) {
+            std::cerr << "Search request error: " << e.what() << std::endl;
+            res.status = 400;
+            res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
         }
-
-        Json::FastWriter writer;
-        res.set_content(service.HandleSearch(writer.write(json)), "application/json");
     });
 
     svr.Get("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
@@ -405,25 +423,33 @@ int main() {
         };
 
         if (check_timeout()) {
+            std::cerr << "Recommend request timeout - Request took too long to process" << std::endl;
             res.status = 408;
             res.set_content("{\"error\": \"Request timeout\"}", "application/json");
             return;
         }
 
-        Json::Value json;
-        json["latitude"] = std::stod(req.get_param_value("latitude"));
-        json["longitude"] = std::stod(req.get_param_value("longitude"));
-        json["require"] = req.get_param_value("require");
-        json["locale"] = req.get_param_value("locale");
+        try {
+            Json::Value json;
+            json["latitude"] = std::stod(req.get_param_value("latitude"));
+            json["longitude"] = std::stod(req.get_param_value("longitude"));
+            json["require"] = req.get_param_value("require");
+            json["locale"] = req.get_param_value("locale");
 
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
+            if (check_timeout()) {
+                std::cerr << "Recommend request timeout during parameter processing" << std::endl;
+                res.status = 408;
+                res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                return;
+            }
+            
+            Json::FastWriter writer;
+            res.set_content(service.HandleRecommend(writer.write(json)), "application/json");
+        } catch (const std::exception& e) {
+            std::cerr << "Recommend request error: " << e.what() << std::endl;
+            res.status = 400;
+            res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
         }
-        
-        Json::FastWriter writer;
-        res.set_content(service.HandleRecommend(writer.write(json)), "application/json");
     });
 
     svr.Get("/user", [&](const httplib::Request& req, httplib::Response& res) {
@@ -437,23 +463,31 @@ int main() {
         };
 
         if (check_timeout()) {
+            std::cerr << "User request timeout - Request took too long to process" << std::endl;
             res.status = 408;
             res.set_content("{\"error\": \"Request timeout\"}", "application/json");
             return;
         }
 
-        Json::Value json;
-        json["username"] = req.get_param_value("username");
-        json["password"] = req.get_param_value("password");
+        try {
+            Json::Value json;
+            json["username"] = req.get_param_value("username");
+            json["password"] = req.get_param_value("password");
 
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
+            if (check_timeout()) {
+                std::cerr << "User request timeout during parameter processing" << std::endl;
+                res.status = 408;
+                res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                return;
+            }
+            
+            Json::FastWriter writer;
+            res.set_content(service.HandleUser(writer.write(json)), "application/json");
+        } catch (const std::exception& e) {
+            std::cerr << "User request error: " << e.what() << std::endl;
+            res.status = 400;
+            res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
         }
-        
-        Json::FastWriter writer;
-        res.set_content(service.HandleUser(writer.write(json)), "application/json");
     });
 
     svr.Get("/reservation", [&](const httplib::Request& req, httplib::Response& res) {
@@ -467,28 +501,36 @@ int main() {
         };
 
         if (check_timeout()) {
+            std::cerr << "Reservation request timeout - Request took too long to process" << std::endl;
             res.status = 408;
             res.set_content("{\"error\": \"Request timeout\"}", "application/json");
             return;
         }
 
-        Json::Value json;
-        json["customerName"] = req.get_param_value("customerName");
-        json["hotelId"] = req.get_param_value("hotelId");
-        json["inDate"] = req.get_param_value("inDate");
-        json["outDate"] = req.get_param_value("outDate");
-        json["roomNumber"] = std::stoi(req.get_param_value("roomNumber"));
-        json["username"] = req.get_param_value("username");
-        json["password"] = req.get_param_value("password");
+        try {
+            Json::Value json;
+            json["customerName"] = req.get_param_value("customerName");
+            json["hotelId"] = req.get_param_value("hotelId");
+            json["inDate"] = req.get_param_value("inDate");
+            json["outDate"] = req.get_param_value("outDate");
+            json["roomNumber"] = std::stoi(req.get_param_value("roomNumber"));
+            json["username"] = req.get_param_value("username");
+            json["password"] = req.get_param_value("password");
 
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
+            if (check_timeout()) {
+                std::cerr << "Reservation request timeout during parameter processing" << std::endl;
+                res.status = 408;
+                res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                return;
+            }
+            
+            Json::FastWriter writer;
+            res.set_content(service.HandleReservation(writer.write(json)), "application/json");
+        } catch (const std::exception& e) {
+            std::cerr << "Reservation request error: " << e.what() << std::endl;
+            res.status = 400;
+            res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
         }
-        
-        Json::FastWriter writer;
-        res.set_content(service.HandleReservation(writer.write(json)), "application/json");
     });
 
     std::cout << "Frontend service listening on 0.0.0.0:50050 with 256 worker threads" << std::endl;

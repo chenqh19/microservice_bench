@@ -15,6 +15,7 @@ COPY frontend_service .
 COPY protos/*.proto /app/protos/
 COPY *.h /app/
 
+RUN rm -rf build
 RUN mkdir build && cd build && \
     protoc -I ../protos --cpp_out=. ../protos/hotel_reservation.proto && \
     cmake .. && \
