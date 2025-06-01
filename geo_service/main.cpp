@@ -7,9 +7,20 @@
 #include "serialization_utils.h"
 #include <httplib.h>
 #include <chrono>
+#include <atomic>
+#include <thread>
+#include <condition_variable>
 
 class GeoService {
 private:
+    static const int POOL_SIZE = 1024;
+    static const int MAX_CONCURRENT_CONNECTIONS = 512;
+    std::atomic<size_t> active_connections_{0};
+    std::atomic<size_t> successful_requests_{0};
+    std::atomic<size_t> total_requests_{0};
+    std::mutex connection_mutex_;
+    std::condition_variable connection_cv_;
+
     struct HotelLocation {
         std::string id;
         double lat;
@@ -21,9 +32,22 @@ private:
     static constexpr int MAX_SEARCH_RESULTS = 5;
     static constexpr double MAX_SEARCH_RADIUS = 10.0; // kilometers
 
+    void monitorResources() {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            std::cout << "Resource Usage - Active Connections: " << active_connections_ 
+                      << ", Total Requests: " << total_requests_ 
+                      << ", Successful Requests: " << successful_requests_ << std::endl;
+        }
+    }
+
 public:
     GeoService() {
         InitializeSampleData();
+
+        // Start resource monitoring thread
+        std::thread monitor_thread(&GeoService::monitorResources, this);
+        monitor_thread.detach();
     }
 
     void InitializeSampleData() {
@@ -62,6 +86,7 @@ public:
     }
 
     hotelreservation::NearbyResponse GetNearbyHotels(const hotelreservation::NearbyRequest& req) {
+        total_requests_++;
         hotelreservation::NearbyResponse response;
         std::vector<std::pair<std::string, double>> distances;
 
@@ -83,10 +108,12 @@ public:
             response.add_hotel_ids(distances[i].first);
         }
 
+        successful_requests_++;
         return response;
     }
 
     hotelreservation::Point GetPoint(const std::string& hotel_id) {
+        total_requests_++;
         hotelreservation::Point point;
         auto it = std::find_if(hotels_.begin(), hotels_.end(),
                               [&](const HotelLocation& h) { return h.id == hotel_id; });
@@ -95,6 +122,7 @@ public:
             point.set_pid(it->id);
             point.set_plat(it->lat);
             point.set_plon(it->lon);
+            successful_requests_++;
         }
         return point;
     }
@@ -105,7 +133,7 @@ int main() {
     GeoService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(256); }; // Create thread pool with 8 threads
+    svr.new_task_queue = [] { return new httplib::ThreadPool(1024); }; // Match pool size with client pool
 
     svr.Post("/nearby", [&](const httplib::Request& req, httplib::Response& res) {
         auto start_time = std::chrono::steady_clock::now();
@@ -156,7 +184,7 @@ int main() {
         res.set_content(serialized_response, "application/x-protobuf");
     });
 
-    std::cout << "Geo service listening on 0.0.0.0:50056 with 256 worker threads" << std::endl;
+    std::cout << "Geo service listening on 0.0.0.0:50056 with 1024 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50056);
 
     return 0;

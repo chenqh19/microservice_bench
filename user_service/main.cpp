@@ -6,15 +6,39 @@
 #include "serialization_utils.h"
 #include <httplib.h>
 #include <chrono>
+#include <atomic>
+#include <thread>
+#include <condition_variable>
 
 class UserService {
 private:
+    static const int POOL_SIZE = 1024;
+    static const int MAX_CONCURRENT_CONNECTIONS = 512;
+    std::atomic<size_t> active_connections_{0};
+    std::atomic<size_t> successful_requests_{0};
+    std::atomic<size_t> total_requests_{0};
+    std::mutex connection_mutex_;
+    std::condition_variable connection_cv_;
+
     std::unordered_map<std::string, std::string> users_; // username -> password
     std::mutex users_mutex_;
+
+    void monitorResources() {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            std::cout << "Resource Usage - Active Connections: " << active_connections_ 
+                      << ", Total Requests: " << total_requests_ 
+                      << ", Successful Requests: " << successful_requests_ << std::endl;
+        }
+    }
 
 public:
     UserService() {
         InitializeSampleData();
+
+        // Start resource monitoring thread
+        std::thread monitor_thread(&UserService::monitorResources, this);
+        monitor_thread.detach();
     }
 
     void InitializeSampleData() {
@@ -34,6 +58,7 @@ public:
     }
 
     hotelreservation::UserResponse RegisterUser(const hotelreservation::UserRequest& req) {
+        total_requests_++;
         hotelreservation::UserResponse response;
         std::lock_guard<std::mutex> lock(users_mutex_);
 
@@ -44,14 +69,19 @@ public:
 
         users_[req.username()] = req.password();
         response.set_message("User registered successfully");
+        successful_requests_++;
         return response;
     }
 
     bool CheckUser(const hotelreservation::CheckUserRequest& req) {
+        total_requests_++;
         std::lock_guard<std::mutex> lock(users_mutex_);
         auto it = users_.find(req.username());
-        if (it == users_.end()) return false;
-        return it->second == req.password();
+        bool result = (it != users_.end() && it->second == req.password());
+        if (result) {
+            successful_requests_++;
+        }
+        return result;
     }
 };
 
@@ -60,7 +90,7 @@ int main() {
     UserService service;
 
     // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(256); }; // Create thread pool with 8 threads
+    svr.new_task_queue = [] { return new httplib::ThreadPool(1024); }; // Match pool size with client pool
 
     svr.Post("/user", [&](const httplib::Request& req, httplib::Response& res) {
         auto start_time = std::chrono::steady_clock::now();
@@ -147,7 +177,7 @@ int main() {
         res.set_content(serialized_response, "application/x-protobuf");
     });
 
-    std::cout << "User service listening on 0.0.0.0:50054 with 256 worker threads" << std::endl;
+    std::cout << "User service listening on 0.0.0.0:50054 with 1024 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50054);
 
     return 0;

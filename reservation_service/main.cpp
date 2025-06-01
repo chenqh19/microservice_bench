@@ -9,30 +9,35 @@
 #include <atomic>
 #include <thread>
 #include <chrono>
+#include <condition_variable>
 
 class ReservationService {
 private:
-    static const int POOL_SIZE = 256;
+    static const int POOL_SIZE = 1024;
+    static const int MAX_CONCURRENT_CONNECTIONS = 512;
+    std::atomic<size_t> active_connections_{0};
     
     struct ClientInfo {
         std::unique_ptr<httplib::Client> client;
         std::atomic<bool> in_use;
+        std::chrono::steady_clock::time_point last_used;
 
-        ClientInfo() : client(nullptr), in_use(false) {}
+        ClientInfo() : client(nullptr), in_use(false), last_used(std::chrono::steady_clock::now()) {}
         
         ClientInfo(std::unique_ptr<httplib::Client>&& c) 
-            : client(std::move(c)), in_use(false) {}
+            : client(std::move(c)), in_use(false), last_used(std::chrono::steady_clock::now()) {}
         
         ClientInfo(const ClientInfo&) = delete;
         ClientInfo& operator=(const ClientInfo&) = delete;
         
         ClientInfo(ClientInfo&& other) noexcept
-            : client(std::move(other.client)), in_use(false) {}
+            : client(std::move(other.client)), in_use(false), last_used(std::chrono::steady_clock::now()) {}
         
         ClientInfo& operator=(ClientInfo&& other) noexcept {
             client = std::move(other.client);
             bool expected = other.in_use.load();
             in_use.store(expected);
+            last_used = std::chrono::steady_clock::now();
             return *this;
         }
     };
@@ -46,29 +51,41 @@ private:
     std::mutex reservations_mutex_;
     std::vector<ClientInfo> user_clients_;
     std::atomic<size_t> current_user_idx_{0};
+    std::mutex connection_mutex_;
+    std::condition_variable connection_cv_;
+    std::atomic<size_t> successful_reservations_{0};
+    std::atomic<size_t> total_reservations_{0};
 
     httplib::Client* getNextAvailableClient(std::vector<ClientInfo>& clients, std::atomic<size_t>& current_idx) {
         size_t start_idx = current_idx.fetch_add(1) % POOL_SIZE;
         size_t current = start_idx;
         
+        // First try to find an available client without waiting
         do {
             bool expected = false;
             if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                clients[current].last_used = std::chrono::steady_clock::now();
                 return clients[current].client.get();
             }
             current = (current + 1) % POOL_SIZE;
         } while (current != start_idx);
         
-        // If no client is available, try one more round with a small delay
-        current = start_idx;
-        do {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            bool expected = false;
-            if (clients[current].in_use.compare_exchange_strong(expected, true)) {
-                return clients[current].client.get();
-            }
-            current = (current + 1) % POOL_SIZE;
-        } while (current != start_idx);
+        // If no client is available, wait for one with a timeout
+        std::unique_lock<std::mutex> lock(connection_mutex_);
+        if (connection_cv_.wait_for(lock, std::chrono::milliseconds(50), 
+            [this] { return active_connections_ < MAX_CONCURRENT_CONNECTIONS; })) {
+            // Try one more round after waiting
+            current = start_idx;
+            do {
+                bool expected = false;
+                if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                    clients[current].last_used = std::chrono::steady_clock::now();
+                    active_connections_++;
+                    return clients[current].client.get();
+                }
+                current = (current + 1) % POOL_SIZE;
+            } while (current != start_idx);
+        }
         
         return nullptr;
     }
@@ -77,8 +94,19 @@ private:
         for (auto& info : clients) {
             if (info.client.get() == client) {
                 info.in_use.store(false);
+                active_connections_--;
+                connection_cv_.notify_one();
                 break;
             }
+        }
+    }
+
+    void monitorResources() {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            std::cout << "Resource Usage - Active Connections: " << active_connections_ 
+                      << ", Total Reservations: " << total_reservations_ 
+                      << ", Successful Reservations: " << successful_reservations_ << std::endl;
         }
     }
 
@@ -89,6 +117,10 @@ public:
             user_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("user", 50054)));
         }
         InitializeSampleData();
+
+        // Start resource monitoring thread
+        std::thread monitor_thread(&ReservationService::monitorResources, this);
+        monitor_thread.detach();
     }
 
     void InitializeSampleData() {
@@ -139,6 +171,7 @@ public:
     hotelreservation::ReservationResponse MakeReservation(
         const hotelreservation::ReservationRequest& req) {
         
+        total_reservations_++;
         hotelreservation::ReservationResponse response;
 
         // First, verify user credentials using client pool
@@ -188,6 +221,7 @@ public:
         hotel_reservations_[req.hotel_id()].reservations.push_back(reservation);
         
         response.set_message("Reservation confirmed");
+        successful_reservations_++;
         return response;
     }
 };

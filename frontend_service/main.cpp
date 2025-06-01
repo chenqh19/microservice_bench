@@ -12,13 +12,19 @@
 #include <sched.h>
 #include <unordered_map>
 #include <queue>
+#include <condition_variable>
 
 class FrontEndService {
+public:
+    // Define constants as static constexpr to ensure they're available at compile time
+    static constexpr int POOL_SIZE = 4096;  // Increased pool size for higher concurrency
+    static constexpr int MAX_CONCURRENT_CONNECTIONS = 2048;  // Limit concurrent connections
+    static constexpr int MAX_RETRIES = 3;
+    static constexpr int RETRY_DELAY_MS = 10;
+    static constexpr int MONITOR_INTERVAL_MS = 100;
+    static constexpr int LOG_INTERVAL_REQUESTS = 1000;
+
 private:
-    static const int POOL_SIZE = 256;
-    static const int MAX_RETRIES = 3;
-    static const int RETRY_DELAY_MS = 10;
-    
     std::atomic<uint64_t> search_requests_received_{0};
     std::atomic<uint64_t> search_requests_completed_{0};
     std::atomic<uint64_t> search_requests_failed_{0};
@@ -31,17 +37,22 @@ private:
         std::atomic<bool> in_use;
         std::atomic<uint64_t> last_used;
         std::atomic<uint64_t> error_count;
+        std::atomic<uint64_t> total_requests;
+        std::atomic<uint64_t> successful_requests;
 
-        ClientInfo() : client(nullptr), in_use(false), last_used(0), error_count(0) {}
+        ClientInfo() : client(nullptr), in_use(false), last_used(0), error_count(0), 
+                      total_requests(0), successful_requests(0) {}
         
         ClientInfo(std::unique_ptr<httplib::Client>&& c) 
-            : client(std::move(c)), in_use(false), last_used(0), error_count(0) {}
+            : client(std::move(c)), in_use(false), last_used(0), error_count(0),
+              total_requests(0), successful_requests(0) {}
         
         ClientInfo(const ClientInfo&) = delete;
         ClientInfo& operator=(const ClientInfo&) = delete;
         
         ClientInfo(ClientInfo&& other) noexcept
-            : client(std::move(other.client)), in_use(false), last_used(0), error_count(0) {}
+            : client(std::move(other.client)), in_use(false), last_used(0), error_count(0),
+              total_requests(0), successful_requests(0) {}
         
         ClientInfo& operator=(ClientInfo&& other) noexcept {
             client = std::move(other.client);
@@ -59,6 +70,8 @@ private:
     std::atomic<size_t> current_recommend_idx_{0};
     std::atomic<size_t> current_user_idx_{0};
     std::atomic<size_t> current_reservation_idx_{0};
+    std::mutex connection_mutex_;
+    std::condition_variable connection_cv_;
 
     // Metrics collection
     struct Metrics {
@@ -67,6 +80,9 @@ private:
         std::atomic<uint64_t> failed_requests{0};
         std::atomic<uint64_t> retried_requests{0};
         std::atomic<uint64_t> total_latency{0};
+        std::atomic<uint64_t> active_connections{0};
+        std::atomic<uint64_t> connection_timeouts{0};
+        std::atomic<uint64_t> connection_errors{0};
     };
     Metrics metrics_;
 
@@ -77,28 +93,35 @@ private:
         uint64_t current_time = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::steady_clock::now().time_since_epoch()).count();
         
-        // First try to find an available client
+        // First try to find an available client without waiting
         do {
             bool expected = false;
             if (clients[current].in_use.compare_exchange_strong(expected, true)) {
                 clients[current].last_used.store(current_time);
+                metrics_.active_connections++;
                 return clients[current].client.get();
             }
             current = (current + 1) % POOL_SIZE;
         } while (current != start_idx);
         
-        // If no client is available, try one more round with a small delay
-        current = start_idx;
-        do {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            bool expected = false;
-            if (clients[current].in_use.compare_exchange_strong(expected, true)) {
-                clients[current].last_used.store(current_time);
-                return clients[current].client.get();
-            }
-            current = (current + 1) % POOL_SIZE;
-        } while (current != start_idx);
+        // If no client is available, wait for one with a timeout
+        std::unique_lock<std::mutex> lock(connection_mutex_);
+        if (connection_cv_.wait_for(lock, std::chrono::milliseconds(50), 
+            [this] { return metrics_.active_connections < MAX_CONCURRENT_CONNECTIONS; })) {
+            // Try one more round after waiting
+            current = start_idx;
+            do {
+                bool expected = false;
+                if (clients[current].in_use.compare_exchange_strong(expected, true)) {
+                    clients[current].last_used.store(current_time);
+                    metrics_.active_connections++;
+                    return clients[current].client.get();
+                }
+                current = (current + 1) % POOL_SIZE;
+            } while (current != start_idx);
+        }
         
+        metrics_.connection_timeouts++;
         return nullptr;
     }
 
@@ -106,8 +129,11 @@ private:
         for (auto& info : clients) {
             if (info.client.get() == client) {
                 info.in_use.store(false);
+                metrics_.active_connections--;
+                connection_cv_.notify_one();
                 if (had_error) {
                     info.error_count++;
+                    metrics_.connection_errors++;
                 } else {
                     info.error_count.store(0);
                 }
@@ -217,16 +243,36 @@ private:
 
     void monitorRequests() {
         uint64_t last_logged_count = 0;
+        uint64_t last_latency = 0;
+        uint64_t last_connections = 0;
+        
         while (monitoring_active_.load()) {
             uint64_t current_count = search_requests_received_.load();
-            if (current_count >= last_logged_count + 1000) {
-                std::cout << "Search requests - Received: " << current_count 
+            uint64_t current_latency = metrics_.total_latency.load();
+            uint64_t current_connections = metrics_.active_connections.load();
+            
+            if (current_count >= last_logged_count + LOG_INTERVAL_REQUESTS) {
+                uint64_t latency_diff = current_latency - last_latency;
+                uint64_t request_diff = current_count - last_logged_count;
+                double avg_latency = request_diff > 0 ? (double)latency_diff / request_diff : 0;
+                
+                std::cout << "Performance Metrics:" << std::endl
+                         << "  Requests - Total: " << current_count 
                          << ", Completed: " << search_requests_completed_.load()
                          << ", Failed: " << search_requests_failed_.load()
-                         << ", Retried: " << search_requests_retried_.load() << std::endl;
+                         << ", Retried: " << search_requests_retried_.load() << std::endl
+                         << "  Latency - Average: " << avg_latency << "μs"
+                         << ", Active Connections: " << current_connections
+                         << ", Connection Errors: " << metrics_.connection_errors.load() << std::endl
+                         << "  Success Rate: " 
+                         << (current_count > 0 ? (double)search_requests_completed_.load() / current_count * 100 : 0)
+                         << "%" << std::endl;
+                
                 last_logged_count = current_count;
+                last_latency = current_latency;
+                last_connections = current_connections;
             }
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(MONITOR_INTERVAL_MS));
         }
     }
 
@@ -428,9 +474,9 @@ int main() {
 
     // Set up multi-threading options with CPU affinity
     svr.new_task_queue = [] { 
-        auto pool = new httplib::ThreadPool(256);
+        auto pool = new httplib::ThreadPool(FrontEndService::POOL_SIZE);  // Use the static constexpr value
         // Set CPU affinity for each thread in the pool
-        for (int i = 0; i < 256; i++) {
+        for (int i = 0; i < FrontEndService::POOL_SIZE; i++) {
             pool->enqueue([i]() {
                 cpu_set_t cpuset;
                 CPU_ZERO(&cpuset);
@@ -441,11 +487,12 @@ int main() {
         return pool;
     };
 
-    // Configure server settings
-    svr.set_keep_alive_max_count(20000);
+    // Configure server settings for high performance
+    svr.set_keep_alive_max_count(50000);  // Increased keep-alive connections
     svr.set_read_timeout(5);
     svr.set_write_timeout(5);
     svr.set_idle_interval(0, 100000);
+    svr.set_payload_max_length(1024 * 1024);  // 1MB max payload
 
     svr.Get("/search", [&](const httplib::Request& req, httplib::Response& res) {
         auto start_time = std::chrono::steady_clock::now();
@@ -611,7 +658,7 @@ int main() {
         }
     });
 
-    std::cout << "Frontend service listening on 0.0.0.0:50050 with 256 worker threads" << std::endl;
+    std::cout << "Frontend service listening on 0.0.0.0:50050 with 4096 worker threads" << std::endl;
     svr.listen("0.0.0.0", 50050);
 
     return 0;
