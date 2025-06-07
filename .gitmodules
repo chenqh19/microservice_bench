@@ -1,0 +1,3 @@
+[submodule "ser1de"]
+	path = ser1de
+	url = https://github.com/czarkos/ser1de.git
