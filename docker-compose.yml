@@ -1,6 +1,12 @@
 version: '3'
 
 services:
+  # Base image for all microservices
+  base:
+    build:
+      context: .
+      dockerfile: Dockerfile.base
+    image: hotel-reservation-base:latest
   frontend:
     build: 
       context: .
@@ -9,6 +15,8 @@ services:
       - "50050:50050"
     networks:
       - hotel_network
+    depends_on:
+      - base
 
   search:
     build: 
@@ -16,6 +24,8 @@ services:
       dockerfile: search_service/Dockerfile
     networks:
       - hotel_network
+    depends_on:
+      - base
 
   profile:
     build: 
@@ -23,6 +33,8 @@ services:
       dockerfile: profile_service/Dockerfile
     networks:
       - hotel_network
+    depends_on:
+      - base
 
   recommendation:
     build: 
@@ -30,6 +42,8 @@ services:
       dockerfile: recommendation_service/Dockerfile
     networks:
       - hotel_network
+    depends_on:
+      - base
 
   user:
     build: 
@@ -37,6 +51,8 @@ services:
       dockerfile: user_service/Dockerfile
     networks:
       - hotel_network
+    depends_on:
+      - base
 
   reservation:
     build: 
@@ -44,6 +60,8 @@ services:
       dockerfile: reservation_service/Dockerfile
     networks:
       - hotel_network
+    depends_on:
+      - base
 
   rate:
     build: 
@@ -51,6 +69,8 @@ services:
       dockerfile: rate_service/Dockerfile
     networks:
       - hotel_network
+    depends_on:
+      - base
 
   geo:
     build: 
@@ -58,6 +78,8 @@ services:
       dockerfile: geo_service/Dockerfile
     networks:
       - hotel_network
+    depends_on:
+      - base
 
 networks:
   hotel_network:

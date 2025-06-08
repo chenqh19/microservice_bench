@@ -1,20 +1,9 @@
-FROM ubuntu:22.04
+FROM hotel-reservation-base:latest
 
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    pkg-config \
-    libprotobuf-dev \
-    protobuf-compiler \
-    libjsoncpp-dev \
-    git \
-    libssl-dev
-
-WORKDIR /app
+# Copy service-specific source code
 COPY frontend_service .
-COPY protos/*.proto /app/protos/
-COPY *.h /app/
 
+# Build the service
 RUN rm -rf build
 RUN mkdir build && cd build && \
     protoc -I ../protos --cpp_out=. ../protos/hotel_reservation.proto && \
