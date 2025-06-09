@@ -6,8 +6,8 @@ COPY frontend_service .
 # Build the service
 RUN rm -rf build
 RUN mkdir build && cd build && \
-    protoc -I ../protos --cpp_out=. ../protos/hotel_reservation.proto && \
+    /app/ser1de/protobuf/protoc -I ../protos --cpp_out=. ../protos/hotel_reservation.proto && \
     cmake .. && \
-    make
+    make -j 8
 
 CMD ["./build/frontend_service"] 

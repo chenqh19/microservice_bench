@@ -128,6 +128,9 @@ public:
     }
 };
 
+// Define the static constexpr member outside the class
+constexpr int GeoService::MAX_SEARCH_RESULTS;
+
 int main() {
     httplib::Server svr;
     GeoService service;

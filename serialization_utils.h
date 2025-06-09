@@ -2,6 +2,7 @@
 
 #include <string>
 #include "hotel_reservation.pb.h"
+#include <ser1de/ser1de.h>
 
 namespace microservice {
 namespace utils {

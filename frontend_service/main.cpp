@@ -468,6 +468,14 @@ public:
     }
 };
 
+// Define the static constexpr members outside the class
+constexpr int FrontEndService::POOL_SIZE;
+constexpr int FrontEndService::MAX_CONCURRENT_CONNECTIONS;
+constexpr int FrontEndService::MAX_RETRIES;
+constexpr int FrontEndService::RETRY_DELAY_MS;
+constexpr int FrontEndService::MONITOR_INTERVAL_MS;
+constexpr int FrontEndService::LOG_INTERVAL_REQUESTS;
+
 int main() {
     httplib::Server svr;
     FrontEndService service;

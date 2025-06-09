@@ -8,11 +8,99 @@ RUN apt-get update && apt-get install -y \
     libprotobuf-dev \
     protobuf-compiler \
     libjsoncpp-dev \
+    libjson-c-dev \
     git \
     libssl-dev \
+    nasm \
+    uuid-dev \
+    libkeyutils-dev \
+    libz-dev \
+    autotools-dev \
+    autoconf \
+    automake \
+    libtool \
+    file \
+    patch \
+    patchutils \
+    libgtest-dev \
+    #asciidoc \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
+WORKDIR /app
+
+# Copy ser1de directory and build custom protobuf
+COPY ser1de /app/ser1de
+RUN cd ser1de && ./scripts/setup.sh
+
+# Immediate debug: Check what setup.sh created
+RUN echo "=== IMMEDIATE CHECK AFTER SETUP.SH ===" && \
+    echo "Current directory: $(pwd)" && \
+    echo "Contents of current directory:" && \
+    ls -la && \
+    echo "Contents of /app/ser1de:" && \
+    ls -la /app/ser1de/ && \
+    echo "Checking for qpl_install_dir:" && \
+    find /app/ser1de -name "qpl_install_dir" -type d 2>/dev/null || echo "qpl_install_dir not found" && \
+    echo "=== END IMMEDIATE CHECK ==="
+
+# Debug: Check what was built
+RUN echo "=== FULL DEBUG OF SER1DE BUILD ===" && \
+    echo "=== Contents of /app/ser1de ===" && \
+    ls -la /app/ser1de/ && \
+    echo "" && \
+    echo "=== QPL install directory search ===" && \
+    find /app/ser1de -name "qpl_install_dir" -type d 2>/dev/null && \
+    echo "" && \
+    echo "=== QPL install directory contents ===" && \
+    find /app/ser1de -name "qpl_install_dir" -type d -exec ls -la {} \; 2>/dev/null && \
+    echo "" && \
+    echo "=== QPL include directory contents ===" && \
+    find /app/ser1de -path "*/qpl_install_dir/include" -type d -exec ls -la {} \; 2>/dev/null && \
+    echo "" && \
+    echo "=== Looking for qpl.h files ===" && \
+    find /app/ser1de -name "qpl.h" -type f 2>/dev/null && \
+    echo "" && \
+    echo "=== QPL library directory contents ===" && \
+    find /app/ser1de -path "*/qpl_install_dir/lib" -type d -exec ls -la {} \; 2>/dev/null && \
+    echo "" && \
+    echo "=== All files in qpl_install_dir ===" && \
+    find /app/ser1de -path "*/qpl_install_dir/*" -type f | head -20 && \
+    echo "" && \
+    echo "=== Directory tree of qpl_install_dir ===" && \
+    find /app/ser1de -name "qpl_install_dir" -type d -exec tree {} \; 2>/dev/null || \
+    find /app/ser1de -name "qpl_install_dir" -type d -exec find {} -type d \; 2>/dev/null && \
+    echo "=== END DEBUG ==="
+
+# Debug: Check abseil directory structure
+RUN echo "=== ABSEIL DEBUG ===" && \
+    echo "Checking if abseil directory exists:" && \
+    ls -la /app/ser1de/protobuf/third_party/ && \
+    echo "Contents of abseil-cpp directory:" && \
+    ls -la /app/ser1de/protobuf/third_party/abseil-cpp/ && \
+    echo "=== END ABSEIL DEBUG ==="
+
+# Copy and build idxd-config
+COPY idxd-config /app/idxd-config
+
+# Debug: Check if idxd-config was copied
+RUN echo "=== IDXD-CONFIG DEBUG ===" && \
+    echo "Contents of /app:" && \
+    ls -la /app/ && \
+    echo "Contents of /app/idxd-config:" && \
+    ls -la /app/idxd-config/ && \
+    echo "Checking if autogen.sh exists:" && \
+    ls -la /app/idxd-config/autogen.sh && \
+    echo "=== END IDXD-CONFIG DEBUG ==="
+
+WORKDIR /app/idxd-config
+RUN ./autogen.sh
+RUN ./configure CFLAGS='-g -O2' --prefix=/usr --sysconfdir=/etc --libdir=/usr/lib64 --disable-docs
+RUN make
+RUN make check
+RUN make install
+
+# Reset working directory
 WORKDIR /app
 
 # Copy common files that all services need
