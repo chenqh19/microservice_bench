@@ -100,6 +100,8 @@ RUN make
 RUN make check
 RUN make install
 
+ENV LD_LIBRARY_PATH="/usr/lib64:${LD_LIBRARY_PATH}"
+
 # Reset working directory
 WORKDIR /app
 
