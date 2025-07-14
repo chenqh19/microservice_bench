@@ -80,10 +80,10 @@ RUN echo "=== ABSEIL DEBUG ===" && \
     ls -la /app/ser1de/protobuf/third_party/abseil-cpp/ && \
     echo "=== END ABSEIL DEBUG ==="
 
-# Copy and build idxd-config
-COPY idxd-config /app/idxd-config
+# Clone and build idxd-config from GitHub
+RUN git clone https://github.com/intel/idxd-config.git /app/idxd-config
 
-# Debug: Check if idxd-config was copied
+# Debug: Check if idxd-config was cloned
 RUN echo "=== IDXD-CONFIG DEBUG ===" && \
     echo "Contents of /app:" && \
     ls -la /app/ && \
