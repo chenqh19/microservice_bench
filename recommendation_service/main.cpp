@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
+#include "padding_utils.h"
 #include <httplib.h>
 #include <memory>
 #include <atomic>
@@ -197,6 +198,7 @@ public:
             profile_req.add_hotel_ids(std::to_string(i));
         }
         profile_req.set_locale(req.locale());
+        profile_req.set_padding(microservice::utils::generate_padding());
 
         auto* profile_client = getNextAvailableClient(profile_clients_, current_profile_idx_);
         if (!profile_client) {
@@ -221,6 +223,7 @@ public:
         }
         rate_req.set_in_date("2023-12-01");
         rate_req.set_out_date("2023-12-02");
+        rate_req.set_padding(microservice::utils::generate_padding());
 
         auto* rate_client = getNextAvailableClient(rate_clients_, current_rate_idx_);
         if (!rate_client) {
@@ -243,6 +246,7 @@ public:
         for (const auto& profile : profile_resp.profiles()) {
             *response.add_hotels() = profile;
         }
+        response.set_padding(microservice::utils::generate_padding());
         
         successful_recommendations_++;
         return response;

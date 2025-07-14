@@ -3,6 +3,7 @@
 #include <json/json.h>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
+#include "padding_utils.h"
 #include <httplib.h>
 #include <thread>
 #include <mutex>
@@ -159,6 +160,7 @@ private:
         req.set_lat(json["latitude"].asDouble());
         req.set_lon(json["longitude"].asDouble());
         req.set_locale(json["locale"].asString());
+        req.set_padding(microservice::utils::generate_padding());
         return req;
     }
 
@@ -168,6 +170,7 @@ private:
         req.set_lon(json["longitude"].asDouble());
         req.set_require(json["require"].asString());
         req.set_locale(json["locale"].asString());
+        req.set_padding(microservice::utils::generate_padding());
         return req;
     }
 
@@ -175,6 +178,7 @@ private:
         hotelreservation::UserRequest req;
         req.set_username(json["username"].asString());
         req.set_password(json["password"].asString());
+        req.set_padding(microservice::utils::generate_padding());
         return req;
     }
 
@@ -187,6 +191,7 @@ private:
         req.set_room_number(json["roomNumber"].asInt64());
         req.set_username(json["username"].asString());
         req.set_password(json["password"].asString());
+        req.set_padding(microservice::utils::generate_padding());
         return req;
     }
 

@@ -2,6 +2,7 @@
 #include <string>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
+#include "padding_utils.h"
 #include <httplib.h>
 #include <vector>
 #include <atomic>
@@ -132,6 +133,7 @@ public:
         hotelreservation::NearbyRequest geo_req;
         geo_req.set_lat(req.lat());
         geo_req.set_lon(req.lon());
+        geo_req.set_padding(microservice::utils::generate_padding());
         
         auto* geo_client = getNextAvailableClient(geo_clients_, current_geo_idx_);
         if (!geo_client) {
@@ -156,6 +158,7 @@ public:
         }
         rate_req.set_in_date(req.in_date());
         rate_req.set_out_date(req.out_date());
+        rate_req.set_padding(microservice::utils::generate_padding());
 
         auto* rate_client = getNextAvailableClient(rate_clients_, current_rate_idx_);
         if (!rate_client) {
@@ -179,6 +182,7 @@ public:
             profile_req.add_hotel_ids(hotel_id);
         }
         profile_req.set_locale(req.locale());
+        profile_req.set_padding(microservice::utils::generate_padding());
 
         auto* profile_client = getNextAvailableClient(profile_clients_, current_profile_idx_);
         if (!profile_client) {
@@ -201,6 +205,7 @@ public:
         for (const auto& profile : profile_resp.profiles()) {
             *response.add_hotels() = profile;
         }
+        response.set_padding(microservice::utils::generate_padding());
         
         size_t current_success = successful_searches_.fetch_add(1);
         if (current_success % 1000 == 0) {

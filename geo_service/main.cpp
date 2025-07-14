@@ -5,6 +5,7 @@
 #include <cmath>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
+#include "padding_utils.h"
 #include <httplib.h>
 #include <chrono>
 #include <atomic>
@@ -107,6 +108,8 @@ public:
         for (int i = 0; i < std::min(MAX_SEARCH_RESULTS, (int)distances.size()); i++) {
             response.add_hotel_ids(distances[i].first);
         }
+        
+        response.set_padding(microservice::utils::generate_padding());
 
         successful_requests_++;
         return response;
@@ -122,6 +125,7 @@ public:
             point.set_pid(it->id);
             point.set_plat(it->lat);
             point.set_plon(it->lon);
+            point.set_padding(microservice::utils::generate_padding());
             successful_requests_++;
         }
         return point;

@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
+#include "padding_utils.h"
 #include <httplib.h>
 #include <chrono>
 
@@ -32,6 +33,8 @@ public:
         address1->set_postal_code("94102");
         address1->set_lat(37.7867);
         address1->set_lon(-122.4112);
+        address1->set_padding(microservice::utils::generate_padding());
+        profile1.set_padding(microservice::utils::generate_padding());
         profiles_[profile1.id()] = profile1;
 
         // Hotel 2
@@ -49,6 +52,8 @@ public:
         address2->set_postal_code("94103");
         address2->set_lat(37.7854);
         address2->set_lon(-122.4005);
+        address2->set_padding(microservice::utils::generate_padding());
+        profile2.set_padding(microservice::utils::generate_padding());
         profiles_[profile2.id()] = profile2;
 
         // Hotel 3
@@ -66,6 +71,8 @@ public:
         address3->set_postal_code("94103");
         address3->set_lat(37.7834);
         address3->set_lon(-122.4071);
+        address3->set_padding(microservice::utils::generate_padding());
+        profile3.set_padding(microservice::utils::generate_padding());
         profiles_[profile3.id()] = profile3;
 
         // Hotel 4
@@ -83,6 +90,8 @@ public:
         address4->set_postal_code("94105");
         address4->set_lat(37.7936);
         address4->set_lon(-122.3930);
+        address4->set_padding(microservice::utils::generate_padding());
+        profile4.set_padding(microservice::utils::generate_padding());
         profiles_[profile4.id()] = profile4;
 
         // Hotel 5
@@ -100,6 +109,8 @@ public:
         address5->set_postal_code("94109");
         address5->set_lat(37.7831);
         address5->set_lon(-122.4181);
+        address5->set_padding(microservice::utils::generate_padding());
+        profile5.set_padding(microservice::utils::generate_padding());
         profiles_[profile5.id()] = profile5;
 
         // Hotel 6
@@ -117,6 +128,8 @@ public:
         address6->set_postal_code("94109");
         address6->set_lat(37.7863);
         address6->set_lon(-122.4015);
+        address6->set_padding(microservice::utils::generate_padding());
+        profile6.set_padding(microservice::utils::generate_padding());
         profiles_[profile6.id()] = profile6;
 
         // Add hotels 7-80 with generated data
@@ -136,7 +149,9 @@ public:
             address->set_postal_code("94109");
             address->set_lat(37.7835 + static_cast<double>(i)/500.0*3);
             address->set_lon(-122.41 + static_cast<double>(i)/500.0*4);
+            address->set_padding(microservice::utils::generate_padding());
             
+            profile.set_padding(microservice::utils::generate_padding());
             profiles_[profile.id()] = profile;
         }
     }
@@ -151,6 +166,7 @@ public:
             }
         }
         
+        response.set_padding(microservice::utils::generate_padding());
         return response;
     }
 };

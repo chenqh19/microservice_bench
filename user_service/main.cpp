@@ -4,6 +4,7 @@
 #include <mutex>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
+#include "padding_utils.h"
 #include <httplib.h>
 #include <chrono>
 #include <atomic>
@@ -64,11 +65,13 @@ public:
 
         if (users_.find(req.username()) != users_.end()) {
             response.set_message("User already exists");
+            response.set_padding(microservice::utils::generate_padding());
             return response;
         }
 
         users_[req.username()] = req.password();
         response.set_message("User registered successfully");
+        response.set_padding(microservice::utils::generate_padding());
         successful_requests_++;
         return response;
     }
@@ -159,6 +162,7 @@ int main() {
 
         hotelreservation::CheckUserResponse response;
         response.set_exists(service.CheckUser(request));
+        response.set_padding(microservice::utils::generate_padding());
 
         if (check_timeout()) {
             res.status = 408;

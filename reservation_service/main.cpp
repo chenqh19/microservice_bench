@@ -5,6 +5,7 @@
 #include <mutex>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
+#include "padding_utils.h"
 #include <httplib.h>
 #include <atomic>
 #include <thread>
@@ -149,6 +150,7 @@ public:
         initial_reservation.set_in_date("2015-04-09");
         initial_reservation.set_out_date("2015-04-10");
         initial_reservation.set_number(1);
+        initial_reservation.set_padding(microservice::utils::generate_padding());
         hotel_reservations_["4"].reservations.push_back(initial_reservation);
     }
 
@@ -178,10 +180,12 @@ public:
         hotelreservation::CheckUserRequest user_req;
         user_req.set_username(req.username());
         user_req.set_password(req.password());
+        user_req.set_padding(microservice::utils::generate_padding());
 
         auto* user_client = getNextAvailableClient(user_clients_, current_user_idx_);
         if (!user_client) {
             response.set_message("No available clients to verify user credentials");
+            response.set_padding(microservice::utils::generate_padding());
             return response;
         }
 
@@ -192,6 +196,7 @@ public:
 
         if (!user_result || user_result->status != 200) {
             response.set_message("Failed to verify user credentials");
+            response.set_padding(microservice::utils::generate_padding());
             return response;
         }
 
@@ -199,6 +204,7 @@ public:
         if (!microservice::utils::deserialize_message(user_result->body, user_resp) ||
             !user_resp.exists()) {
             response.set_message("Invalid user credentials");
+            response.set_padding(microservice::utils::generate_padding());
             return response;
         }
 
@@ -207,6 +213,7 @@ public:
         // Check if hotel exists and has availability
         if (!checkAvailability(req.hotel_id(), req.in_date(), req.out_date(), req.room_number())) {
             response.set_message("No availability for the selected dates");
+            response.set_padding(microservice::utils::generate_padding());
             return response;
         }
 
@@ -217,10 +224,12 @@ public:
         reservation.set_in_date(req.in_date());
         reservation.set_out_date(req.out_date());
         reservation.set_number(req.room_number());
+        reservation.set_padding(microservice::utils::generate_padding());
 
         hotel_reservations_[req.hotel_id()].reservations.push_back(reservation);
         
         response.set_message("Reservation confirmed");
+        response.set_padding(microservice::utils::generate_padding());
         successful_reservations_++;
         return response;
     }

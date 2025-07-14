@@ -6,11 +6,13 @@ message Point {
   string pid = 1;
   double plat = 2;
   double plon = 3;
+  string padding = 4;  // 1000-byte random string for padding
 }
 
 message User {
   string username = 1;
   string password = 2;
+  string padding = 3;  // 1000-byte random string for padding
 }
 
 message RoomType {
@@ -19,6 +21,7 @@ message RoomType {
   string room_description = 3;
   double total_rate = 4;
   double total_rate_inclusive = 5;
+  string padding = 6;  // 1000-byte random string for padding
 }
 
 message RatePlan {
@@ -27,6 +30,7 @@ message RatePlan {
   string in_date = 3;
   string out_date = 4;
   RoomType room_type = 5;
+  string padding = 6;  // 1000-byte random string for padding
 }
 
 message Reservation {
@@ -35,11 +39,13 @@ message Reservation {
   string in_date = 3;
   string out_date = 4;
   int64 number = 5;
+  string padding = 6;  // 1000-byte random string for padding
 }
 
 message HotelNumber {
   string hotel_id = 1;
   int64 number = 2;
+  string padding = 3;  // 1000-byte random string for padding
 }
 
 message Hotel {
@@ -48,6 +54,7 @@ message Hotel {
   double h_lon = 3;
   double h_rate = 4;
   double h_price = 5;
+  string padding = 6;  // 1000-byte random string for padding
 }
 
 message Address {
@@ -59,6 +66,7 @@ message Address {
   string postal_code = 6;
   double lat = 7;
   double lon = 8;
+  string padding = 9;  // 1000-byte random string for padding
 }
 
 message HotelProfile {
@@ -67,6 +75,7 @@ message HotelProfile {
   string phone_number = 3;
   string description = 4;
   Address address = 5;
+  string padding = 6;  // 1000-byte random string for padding
 }
 
 // Service Requests/Responses
@@ -78,10 +87,12 @@ message SearchRequest {
   double lat = 4;
   double lon = 5;
   string locale = 6;
+  string padding = 7;  // 1000-byte random string for padding
 }
 
 message SearchResponse {
   repeated HotelProfile hotels = 1;
+  string padding = 2;  // 1000-byte random string for padding
 }
 
 message RecommendRequest {
@@ -89,19 +100,23 @@ message RecommendRequest {
   double lon = 2;
   string require = 3;
   string locale = 4;
+  string padding = 5;  // 1000-byte random string for padding
 }
 
 message RecommendResponse {
   repeated HotelProfile hotels = 1;
+  string padding = 2;  // 1000-byte random string for padding
 }
 
 message UserRequest {
   string username = 1;
   string password = 2;
+  string padding = 3;  // 1000-byte random string for padding
 }
 
 message UserResponse {
   string message = 1;
+  string padding = 2;  // 1000-byte random string for padding
 }
 
 message ReservationRequest {
@@ -112,45 +127,55 @@ message ReservationRequest {
   string username = 5;
   string password = 6;
   int64 room_number = 7;
+  string padding = 8;  // 1000-byte random string for padding
 }
 
 message ReservationResponse {
   string message = 1;
+  string padding = 2;  // 1000-byte random string for padding
 }
 
 message NearbyRequest {
   double lat = 1;
   double lon = 2;
+  string padding = 3;  // 1000-byte random string for padding
 }
 
 message NearbyResponse {
   repeated string hotel_ids = 1;
+  string padding = 2;  // 1000-byte random string for padding
 }
 
 message GetProfilesRequest {
   repeated string hotel_ids = 1;
   string locale = 2;
+  string padding = 3;  // 1000-byte random string for padding
 }
 
 message GetProfilesResponse {
   repeated HotelProfile profiles = 1;
+  string padding = 2;  // 1000-byte random string for padding
 }
 
 message GetRatesRequest {
   repeated string hotel_ids = 1;
   string in_date = 2;
   string out_date = 3;
+  string padding = 4;  // 1000-byte random string for padding
 }
 
 message GetRatesResponse {
   repeated RatePlan rate_plans = 1;
+  string padding = 2;  // 1000-byte random string for padding
 }
 
 message CheckUserRequest {
   string username = 1;
   string password = 2;
+  string padding = 3;  // 1000-byte random string for padding
 }
 
 message CheckUserResponse {
   bool exists = 1;
+  string padding = 2;  // 1000-byte random string for padding
 } 

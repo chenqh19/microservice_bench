@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
+#include "padding_utils.h"
 #include <httplib.h>
 #include <chrono>
 #include <atomic>
@@ -52,6 +53,7 @@ public:
             standard.set_room_description("Standard Room");
             standard.set_total_rate(standard.bookable_rate() * 1.1);
             standard.set_total_rate_inclusive(standard.total_rate() * 1.2);
+            standard.set_padding(microservice::utils::generate_padding());
             room_types.push_back(standard);
 
             // Deluxe Room
@@ -61,6 +63,7 @@ public:
             deluxe.set_room_description("Deluxe Room");
             deluxe.set_total_rate(deluxe.bookable_rate() * 1.1);
             deluxe.set_total_rate_inclusive(deluxe.total_rate() * 1.2);
+            deluxe.set_padding(microservice::utils::generate_padding());
             room_types.push_back(deluxe);
 
             hotel_rates_[hotel_id] = room_types;
@@ -81,9 +84,12 @@ public:
                     rate_plan->set_in_date(req.in_date());
                     rate_plan->set_out_date(req.out_date());
                     *rate_plan->mutable_room_type() = room_type;
+                    rate_plan->set_padding(microservice::utils::generate_padding());
                 }
             }
         }
+        
+        response.set_padding(microservice::utils::generate_padding());
 
         successful_requests_++;
         return response;
