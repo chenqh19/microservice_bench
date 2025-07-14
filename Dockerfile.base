@@ -29,9 +29,9 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy ser1de directory and build custom protobuf
-COPY ser1de /app/ser1de
-RUN cd ser1de && ./scripts/setup.sh
+# Clone ser1de from the 'flexible' branch and build custom protobuf
+RUN git clone --branch flexible --single-branch https://github.com/czarkos/ser1de.git /app/ser1de
+RUN cd ser1de && git submodule update --init --recursive && ./scripts/setup.sh
 
 # Immediate debug: Check what setup.sh created
 RUN echo "=== IMMEDIATE CHECK AFTER SETUP.SH ===" && \
