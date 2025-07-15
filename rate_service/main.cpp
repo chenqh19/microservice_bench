@@ -110,7 +110,7 @@ int main() {
             auto current_time = std::chrono::steady_clock::now();
             auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
                 current_time - start_time).count();
-            return elapsed > 100; // 100ms timeout
+            return elapsed > 10; // 10ms timeout
         };
 
         hotelreservation::GetRatesRequest request;

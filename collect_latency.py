@@ -3,7 +3,7 @@ import time
 
 
 def run_one_rps(RPS, duration=30):
-    cmd = f"taskset -c 32-63 ./wrk2/wrk -D fixed -t 100 -c 100 -d {duration} -L -s ./wrk_scripts/scripts/hotel-reservation/mixed-workload_type_1.lua http://localhost:50050 -R {RPS}"
+    cmd = f"taskset -c 32-63 ./wrk2/wrk -D fixed -t 20 -c 20 -d {duration} -L -s ./wrk_scripts/scripts/hotel-reservation/mixed-workload_type_1.lua http://localhost:50050 -R {RPS}"
      
     # Create subprocesses to execute each command using subprocess.Popen
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -32,10 +32,13 @@ def run_one_rps(RPS, duration=30):
     return tail_lat
 
 def main():
+    time.sleep(5)
     with open("tail.txt", "a") as f:
         f.write("start experiment\n")
-    for rps in range(1000, 3000, 100):
-        run_one_rps(rps, 200)
+    for rps in range(800, 1120, 40):
+        for i in range(10):
+            run_one_rps(rps, 30)
+            time.sleep(5)
     with open("tail.txt", "a") as f:
         f.write("end experiment\n")
 
