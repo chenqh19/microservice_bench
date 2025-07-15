@@ -16,26 +16,28 @@ def run_one_rps(RPS, duration=30):
     tail_lat = {}
     stdout, stderr = process.communicate()  # Communicate() waits for the process to finish and returns output
     stdout_lines = stdout.decode().splitlines()
-    with open("tails.txt", "a") as file:
-        for line in stdout_lines:
-            line = line.strip()
-            for tail in ["0.500000", "0.900000", "0.950000"]:
-                if tail in line:
-                    file.write(line + "\n")
-                    tail_lat[tail] = line.split()[0]
+    for line in stdout_lines:
+        line = line.strip()
+        for tail in ["0.500000", "0.900000", "0.950000"]:
+            if tail in line:
+                tail_lat[tail] = line.split()[0]
     if stderr:
         print(f"Error: {stderr.decode().strip()}")  # Print the standard error if any
     # for tail in ["0.500000", "0.950000", "0.990625"]:
     #     assert tail in tail_lat[path_name]
     
     time.sleep(5)
-    print("RPS:", RPS, "tail_lat:", tail_lat)
-    # TODO: collect the performance metrics, return key metrics
+    with open("tail.txt", "a") as f:
+        f.write(f"RPS: {RPS}, tail_lat: {tail_lat}\n")
     return tail_lat
 
 def main():
-    for rps in range(500, 1500, 100):
+    with open("tail.txt", "a") as f:
+        f.write("start experiment\n")
+    for rps in range(1000, 3000, 100):
         run_one_rps(rps, 200)
+    with open("tail.txt", "a") as f:
+        f.write("end experiment\n")
 
 if __name__ == "__main__":
     main()
