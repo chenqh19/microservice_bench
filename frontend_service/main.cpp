@@ -516,7 +516,6 @@ int main() {
                 current_time - start_time).count();
             return elapsed > 100; // 100ms timeout
         };
-        std::cout << "Search request received" << std::endl;
 
         if (check_timeout()) {
             std::cerr << "Search request timeout - Request took too long to process" << std::endl;
