@@ -16,6 +16,10 @@
 #include <condition_variable>
 #include <iomanip>
 #include <sstream>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 // Helper function to get current timestamp as string
 std::string getTimestamp() {
@@ -288,6 +292,41 @@ private:
         return "{\"error\": \"Max retries exceeded\"}";
     }
 
+    std::string sendProtobufOverUDS(const std::string& path, const std::string& data) {
+        auto uds_start = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] sendProtobufOverUDS - Connecting to " << path << std::endl;
+        int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd < 0) return "{\"error\": \"socket error\"}";
+        sockaddr_un addr{};
+        addr.sun_family = AF_UNIX;
+        strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
+        if (connect(fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
+            close(fd);
+            return "{\"error\": \"connect error\"}";
+        }
+        auto conn_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] sendProtobufOverUDS - Connected in " << getDurationUs(uds_start, conn_end) << "μs" << std::endl;
+        uint32_t len = data.size();
+        auto send_start = std::chrono::steady_clock::now();
+        if (write(fd, &len, 4) != 4) { close(fd); return "{\"error\": \"write error\"}"; }
+        if (write(fd, data.data(), len) != (ssize_t)len) { close(fd); return "{\"error\": \"write error\"}"; }
+        auto send_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] sendProtobufOverUDS - Sent " << len << " bytes in " << getDurationUs(send_start, send_end) << "μs" << std::endl;
+        char len_buf[4];
+        auto recv_start = std::chrono::steady_clock::now();
+        if (read(fd, len_buf, 4) != 4) { close(fd); return "{\"error\": \"read error\"}"; }
+        uint32_t resp_len = 0;
+        memcpy(&resp_len, len_buf, 4);
+        std::vector<char> resp_buf(resp_len);
+        if (read(fd, resp_buf.data(), resp_len) != (ssize_t)resp_len) { close(fd); return "{\"error\": \"read error\"}"; }
+        close(fd);
+        auto recv_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] sendProtobufOverUDS - Received " << resp_len << " bytes in " << getDurationUs(recv_start, recv_end) << "μs" << std::endl;
+        auto uds_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] sendProtobufOverUDS - Total UDS roundtrip in " << getDurationUs(uds_start, uds_end) << "μs" << std::endl;
+        return std::string(resp_buf.begin(), resp_buf.end());
+    }
+
 public:
     FrontEndService() {
         // Initialize client pools with CPU affinity
@@ -436,47 +475,25 @@ public:
         auto http_start = std::chrono::steady_clock::now();
         std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Starting HTTP request to user service" << std::endl;
         
-        auto result = client->Post("/user", serialized_request, "application/x-protobuf");
-        releaseClient(user_clients_, client);
-        
-        auto http_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - HTTP request completed in " 
-                  << getDurationUs(http_start, http_end) << "μs" << std::endl;
-        
-        if (!result || result->status != 200) {
-            std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - HTTP request failed with status " 
-                      << (result ? result->status : -1) << std::endl;
-            return "{\"error\": \"User service unavailable\"}";
-        }
-
-        // Protobuf deserialization timing
+        auto uds_call_start = std::chrono::steady_clock::now();
+        std::string response_str = sendProtobufOverUDS("/tmp/user_service.sock", serialized_request);
+        auto uds_call_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - UDS call completed in " << getDurationUs(uds_call_start, uds_call_end) << "μs" << std::endl;
         auto pb_deserialize_start = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Starting protobuf deserialization" << std::endl;
-        
         hotelreservation::UserResponse response;
-        if (!microservice::utils::deserialize_message(result->body, response)) {
+        if (!microservice::utils::deserialize_message(response_str, response)) {
             auto pb_deserialize_end = std::chrono::steady_clock::now();
-            std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Protobuf deserialization failed in " 
-                      << getDurationUs(pb_deserialize_start, pb_deserialize_end) << "μs" << std::endl;
+            std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Protobuf deserialization failed in " << getDurationUs(pb_deserialize_start, pb_deserialize_end) << "μs" << std::endl;
             return "{\"error\": \"Failed to process user request\"}";
         }
-        
         auto pb_deserialize_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Protobuf deserialization completed in " 
-                  << getDurationUs(pb_deserialize_start, pb_deserialize_end) << "μs" << std::endl;
-
-        // JSON response creation timing
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Protobuf deserialization completed in " << getDurationUs(pb_deserialize_start, pb_deserialize_end) << "μs" << std::endl;
         auto json_response_start = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Creating JSON response" << std::endl;
-        
         Json::Value response_json;
         response_json["message"] = response.message();
         std::string json_response = response_json.toStyledString();
-        
         auto json_response_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - JSON response created in " 
-                  << getDurationUs(json_response_start, json_response_end) << "μs" << std::endl;
-        
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - JSON response created in " << getDurationUs(json_response_start, json_response_end) << "μs" << std::endl;
         auto method_end = std::chrono::steady_clock::now();
         std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Method completed in " 
                   << getDurationUs(method_start, method_end) << "μs total" << std::endl;

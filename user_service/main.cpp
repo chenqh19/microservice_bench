@@ -12,6 +12,11 @@
 #include <condition_variable>
 #include <iomanip>
 #include <sstream>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 // Helper function to get current timestamp as string
 std::string getTimestamp() {
@@ -106,170 +111,99 @@ public:
 };
 
 int main() {
-    httplib::Server svr;
+    const char* socket_path = "/tmp/user_service.sock";
+    unlink(socket_path); // Remove if exists
+    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("socket");
+        return 1;
+    }
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("bind");
+        close(server_fd);
+        return 1;
+    }
+    chmod(socket_path, 0777); // Ensure world-writable for Docker
+    if (listen(server_fd, 1024) < 0) {
+        perror("listen");
+        close(server_fd);
+        return 1;
+    }
+    std::cout << "User service listening on unix://" << socket_path << std::endl;
     UserService service;
-
-    // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(1024); }; // Match pool size with client pool
-
-    svr.Post("/user", [&](const httplib::Request& req, httplib::Response& res) {
-        auto http_start = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /user endpoint - HTTP request received" << std::endl;
-
-        auto start_time = std::chrono::steady_clock::now();
-
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 10; // 10ms timeout
-        };
-
-        // Protobuf deserialization timing
-        auto pb_deserialize_start = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /user endpoint - Starting protobuf deserialization" << std::endl;
-        
-        hotelreservation::UserRequest request;
-        if (!microservice::utils::deserialize_message(req.body, request)) {
-            auto pb_deserialize_end = std::chrono::steady_clock::now();
-            std::cout << "[" << getTimestamp() << "] /user endpoint - Protobuf deserialization failed in " 
-                      << getDurationUs(pb_deserialize_start, pb_deserialize_end) << "μs" << std::endl;
-            
-            res.status = 400;
-            res.set_content("{\"error\": \"Failed to deserialize request\"}", "application/json");
-            return;
-        }
-        
-        auto pb_deserialize_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /user endpoint - Protobuf deserialization completed in " 
-                  << getDurationUs(pb_deserialize_start, pb_deserialize_end) << "μs" << std::endl;
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during deserialization\"}", "application/json");
-            return;
-        }
-
-        // Application logic timing
-        auto app_start = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /user endpoint - Starting application logic" << std::endl;
-        
-        auto response = service.RegisterUser(request);
-        
-        auto app_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /user endpoint - Application logic completed in " 
-                  << getDurationUs(app_start, app_end) << "μs" << std::endl;
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
-        }
-
-        // Protobuf serialization timing
-        auto pb_serialize_start = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /user endpoint - Starting protobuf serialization" << std::endl;
-        
-        std::string serialized_response = microservice::utils::serialize_message(response);
-        
-        auto pb_serialize_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /user endpoint - Protobuf serialization completed in " 
-                  << getDurationUs(pb_serialize_start, pb_serialize_end) << "μs" << std::endl;
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during serialization\"}", "application/json");
-            return;
-        }
-
-        res.set_content(serialized_response, "application/x-protobuf");
-        
-        auto http_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /user endpoint - HTTP response sent in " 
-                  << getDurationUs(http_start, http_end) << "μs total" << std::endl;
-    });
-
-    svr.Post("/check-user", [&](const httplib::Request& req, httplib::Response& res) {
-        auto http_start = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /check-user endpoint - HTTP request received" << std::endl;
-
-        auto start_time = std::chrono::steady_clock::now();
-
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 10; // 10ms timeout
-        };
-
-        // Protobuf deserialization timing
-        auto pb_deserialize_start = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /check-user endpoint - Starting protobuf deserialization" << std::endl;
-        
-        hotelreservation::CheckUserRequest request;
-        if (!microservice::utils::deserialize_message(req.body, request)) {
-            auto pb_deserialize_end = std::chrono::steady_clock::now();
-            std::cout << "[" << getTimestamp() << "] /check-user endpoint - Protobuf deserialization failed in " 
-                      << getDurationUs(pb_deserialize_start, pb_deserialize_end) << "μs" << std::endl;
-            
-            res.status = 400;
-            res.set_content("{\"error\": \"Failed to deserialize request\"}", "application/json");
-            return;
-        }
-        
-        auto pb_deserialize_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /check-user endpoint - Protobuf deserialization completed in " 
-                  << getDurationUs(pb_deserialize_start, pb_deserialize_end) << "μs" << std::endl;
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during deserialization\"}", "application/json");
-            return;
-        }
-
-        // Application logic timing
-        auto app_start = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /check-user endpoint - Starting application logic" << std::endl;
-        
-        hotelreservation::CheckUserResponse response;
-        response.set_exists(service.CheckUser(request));
-        response.set_padding(microservice::utils::generate_padding());
-        
-        auto app_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /check-user endpoint - Application logic completed in " 
-                  << getDurationUs(app_start, app_end) << "μs" << std::endl;
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
-        }
-
-        // Protobuf serialization timing
-        auto pb_serialize_start = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /check-user endpoint - Starting protobuf serialization" << std::endl;
-        
-        std::string serialized_response = microservice::utils::serialize_message(response);
-        
-        auto pb_serialize_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /check-user endpoint - Protobuf serialization completed in " 
-                  << getDurationUs(pb_serialize_start, pb_serialize_end) << "μs" << std::endl;
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during serialization\"}", "application/json");
-            return;
-        }
-
-        res.set_content(serialized_response, "application/x-protobuf");
-        
-        auto http_end = std::chrono::steady_clock::now();
-        std::cout << "[" << getTimestamp() << "] /check-user endpoint - HTTP response sent in " 
-                  << getDurationUs(http_start, http_end) << "μs total" << std::endl;
-    });
-
-    std::cout << "User service listening on 0.0.0.0:50054 with 1024 worker threads" << std::endl;
-    svr.listen("0.0.0.0", 50054);
-
+    while (true) {
+        int client_fd = accept(server_fd, nullptr, nullptr);
+        if (client_fd < 0) continue;
+        std::thread([client_fd, &service]() {
+            auto conn_start = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] Connection accepted" << std::endl;
+            char len_buf[4];
+            ssize_t n = read(client_fd, len_buf, 4);
+            if (n != 4) { close(client_fd); return; }
+            uint32_t msg_len = 0;
+            memcpy(&msg_len, len_buf, 4);
+            std::vector<char> buf(msg_len);
+            n = read(client_fd, buf.data(), msg_len);
+            if (n != (ssize_t)msg_len) { close(client_fd); return; }
+            auto req_recv = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] Request received (" << msg_len << " bytes) in " << getDurationUs(conn_start, req_recv) << "μs" << std::endl;
+            // Try UserRequest
+            hotelreservation::UserRequest user_req;
+            auto deser_start = std::chrono::steady_clock::now();
+            bool ok = microservice::utils::deserialize_message(std::string(buf.begin(), buf.end()), user_req);
+            auto deser_end = std::chrono::steady_clock::now();
+            if (ok) {
+                std::cout << "[" << getTimestamp() << "] UserRequest deserialized in " << getDurationUs(deser_start, deser_end) << "μs" << std::endl;
+                auto app_start = std::chrono::steady_clock::now();
+                auto response = service.RegisterUser(user_req);
+                auto app_end = std::chrono::steady_clock::now();
+                std::cout << "[" << getTimestamp() << "] Application logic completed in " << getDurationUs(app_start, app_end) << "μs" << std::endl;
+                auto ser_start = std::chrono::steady_clock::now();
+                std::string resp_str = microservice::utils::serialize_message(response);
+                uint32_t resp_len = resp_str.size();
+                write(client_fd, &resp_len, 4);
+                write(client_fd, resp_str.data(), resp_len);
+                auto ser_end = std::chrono::steady_clock::now();
+                std::cout << "[" << getTimestamp() << "] Response serialized and sent in " << getDurationUs(ser_start, ser_end) << "μs" << std::endl;
+                close(client_fd);
+                auto conn_end = std::chrono::steady_clock::now();
+                std::cout << "[" << getTimestamp() << "] Connection closed in " << getDurationUs(conn_start, conn_end) << "μs total" << std::endl;
+                return;
+            }
+            // Try CheckUserRequest
+            hotelreservation::CheckUserRequest check_req;
+            deser_start = std::chrono::steady_clock::now();
+            ok = microservice::utils::deserialize_message(std::string(buf.begin(), buf.end()), check_req);
+            deser_end = std::chrono::steady_clock::now();
+            if (ok) {
+                std::cout << "[" << getTimestamp() << "] CheckUserRequest deserialized in " << getDurationUs(deser_start, deser_end) << "μs" << std::endl;
+                auto app_start = std::chrono::steady_clock::now();
+                hotelreservation::CheckUserResponse response;
+                response.set_exists(service.CheckUser(check_req));
+                response.set_padding(microservice::utils::generate_padding());
+                auto app_end = std::chrono::steady_clock::now();
+                std::cout << "[" << getTimestamp() << "] Application logic completed in " << getDurationUs(app_start, app_end) << "μs" << std::endl;
+                auto ser_start = std::chrono::steady_clock::now();
+                std::string resp_str = microservice::utils::serialize_message(response);
+                uint32_t resp_len = resp_str.size();
+                write(client_fd, &resp_len, 4);
+                write(client_fd, resp_str.data(), resp_len);
+                auto ser_end = std::chrono::steady_clock::now();
+                std::cout << "[" << getTimestamp() << "] Response serialized and sent in " << getDurationUs(ser_start, ser_end) << "μs" << std::endl;
+                close(client_fd);
+                auto conn_end = std::chrono::steady_clock::now();
+                std::cout << "[" << getTimestamp() << "] Connection closed in " << getDurationUs(conn_start, conn_end) << "μs total" << std::endl;
+                return;
+            }
+            // Unknown request
+            close(client_fd);
+            auto conn_end = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] Connection closed (unknown request) in " << getDurationUs(conn_start, conn_end) << "μs total" << std::endl;
+        }).detach();
+    }
+    close(server_fd);
     return 0;
 }

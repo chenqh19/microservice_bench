@@ -22,6 +22,8 @@ services:
       - base
     privileged: true
     user: "0"
+    volumes:
+      - user_socket:/tmp
 
   search:
     build: 
@@ -66,6 +68,8 @@ services:
       - base
     privileged: true
     user: "0"
+    volumes:
+      - user_socket:/tmp
 
   reservation:
     build: 
@@ -103,3 +107,6 @@ services:
 networks:
   hotel_network:
     driver: bridge 
+
+volumes:
+  user_socket: 

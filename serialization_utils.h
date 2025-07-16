@@ -3,7 +3,7 @@
 #include <string>
 #include "hotel_reservation.pb.h"
 
-#define USE_SER1DE 0
+#define USE_SER1DE 1
 
 #if USE_SER1DE
 #include <ser1de/ser1de_re.h>
