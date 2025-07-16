@@ -15,10 +15,7 @@ class SearchService {
 private:
     static const int POOL_SIZE = 1024;
     static const int MAX_CONCURRENT_CONNECTIONS = 512;  // Limit concurrent connections per service
-    std::atomic<size_t> successful_searches_{0};
-    std::atomic<size_t> total_searches_{0};
     std::atomic<size_t> total_received_{0};
-    std::atomic<size_t> active_connections_{0};
     
     struct ClientInfo {
         std::unique_ptr<httplib::Client> client;
@@ -54,8 +51,7 @@ private:
     std::mutex connection_mutex_;
     std::condition_variable connection_cv_;
 
-    httplib::Client* getNextAvailableClient(std::vector<ClientInfo>& clients, 
-                                          std::atomic<size_t>& current_idx) {
+    httplib::Client* getNextAvailableClient(std::vector<ClientInfo>& clients, std::atomic<size_t>& current_idx) {
         size_t start_idx = current_idx.fetch_add(1) % POOL_SIZE;
         size_t current = start_idx;
         
@@ -72,14 +68,13 @@ private:
         // If no client is available, wait for one with a timeout
         std::unique_lock<std::mutex> lock(connection_mutex_);
         if (connection_cv_.wait_for(lock, std::chrono::milliseconds(50), 
-            [this] { return active_connections_ < MAX_CONCURRENT_CONNECTIONS; })) {
+            [] { return true; })) {
             // Try one more round after waiting
             current = start_idx;
             do {
                 bool expected = false;
                 if (clients[current].in_use.compare_exchange_strong(expected, true)) {
                     clients[current].last_used = std::chrono::steady_clock::now();
-                    active_connections_++;
                     return clients[current].client.get();
                 }
                 current = (current + 1) % POOL_SIZE;
@@ -93,19 +88,9 @@ private:
         for (auto& info : clients) {
             if (info.client.get() == client) {
                 info.in_use.store(false);
-                active_connections_--;
                 connection_cv_.notify_one();
                 break;
             }
-        }
-    }
-
-    void monitorResources() {
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            std::cout << "Resource Usage - Active Connections: " << active_connections_ 
-                      << ", Total Searches: " << total_searches_ 
-                      << ", Successful Searches: " << successful_searches_ << std::endl;
         }
     }
 
@@ -117,14 +102,10 @@ public:
             rate_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("rate", 50057)));
             profile_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("profile", 50052)));
         }
-
-        // Start resource monitoring thread
-        std::thread monitor_thread(&SearchService::monitorResources, this);
-        monitor_thread.detach();
     }
 
     hotelreservation::SearchResponse Search(const hotelreservation::SearchRequest& req) {
-        size_t current_total = total_searches_.fetch_add(1);
+        size_t current_total = total_received_.fetch_add(1);
         if (current_total % 1000 == 0) {
             std::cout << "Received " << current_total + 1 << " total search requests" << std::endl;
         }
@@ -206,11 +187,6 @@ public:
             *response.add_hotels() = profile;
         }
         response.set_padding(microservice::utils::generate_padding());
-        
-        size_t current_success = successful_searches_.fetch_add(1);
-        if (current_success % 1000 == 0) {
-            std::cout << "Successfully completed " << current_success + 1 << " searches" << std::endl;
-        }
         
         return response;
     }

@@ -14,6 +14,27 @@
 #include <unordered_map>
 #include <queue>
 #include <condition_variable>
+#include <iomanip>
+#include <sstream>
+
+// Helper function to get current timestamp as string
+std::string getTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()) % 1000;
+    
+    std::stringstream ss;
+    ss << std::put_time(std::localtime(&time_t), "%Y-%m-%d %H:%M:%S");
+    ss << '.' << std::setfill('0') << std::setw(3) << ms.count();
+    return ss.str();
+}
+
+// Helper function to calculate duration in microseconds
+template<typename T>
+uint64_t getDurationUs(const T& start, const T& end) {
+    return std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+}
 
 class FrontEndService {
 public:
@@ -22,16 +43,12 @@ public:
     static constexpr int MAX_CONCURRENT_CONNECTIONS = 2048;  // Limit concurrent connections
     static constexpr int MAX_RETRIES = 3;
     static constexpr int RETRY_DELAY_MS = 10;
-    static constexpr int MONITOR_INTERVAL_MS = 100;
-    static constexpr int LOG_INTERVAL_REQUESTS = 1000;
 
 private:
     std::atomic<uint64_t> search_requests_received_{0};
     std::atomic<uint64_t> search_requests_completed_{0};
     std::atomic<uint64_t> search_requests_failed_{0};
     std::atomic<uint64_t> search_requests_retried_{0};
-    std::atomic<bool> monitoring_active_{true};
-    std::thread monitoring_thread_;
     
     struct ClientInfo {
         std::unique_ptr<httplib::Client> client;
@@ -246,41 +263,6 @@ private:
         return json;
     }
 
-    void monitorRequests() {
-        uint64_t last_logged_count = 0;
-        uint64_t last_latency = 0;
-        uint64_t last_connections = 0;
-        
-        while (monitoring_active_.load()) {
-            uint64_t current_count = search_requests_received_.load();
-            uint64_t current_latency = metrics_.total_latency.load();
-            uint64_t current_connections = metrics_.active_connections.load();
-            
-            if (current_count >= last_logged_count + LOG_INTERVAL_REQUESTS) {
-                uint64_t latency_diff = current_latency - last_latency;
-                uint64_t request_diff = current_count - last_logged_count;
-                double avg_latency = request_diff > 0 ? (double)latency_diff / request_diff : 0;
-                
-                std::cout << "Performance Metrics:" << std::endl
-                         << "  Requests - Total: " << current_count 
-                         << ", Completed: " << search_requests_completed_.load()
-                         << ", Failed: " << search_requests_failed_.load()
-                         << ", Retried: " << search_requests_retried_.load() << std::endl
-                         << "  Latency - Average: " << avg_latency << "μs"
-                         << ", Active Connections: " << current_connections
-                         << ", Connection Errors: " << metrics_.connection_errors.load() << std::endl
-                         << "  Success Rate: " 
-                         << (current_count > 0 ? (double)search_requests_completed_.load() / current_count * 100 : 0)
-                         << "%" << std::endl;
-                
-                last_logged_count = current_count;
-                last_latency = current_latency;
-                last_connections = current_connections;
-            }
-            std::this_thread::sleep_for(std::chrono::milliseconds(MONITOR_INTERVAL_MS));
-        }
-    }
-
     // Retry logic for failed requests
     template<typename T>
     std::string retryRequest(std::function<std::string()> request_func, 
@@ -315,16 +297,10 @@ public:
             user_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("user", 50054)));
             reservation_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("reservation", 50055)));
         }
-        
-        // Start monitoring thread
-        monitoring_thread_ = std::thread(&FrontEndService::monitorRequests, this);
     }
 
     ~FrontEndService() {
-        monitoring_active_.store(false);
-        if (monitoring_thread_.joinable()) {
-            monitoring_thread_.join();
-        }
+        // No cleanup needed
     }
 
     std::string HandleSearch(const std::string& json_str) {
@@ -409,35 +385,103 @@ public:
     }
 
     std::string HandleUser(const std::string& json_str) {
+        auto method_start = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Method started" << std::endl;
+        
+        // JSON parsing timing
+        auto json_parse_start = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Starting JSON parsing" << std::endl;
+        
         Json::Value json;
         Json::Reader reader;
         if (!reader.parse(json_str, json)) {
+            auto json_parse_end = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - JSON parsing failed in " 
+                      << getDurationUs(json_parse_start, json_parse_end) << "μs" << std::endl;
             return "{\"error\": \"Invalid JSON format\"}";
         }
+        
+        auto json_parse_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - JSON parsing completed in " 
+                  << getDurationUs(json_parse_start, json_parse_end) << "μs" << std::endl;
 
+        // Protobuf request creation and serialization timing
+        auto pb_serialize_start = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Starting protobuf serialization" << std::endl;
+        
         auto req = parseUserRequest(json);
         std::string serialized_request = microservice::utils::serialize_message(req);
         
+        auto pb_serialize_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Protobuf serialization completed in " 
+                  << getDurationUs(pb_serialize_start, pb_serialize_end) << "μs" << std::endl;
+        
+        // Client acquisition timing
+        auto client_start = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Acquiring client" << std::endl;
+        
         auto* client = getNextAvailableClient(user_clients_, current_user_idx_);
         if (!client) {
+            auto client_end = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Client acquisition failed in " 
+                      << getDurationUs(client_start, client_end) << "μs" << std::endl;
             return "{\"error\": \"No available clients\"}";
         }
+        
+        auto client_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Client acquired in " 
+                  << getDurationUs(client_start, client_end) << "μs" << std::endl;
 
+        // HTTP communication timing
+        auto http_start = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Starting HTTP request to user service" << std::endl;
+        
         auto result = client->Post("/user", serialized_request, "application/x-protobuf");
         releaseClient(user_clients_, client);
         
+        auto http_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - HTTP request completed in " 
+                  << getDurationUs(http_start, http_end) << "μs" << std::endl;
+        
         if (!result || result->status != 200) {
+            std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - HTTP request failed with status " 
+                      << (result ? result->status : -1) << std::endl;
             return "{\"error\": \"User service unavailable\"}";
         }
 
+        // Protobuf deserialization timing
+        auto pb_deserialize_start = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Starting protobuf deserialization" << std::endl;
+        
         hotelreservation::UserResponse response;
         if (!microservice::utils::deserialize_message(result->body, response)) {
+            auto pb_deserialize_end = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Protobuf deserialization failed in " 
+                      << getDurationUs(pb_deserialize_start, pb_deserialize_end) << "μs" << std::endl;
             return "{\"error\": \"Failed to process user request\"}";
         }
+        
+        auto pb_deserialize_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Protobuf deserialization completed in " 
+                  << getDurationUs(pb_deserialize_start, pb_deserialize_end) << "μs" << std::endl;
 
+        // JSON response creation timing
+        auto json_response_start = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Creating JSON response" << std::endl;
+        
         Json::Value response_json;
         response_json["message"] = response.message();
-        return response_json.toStyledString();
+        std::string json_response = response_json.toStyledString();
+        
+        auto json_response_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - JSON response created in " 
+                  << getDurationUs(json_response_start, json_response_end) << "μs" << std::endl;
+        
+        auto method_end = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] FrontEndService::HandleUser - Method completed in " 
+                  << getDurationUs(method_start, method_end) << "μs total" << std::endl;
+        
+        return json_response;
     }
 
     std::string HandleReservation(const std::string& json_str) {
@@ -478,8 +522,6 @@ constexpr int FrontEndService::POOL_SIZE;
 constexpr int FrontEndService::MAX_CONCURRENT_CONNECTIONS;
 constexpr int FrontEndService::MAX_RETRIES;
 constexpr int FrontEndService::RETRY_DELAY_MS;
-constexpr int FrontEndService::MONITOR_INTERVAL_MS;
-constexpr int FrontEndService::LOG_INTERVAL_REQUESTS;
 
 int main() {
     httplib::Server svr;
@@ -590,6 +632,9 @@ int main() {
     });
 
     svr.Get("/user", [&](const httplib::Request& req, httplib::Response& res) {
+        auto http_start = std::chrono::steady_clock::now();
+        std::cout << "[" << getTimestamp() << "] /user endpoint - HTTP request received" << std::endl;
+        
         auto start_time = std::chrono::steady_clock::now();
         
         auto check_timeout = [&start_time]() -> bool {
@@ -607,9 +652,17 @@ int main() {
         }
 
         try {
+            // Parameter extraction timing
+            auto param_start = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] /user endpoint - Extracting parameters" << std::endl;
+            
             Json::Value json;
             json["username"] = req.get_param_value("username");
             json["password"] = req.get_param_value("password");
+            
+            auto param_end = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] /user endpoint - Parameters extracted in " 
+                      << getDurationUs(param_start, param_end) << "μs" << std::endl;
 
             if (check_timeout()) {
                 std::cerr << "User request timeout during parameter processing" << std::endl;
@@ -618,8 +671,24 @@ int main() {
                 return;
             }
             
+            // JSON creation and service call timing
+            auto json_create_start = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] /user endpoint - Creating JSON and calling service" << std::endl;
+            
             Json::FastWriter writer;
-            res.set_content(service.HandleUser(writer.write(json)), "application/json");
+            std::string json_str = writer.write(json);
+            std::string response = service.HandleUser(json_str);
+            
+            auto json_create_end = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] /user endpoint - JSON created and service called in " 
+                      << getDurationUs(json_create_start, json_create_end) << "μs" << std::endl;
+            
+            res.set_content(response, "application/json");
+            
+            auto http_end = std::chrono::steady_clock::now();
+            std::cout << "[" << getTimestamp() << "] /user endpoint - HTTP response sent in " 
+                      << getDurationUs(http_start, http_end) << "μs total" << std::endl;
+            
         } catch (const std::exception& e) {
             std::cerr << "User request error: " << e.what() << std::endl;
             res.status = 400;

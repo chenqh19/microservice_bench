@@ -14,30 +14,14 @@ class RateService {
 private:
     static const int POOL_SIZE = 1024;
     static const int MAX_CONCURRENT_CONNECTIONS = 512;
-    std::atomic<size_t> active_connections_{0};
-    std::atomic<size_t> successful_requests_{0};
-    std::atomic<size_t> total_requests_{0};
     std::mutex connection_mutex_;
     std::condition_variable connection_cv_;
 
     std::unordered_map<std::string, std::vector<hotelreservation::RoomType>> hotel_rates_;
 
-    void monitorResources() {
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            std::cout << "Resource Usage - Active Connections: " << active_connections_ 
-                      << ", Total Requests: " << total_requests_ 
-                      << ", Successful Requests: " << successful_requests_ << std::endl;
-        }
-    }
-
 public:
     RateService() {
         InitializeSampleRates();
-
-        // Start resource monitoring thread
-        std::thread monitor_thread(&RateService::monitorResources, this);
-        monitor_thread.detach();
     }
 
     void InitializeSampleRates() {
@@ -71,7 +55,6 @@ public:
     }
 
     hotelreservation::GetRatesResponse GetRates(const hotelreservation::GetRatesRequest& req) {
-        total_requests_++;
         hotelreservation::GetRatesResponse response;
 
         for (const auto& hotel_id : req.hotel_ids()) {
@@ -91,7 +74,6 @@ public:
         
         response.set_padding(microservice::utils::generate_padding());
 
-        successful_requests_++;
         return response;
     }
 };
