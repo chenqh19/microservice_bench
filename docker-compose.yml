@@ -23,7 +23,7 @@ services:
     privileged: true
     user: "0"
     volumes:
-      - user_socket:/tmp
+      - sockets:/tmp
 
   search:
     build: 
@@ -35,6 +35,8 @@ services:
       - base
     privileged: true
     user: "0"
+    volumes:
+      - sockets:/tmp
 
   profile:
     build: 
@@ -46,6 +48,8 @@ services:
       - base
     privileged: true
     user: "0"
+    volumes:
+      - sockets:/tmp
 
   recommendation:
     build: 
@@ -57,6 +61,8 @@ services:
       - base
     privileged: true
     user: "0"
+    volumes:
+      - sockets:/tmp
 
   user:
     build: 
@@ -69,7 +75,7 @@ services:
     privileged: true
     user: "0"
     volumes:
-      - user_socket:/tmp
+      - sockets:/tmp
 
   reservation:
     build: 
@@ -81,6 +87,8 @@ services:
       - base
     privileged: true
     user: "0"
+    volumes:
+      - sockets:/tmp
 
   rate:
     build: 
@@ -92,6 +100,8 @@ services:
       - base
     privileged: true
     user: "0"
+    volumes:
+      - sockets:/tmp
 
   geo:
     build: 
@@ -103,10 +113,12 @@ services:
       - base
     privileged: true
     user: "0"
+    volumes:
+      - sockets:/tmp
 
 networks:
   hotel_network:
     driver: bridge 
 
 volumes:
-  user_socket: 
+  sockets: 

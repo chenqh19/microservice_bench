@@ -4,19 +4,20 @@
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
 #include "padding_utils.h"
-#include <httplib.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <chrono>
 #include <atomic>
 #include <thread>
 #include <condition_variable>
+#include <cstring>
+#include "../thread_pool.h"
 
 class RateService {
 private:
-    static const int POOL_SIZE = 1024;
-    static const int MAX_CONCURRENT_CONNECTIONS = 512;
-    std::mutex connection_mutex_;
-    std::condition_variable connection_cv_;
-
     std::unordered_map<std::string, std::vector<hotelreservation::RoomType>> hotel_rates_;
 
 public:
@@ -56,7 +57,7 @@ public:
 
     hotelreservation::GetRatesResponse GetRates(const hotelreservation::GetRatesRequest& req) {
         hotelreservation::GetRatesResponse response;
-
+        
         for (const auto& hotel_id : req.hotel_ids()) {
             auto it = hotel_rates_.find(hotel_id);
             if (it != hotel_rates_.end()) {
@@ -73,62 +74,64 @@ public:
         }
         
         response.set_padding(microservice::utils::generate_padding());
-
         return response;
     }
 };
 
+void handle_client(int client_fd, RateService& service) {
+    char len_buf[4];
+    ssize_t n = read(client_fd, len_buf, 4);
+    if (n != 4) { close(client_fd); return; }
+    uint32_t msg_len = 0;
+    memcpy(&msg_len, len_buf, 4);
+    std::vector<char> buf(msg_len);
+    n = read(client_fd, buf.data(), msg_len);
+    if (n != (ssize_t)msg_len) { close(client_fd); return; }
+    hotelreservation::GetRatesRequest req;
+    bool ok = microservice::utils::deserialize_message(std::string(buf.begin(), buf.end()), req);
+    if (!ok) { close(client_fd); return; }
+    auto response = service.GetRates(req);
+    std::string resp_str = microservice::utils::serialize_message(response);
+    uint32_t resp_len = resp_str.size();
+    write(client_fd, &resp_len, 4);
+    write(client_fd, resp_str.data(), resp_len);
+    close(client_fd);
+}
+
 int main() {
-    httplib::Server svr;
+    const char* socket_path = "/tmp/rate_service.sock";
+    unlink(socket_path); // Remove if exists
+    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("socket");
+        return 1;
+    }
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("bind");
+        close(server_fd);
+        return 1;
+    }
+    chmod(socket_path, 0777); // Ensure world-writable for Docker
+    if (listen(server_fd, 1024) < 0) {
+        perror("listen");
+        close(server_fd);
+        return 1;
+    }
+    std::cout << "Rate service listening on unix://" << socket_path << std::endl;
+    
     RateService service;
-
-    // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(1024); }; // Match pool size with client pool
-
-    svr.Post("/get_rates", [&](const httplib::Request& req, httplib::Response& res) {
-        auto start_time = std::chrono::steady_clock::now();
-
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 10; // 10ms timeout
-        };
-
-        hotelreservation::GetRatesRequest request;
-        if (!microservice::utils::deserialize_message(req.body, request)) {
-            res.status = 400;
-            res.set_content("{\"error\": \"Failed to deserialize request\"}", "application/json");
-            return;
-        }
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during deserialization\"}", "application/json");
-            return;
-        }
-
-        auto response = service.GetRates(request);
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
-        }
-
-        std::string serialized_response = microservice::utils::serialize_message(response);
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during serialization\"}", "application/json");
-            return;
-        }
-
-        res.set_content(serialized_response, "application/x-protobuf");
-    });
-
-    std::cout << "Rate service listening on 0.0.0.0:50057 with 1024 worker threads" << std::endl;
-    svr.listen("0.0.0.0", 50057);
-
+    ThreadPool pool(64); // Use 64 threads for the pool
+    
+    while (true) {
+        int client_fd = accept(server_fd, nullptr, nullptr);
+        if (client_fd < 0) continue;
+        pool.enqueue_task([client_fd, &service]() {
+            handle_client(client_fd, service);
+        });
+    }
+    close(server_fd);
     return 0;
 } 

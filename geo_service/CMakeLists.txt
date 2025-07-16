@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(geo_service)
 
-add_definitions(-std=c++14 -O0 -march=native)
+add_definitions(-std=c++14 -O3 -march=native)
 add_definitions(-Wall -Wextra -Wformat -Wformat-security)
 add_definitions(-fstack-protector -fPIE -fPIC)
 add_definitions(-D_FORTIFY_SOURCE=2)
@@ -79,6 +79,7 @@ target_include_directories(geo_service PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     ${Protobuf_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/../protos
+    ${CMAKE_SOURCE_DIR}/..
 ) 
 
 target_link_libraries(geo_service

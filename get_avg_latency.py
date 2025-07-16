@@ -6,7 +6,7 @@ def process_file(filename):
     result = {
         "0.500000": defaultdict(list),
         "0.900000": defaultdict(list),
-        "0.950000": defaultdict(list)
+        "0.990625": defaultdict(list)
     }
     with open(filename) as f:
         for line in f:
@@ -16,7 +16,7 @@ def process_file(filename):
                 lat_part = parts[1]
                 rps = int(rps_part.split(":")[1].strip())
                 lat_dict = ast.literal_eval(lat_part)
-                for key in ["0.500000", "0.900000", "0.950000"]:
+                for key in ["0.500000", "0.900000", "0.990625"]:
                     result[key][rps].append(float(lat_dict[key]))
     # Now process each list: sort, remove largest 2 and smallest 2, then average
     final_result = {}
@@ -33,7 +33,7 @@ def process_file(filename):
     return final_result
 
 ser1de = "tail_ser1de"
-proto = "tail_proto"
+proto = "tail_protobuf"
 
 # Process both files
 res1 = process_file(ser1de+'.txt')
@@ -42,10 +42,10 @@ res2 = process_file(proto+'.txt')
 labels = {
     "0.500000": "p50",
     "0.900000": "p90",
-    "0.950000": "p95"
+    "0.990625": "p95"
 }
 
-for key in ["0.500000", "0.900000", "0.950000"]:
+for key in ["0.500000", "0.900000", "0.990625"]:
     plt.figure()
     # Sort RPS for consistent plotting
     rps1 = sorted(res1[key].keys())

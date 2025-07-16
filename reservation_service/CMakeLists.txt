@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(reservation_service)
 
-add_definitions(-std=c++14 -O0 -march=native)
+add_definitions(-std=c++14 -O3 -march=native)
 add_definitions(-Wall -Wextra -Wformat -Wformat-security)
 add_definitions(-fstack-protector -fPIE -fPIC)
 add_definitions(-D_FORTIFY_SOURCE=2)
@@ -11,14 +11,6 @@ find_package(GTest CONFIG REQUIRED)
 
 # Add abseil
 add_subdirectory(/app/ser1de/protobuf/third_party/abseil-cpp abseil)
-
-include(FetchContent)
-FetchContent_Declare(
-    httplib
-    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
-    GIT_TAG v0.14.1
-)
-FetchContent_MakeAvailable(httplib)
 
 # protobuf
 include_directories(/app/ser1de/protobuf/src/)
@@ -79,12 +71,12 @@ target_include_directories(reservation_service PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
     ${Protobuf_INCLUDE_DIRS}
     ${CMAKE_SOURCE_DIR}/../protos
+    ${CMAKE_SOURCE_DIR}/..
 ) 
 
 target_link_libraries(reservation_service
     protobuf
     ${protobuf_ABSL_USED_TARGETS}
-    httplib::httplib
     pthread
     utf8_validity
     qpl

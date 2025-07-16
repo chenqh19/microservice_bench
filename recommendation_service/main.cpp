@@ -1,174 +1,52 @@
 #include <iostream>
 #include <string>
-#include <vector>
-#include <algorithm>
-#include <cmath>
-#include <unordered_map>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
 #include "padding_utils.h"
-#include <httplib.h>
-#include <memory>
+#include <vector>
 #include <atomic>
 #include <thread>
-#include <chrono>
+#include <mutex>
 #include <condition_variable>
+#include <cstring>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include "../thread_pool.h"
 
 class RecommendationService {
 private:
-    static const int POOL_SIZE = 1024;
-    static const int MAX_CONCURRENT_CONNECTIONS = 512;
+    // No unused members
     
-    struct ClientInfo {
-        std::unique_ptr<httplib::Client> client;
-        std::atomic<bool> in_use;
-        std::chrono::steady_clock::time_point last_used;
-
-        ClientInfo() : client(nullptr), in_use(false), last_used(std::chrono::steady_clock::now()) {}
-        
-        ClientInfo(std::unique_ptr<httplib::Client>&& c) 
-            : client(std::move(c)), in_use(false), last_used(std::chrono::steady_clock::now()) {}
-        
-        ClientInfo(const ClientInfo&) = delete;
-        ClientInfo& operator=(const ClientInfo&) = delete;
-        
-        ClientInfo(ClientInfo&& other) noexcept
-            : client(std::move(other.client)), in_use(false), last_used(std::chrono::steady_clock::now()) {}
-        
-        ClientInfo& operator=(ClientInfo&& other) noexcept {
-            client = std::move(other.client);
-            bool expected = other.in_use.load();
-            in_use.store(expected);
-            last_used = std::chrono::steady_clock::now();
-            return *this;
+    std::string sendProtobufOverUDS(const std::string& path, const std::string& data) {
+        int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (fd < 0) return "";
+        sockaddr_un addr{};
+        addr.sun_family = AF_UNIX;
+        strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
+        if (connect(fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
+            close(fd);
+            return "";
         }
-    };
-
-    struct Hotel {
-        std::string id;
-        double lat;
-        double lon;
-        double rate;
-        double price;
-    };
-
-    std::vector<ClientInfo> profile_clients_;
-    std::vector<ClientInfo> rate_clients_;
-    std::atomic<size_t> current_profile_idx_{0};
-    std::atomic<size_t> current_rate_idx_{0};
-    std::unordered_map<std::string, Hotel> hotels_;
-    static constexpr double EARTH_RADIUS = 6371.0;
-    std::mutex connection_mutex_;
-    std::condition_variable connection_cv_;
-
-    httplib::Client* getNextAvailableClient(std::vector<ClientInfo>& clients, std::atomic<size_t>& current_idx) {
-        size_t start_idx = current_idx.fetch_add(1) % POOL_SIZE;
-        size_t current = start_idx;
-        
-        // First try to find an available client without waiting
-        do {
-            bool expected = false;
-            if (clients[current].in_use.compare_exchange_strong(expected, true)) {
-                clients[current].last_used = std::chrono::steady_clock::now();
-                return clients[current].client.get();
-            }
-            current = (current + 1) % POOL_SIZE;
-        } while (current != start_idx);
-        
-        // If no client is available, wait for one with a timeout
-        std::unique_lock<std::mutex> lock(connection_mutex_);
-        if (connection_cv_.wait_for(lock, std::chrono::milliseconds(50), 
-            [] { return true; })) {
-            // Try one more round after waiting
-            current = start_idx;
-            do {
-                bool expected = false;
-                if (clients[current].in_use.compare_exchange_strong(expected, true)) {
-                    clients[current].last_used = std::chrono::steady_clock::now();
-                    return clients[current].client.get();
-                }
-                current = (current + 1) % POOL_SIZE;
-            } while (current != start_idx);
-        }
-        
-        return nullptr;
-    }
-
-    void releaseClient(std::vector<ClientInfo>& clients, httplib::Client* client) {
-        for (auto& info : clients) {
-            if (info.client.get() == client) {
-                info.in_use.store(false);
-                connection_cv_.notify_one();
-                break;
-            }
-        }
+        uint32_t len = data.size();
+        if (write(fd, &len, 4) != 4) { close(fd); return ""; }
+        if (write(fd, data.data(), len) != (ssize_t)len) { close(fd); return ""; }
+        char len_buf[4];
+        if (read(fd, len_buf, 4) != 4) { close(fd); return ""; }
+        uint32_t resp_len = 0;
+        memcpy(&resp_len, len_buf, 4);
+        std::vector<char> resp_buf(resp_len);
+        if (read(fd, resp_buf.data(), resp_len) != (ssize_t)resp_len) { close(fd); return ""; }
+        close(fd);
+        return std::string(resp_buf.begin(), resp_buf.end());
     }
 
 public:
     RecommendationService() {
         // Initialize client pools
-        for (int i = 0; i < POOL_SIZE; i++) {
-            profile_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("profile", 50052)));
-            rate_clients_.push_back(ClientInfo(std::make_unique<httplib::Client>("rate", 50057)));
-        }
-        InitializeSampleData();
-    }
-
-    void InitializeSampleData() {
-        // Initialize first 6 hotels with exact data
-        hotels_["1"] = {"1", 37.7867, -122.4112, 109.00, 150.00};
-        hotels_["2"] = {"2", 37.7854, -122.4005, 139.00, 120.00};
-        hotels_["3"] = {"3", 37.7834, -122.4071, 109.00, 190.00};
-        hotels_["4"] = {"4", 37.7936, -122.3930, 129.00, 160.00};
-        hotels_["5"] = {"5", 37.7831, -122.4181, 119.00, 140.00};
-        hotels_["6"] = {"6", 37.7863, -122.4015, 149.00, 200.00};
-
-        // Add hotels 7-80 with generated data
-        for (int i = 7; i <= 80; i++) {
-            std::string hotel_id = std::to_string(i);
-            double lat = 37.7835 + static_cast<double>(i)/500.0*3;
-            double lon = -122.41 + static_cast<double>(i)/500.0*4;
-
-            double rate = 135.00;
-            double rate_inc = 179.00;
-            if (i % 3 == 0) {
-                if (i % 5 == 0) {
-                    rate = 109.00;
-                    rate_inc = 123.17;
-                } else if (i % 5 == 1) {
-                    rate = 120.00;
-                    rate_inc = 140.00;
-                } else if (i % 5 == 2) {
-                    rate = 124.00;
-                    rate_inc = 144.00;
-                } else if (i % 5 == 3) {
-                    rate = 132.00;
-                    rate_inc = 158.00;
-                } else if (i % 5 == 4) {
-                    rate = 232.00;
-                    rate_inc = 258.00;
-                }
-            }
-            
-            hotels_[hotel_id] = {hotel_id, lat, lon, rate, rate_inc};
-        }
-    }
-
-    double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        // Convert to radians
-        lat1 = lat1 * M_PI / 180.0;
-        lon1 = lon1 * M_PI / 180.0;
-        lat2 = lat2 * M_PI / 180.0;
-        lon2 = lon2 * M_PI / 180.0;
-
-        // Haversine formula
-        double dlat = lat2 - lat1;
-        double dlon = lon2 - lon1;
-        double a = std::sin(dlat/2) * std::sin(dlat/2) +
-                   std::cos(lat1) * std::cos(lat2) *
-                   std::sin(dlon/2) * std::sin(dlon/2);
-        double c = 2 * std::atan2(std::sqrt(a), std::sqrt(1-a));
-        return EARTH_RADIUS * c;
+        // This class is now purely UDS+Protobuf, so no client pools are needed.
     }
 
     hotelreservation::RecommendResponse Recommend(const hotelreservation::RecommendRequest& req) {
@@ -180,20 +58,9 @@ public:
         }
         profile_req.set_locale(req.locale());
         profile_req.set_padding(microservice::utils::generate_padding());
-
-        auto* profile_client = getNextAvailableClient(profile_clients_, current_profile_idx_);
-        if (!profile_client) {
-            return hotelreservation::RecommendResponse();
-        }
-
-        auto profile_result = profile_client->Post("/get_profiles", 
-            microservice::utils::serialize_message(profile_req), 
-            "application/x-protobuf");
-        releaseClient(profile_clients_, profile_client);
-
+        std::string profile_resp_str = sendProtobufOverUDS("/tmp/profile_service.sock", microservice::utils::serialize_message(profile_req));
         hotelreservation::GetProfilesResponse profile_resp;
-        if (!profile_result || profile_result->status != 200 || 
-            !microservice::utils::deserialize_message(profile_result->body, profile_resp)) {
+        if (!microservice::utils::deserialize_message(profile_resp_str, profile_resp)) {
             return hotelreservation::RecommendResponse();
         }
 
@@ -205,20 +72,9 @@ public:
         rate_req.set_in_date("2023-12-01");
         rate_req.set_out_date("2023-12-02");
         rate_req.set_padding(microservice::utils::generate_padding());
-
-        auto* rate_client = getNextAvailableClient(rate_clients_, current_rate_idx_);
-        if (!rate_client) {
-            return hotelreservation::RecommendResponse();
-        }
-
-        auto rate_result = rate_client->Post("/get_rates", 
-            microservice::utils::serialize_message(rate_req), 
-            "application/x-protobuf");
-        releaseClient(rate_clients_, rate_client);
-
+        std::string rate_resp_str = sendProtobufOverUDS("/tmp/rate_service.sock", microservice::utils::serialize_message(rate_req));
         hotelreservation::GetRatesResponse rate_resp;
-        if (!rate_result || rate_result->status != 200 || 
-            !microservice::utils::deserialize_message(rate_result->body, rate_resp)) {
+        if (!microservice::utils::deserialize_message(rate_resp_str, rate_resp)) {
             return hotelreservation::RecommendResponse();
         }
 
@@ -233,57 +89,61 @@ public:
     }
 };
 
-int main() {
-    httplib::Server svr;
-    RecommendationService service;
-
-    // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(256); };
-
-    svr.Post("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
-        auto start_time = std::chrono::steady_clock::now();
-
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 10; // 10ms timeout
-        };
-
-        hotelreservation::RecommendRequest request;
-        if (!microservice::utils::deserialize_message(req.body, request)) {
-            res.status = 400;
-            res.set_content("{\"error\": \"Failed to deserialize request\"}", "application/json");
-            return;
-        }
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during deserialization\"}", "application/json");
-            return;
-        }
-
+void handle_client(int client_fd, RecommendationService& service) {
+    char len_buf[4];
+    ssize_t n = read(client_fd, len_buf, 4);
+    if (n != 4) { close(client_fd); return; }
+    uint32_t msg_len = 0;
+    memcpy(&msg_len, len_buf, 4);
+    std::vector<char> buf(msg_len);
+    n = read(client_fd, buf.data(), msg_len);
+    if (n != (ssize_t)msg_len) { close(client_fd); return; }
+    hotelreservation::RecommendRequest request;
+    bool ok = microservice::utils::deserialize_message(std::string(buf.begin(), buf.end()), request);
+    if (ok) {
         auto response = service.Recommend(request);
+        std::string resp_str = microservice::utils::serialize_message(response);
+        uint32_t resp_len = resp_str.size();
+        write(client_fd, &resp_len, 4);
+        write(client_fd, resp_str.data(), resp_len);
+    }
+    close(client_fd);
+}
 
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
-        }
-
-        std::string serialized_response = microservice::utils::serialize_message(response);
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during serialization\"}", "application/json");
-            return;
-        }
-
-        res.set_content(serialized_response, "application/x-protobuf");
-    });
-
-    std::cout << "Recommendation service listening on 0.0.0.0:50053 with 256 worker threads" << std::endl;
-    svr.listen("0.0.0.0", 50053);
-
+int main() {
+    const char* socket_path = "/tmp/recommendation_service.sock";
+    unlink(socket_path); // Remove if exists
+    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("socket");
+        return 1;
+    }
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("bind");
+        close(server_fd);
+        return 1;
+    }
+    chmod(socket_path, 0777); // Ensure world-writable for Docker
+    if (listen(server_fd, 1024) < 0) {
+        perror("listen");
+        close(server_fd);
+        return 1;
+    }
+    std::cout << "Recommendation service listening on unix://" << socket_path << std::endl;
+    
+    RecommendationService service;
+    ThreadPool pool(64); // Use 64 threads for the pool
+    
+    while (true) {
+        int client_fd = accept(server_fd, nullptr, nullptr);
+        if (client_fd < 0) continue;
+        pool.enqueue_task([client_fd, &service]() {
+            handle_client(client_fd, service);
+        });
+    }
+    close(server_fd);
     return 0;
 } 

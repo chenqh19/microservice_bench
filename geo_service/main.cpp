@@ -6,19 +6,18 @@
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
 #include "padding_utils.h"
-#include <httplib.h>
-#include <chrono>
-#include <atomic>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <thread>
 #include <condition_variable>
+#include <cstring>
+#include "../thread_pool.h"
 
 class GeoService {
 private:
-    static const int POOL_SIZE = 1024;
-    static const int MAX_CONCURRENT_CONNECTIONS = 512;
-    std::mutex connection_mutex_;
-    std::condition_variable connection_cv_;
-
     struct HotelLocation {
         std::string id;
         double lat;
@@ -54,46 +53,33 @@ public:
     }
 
     double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        // Convert to radians
-        lat1 = lat1 * M_PI / 180.0;
-        lon1 = lon1 * M_PI / 180.0;
-        lat2 = lat2 * M_PI / 180.0;
-        lon2 = lon2 * M_PI / 180.0;
-
-        // Haversine formula
-        double dlat = lat2 - lat1;
-        double dlon = lon2 - lon1;
-        double a = std::sin(dlat/2) * std::sin(dlat/2) +
-                   std::cos(lat1) * std::cos(lat2) *
-                   std::sin(dlon/2) * std::sin(dlon/2);
-        double c = 2 * std::atan2(std::sqrt(a), std::sqrt(1-a));
+        double dlat = (lat2 - lat1) * M_PI / 180.0;
+        double dlon = (lon2 - lon1) * M_PI / 180.0;
+        double a = sin(dlat/2) * sin(dlat/2) + cos(lat1 * M_PI / 180.0) * cos(lat2 * M_PI / 180.0) * sin(dlon/2) * sin(dlon/2);
+        double c = 2 * atan2(sqrt(a), sqrt(1-a));
         return EARTH_RADIUS * c;
     }
 
     hotelreservation::NearbyResponse GetNearbyHotels(const hotelreservation::NearbyRequest& req) {
         hotelreservation::NearbyResponse response;
-        std::vector<std::pair<std::string, double>> distances;
-
-        // Calculate distances to all hotels
+        
+        std::vector<std::pair<double, std::string>> distances;
+        
         for (const auto& hotel : hotels_) {
-            double distance = calculateDistance(req.lat(), req.lon(), 
-                                             hotel.lat, hotel.lon);
-            if (distance <= MAX_SEARCH_RADIUS) {  // Only include hotels within radius
-                distances.push_back({hotel.id, distance});
+            double distance = calculateDistance(req.lat(), req.lon(), hotel.lat, hotel.lon);
+            if (distance <= MAX_SEARCH_RADIUS) {
+                distances.push_back({distance, hotel.id});
             }
         }
-
-        // Sort by distance
-        std::sort(distances.begin(), distances.end(),
-                 [](const auto& a, const auto& b) { return a.second < b.second; });
-
-        // Return top MAX_SEARCH_RESULTS closest hotels
-        for (int i = 0; i < std::min(MAX_SEARCH_RESULTS, (int)distances.size()); i++) {
-            response.add_hotel_ids(distances[i].first);
+        
+        // Sort by distance and take top results
+        std::sort(distances.begin(), distances.end());
+        
+        for (size_t i = 0; i < std::min(distances.size(), static_cast<size_t>(MAX_SEARCH_RESULTS)); ++i) {
+            response.add_hotel_ids(distances[i].second);
         }
         
         response.set_padding(microservice::utils::generate_padding());
-
         return response;
     }
 
@@ -112,67 +98,60 @@ public:
     }
 };
 
-// Define the static constexpr member outside the class
-constexpr int GeoService::MAX_SEARCH_RESULTS;
+void handle_client(int client_fd, GeoService& service) {
+    char len_buf[4];
+    ssize_t n = read(client_fd, len_buf, 4);
+    if (n != 4) { close(client_fd); return; }
+    uint32_t msg_len = 0;
+    memcpy(&msg_len, len_buf, 4);
+    std::vector<char> buf(msg_len);
+    n = read(client_fd, buf.data(), msg_len);
+    if (n != (ssize_t)msg_len) { close(client_fd); return; }
+    hotelreservation::NearbyRequest req;
+    bool ok = microservice::utils::deserialize_message(std::string(buf.begin(), buf.end()), req);
+    if (!ok) { close(client_fd); return; }
+    auto response = service.GetNearbyHotels(req);
+    std::string resp_str = microservice::utils::serialize_message(response);
+    uint32_t resp_len = resp_str.size();
+    write(client_fd, &resp_len, 4);
+    write(client_fd, resp_str.data(), resp_len);
+    close(client_fd);
+}
 
 int main() {
-    httplib::Server svr;
+    const char* socket_path = "/tmp/geo_service.sock";
+    unlink(socket_path); // Remove if exists
+    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (server_fd < 0) {
+        perror("socket");
+        return 1;
+    }
+    sockaddr_un addr{};
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
+    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
+        perror("bind");
+        close(server_fd);
+        return 1;
+    }
+    chmod(socket_path, 0777); // Ensure world-writable for Docker
+    if (listen(server_fd, 1024) < 0) {
+        perror("listen");
+        close(server_fd);
+        return 1;
+    }
+    std::cout << "Geo service listening on unix://" << socket_path << std::endl;
+    
     GeoService service;
-
-    // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(1024); }; // Match pool size with client pool
-
-    svr.Post("/nearby", [&](const httplib::Request& req, httplib::Response& res) {
-        auto start_time = std::chrono::steady_clock::now();
-
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 10; // 10ms timeout
-        };
-
-        hotelreservation::NearbyRequest request;
-        if (!microservice::utils::deserialize_message(req.body, request)) {
-            res.status = 400;
-            res.set_content("{\"error\": \"Failed to deserialize request\"}", "application/json");
-            return;
-        }
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during deserialization\"}", "application/json");
-            return;
-        }
-
-        auto response = service.GetNearbyHotels(request);
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
-        }
-
-        std::string serialized_response = microservice::utils::serialize_message(response);
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during serialization\"}", "application/json");
-            return;
-        }
-
-        res.set_content(serialized_response, "application/x-protobuf");
-    });
-
-    svr.Get("/point/:hotel_id", [&](const httplib::Request& req, httplib::Response& res) {
-        auto hotel_id = req.path_params.at("hotel_id");
-        auto point = service.GetPoint(hotel_id);
-        std::string serialized_response = microservice::utils::serialize_message(point);
-        res.set_content(serialized_response, "application/x-protobuf");
-    });
-
-    std::cout << "Geo service listening on 0.0.0.0:50056 with 1024 worker threads" << std::endl;
-    svr.listen("0.0.0.0", 50056);
-
+    ThreadPool pool(64); // Use 64 threads for the pool
+    
+    while (true) {
+        int client_fd = accept(server_fd, nullptr, nullptr);
+        if (client_fd < 0) continue;
+        pool.enqueue_task([client_fd, &service]() {
+            handle_client(client_fd, service);
+        });
+    }
+    close(server_fd);
     return 0;
 } 
