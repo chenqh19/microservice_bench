@@ -69,7 +69,7 @@ public:
     }
 };
 
-void handle_client(int client_fd, UserService& service) {
+void handle_client(int client_fd, UserService& service, Ser1de_re& ser1de) {
     char len_buf[4];
     ssize_t n = read(client_fd, len_buf, 4);
     if (n != 4) { close(client_fd); return; }
@@ -80,10 +80,10 @@ void handle_client(int client_fd, UserService& service) {
     if (n != (ssize_t)msg_len) { close(client_fd); return; }
     // Try UserRequest
     hotelreservation::UserRequest user_req;
-    bool ok = microservice::utils::deserialize_message(std::string(buf.begin(), buf.end()), user_req);
+    bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), user_req);
     if (ok) {
         auto response = service.RegisterUser(user_req);
-        std::string resp_str = microservice::utils::serialize_message(response);
+        std::string resp_str = microservice::utils::serialize_message(ser1de, response);
         uint32_t resp_len = resp_str.size();
         write(client_fd, &resp_len, 4);
         write(client_fd, resp_str.data(), resp_len);
@@ -92,12 +92,12 @@ void handle_client(int client_fd, UserService& service) {
     }
     // Try CheckUserRequest
     hotelreservation::CheckUserRequest check_req;
-    ok = microservice::utils::deserialize_message(std::string(buf.begin(), buf.end()), check_req);
+    ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), check_req);
     if (ok) {
         hotelreservation::CheckUserResponse response;
         response.set_exists(service.CheckUser(check_req));
         response.set_padding(microservice::utils::generate_padding());
-        std::string resp_str = microservice::utils::serialize_message(response);
+        std::string resp_str = microservice::utils::serialize_message(ser1de, response);
         uint32_t resp_len = resp_str.size();
         write(client_fd, &resp_len, 4);
         write(client_fd, resp_str.data(), resp_len);
@@ -134,12 +134,13 @@ int main() {
     
     UserService service;
     ThreadPool pool(64); // Use 64 threads for the pool
+    Ser1de_re ser1de;
     
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);
         if (client_fd < 0) continue;
         pool.enqueue_task([client_fd, &service]() {
-            handle_client(client_fd, service);
+            handle_client(client_fd, service, ser1de);
         });
     }
     close(server_fd);

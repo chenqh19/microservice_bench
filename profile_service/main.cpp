@@ -176,7 +176,7 @@ public:
     }
 };
 
-void handle_client(int client_fd, ProfileService& service) {
+void handle_client(int client_fd, ProfileService& service, Ser1de_re& ser1de) {
     char len_buf[4];
     ssize_t n = read(client_fd, len_buf, 4);
     if (n != 4) { close(client_fd); return; }
@@ -186,10 +186,10 @@ void handle_client(int client_fd, ProfileService& service) {
     n = read(client_fd, buf.data(), msg_len);
     if (n != (ssize_t)msg_len) { close(client_fd); return; }
     hotelreservation::GetProfilesRequest req;
-    bool ok = microservice::utils::deserialize_message(std::string(buf.begin(), buf.end()), req);
+    bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), req);
     if (!ok) { close(client_fd); return; }
     auto response = service.GetProfiles(req);
-    std::string resp_str = microservice::utils::serialize_message(response);
+    std::string resp_str = microservice::utils::serialize_message(ser1de, response);
     uint32_t resp_len = resp_str.size();
     write(client_fd, &resp_len, 4);
     write(client_fd, resp_str.data(), resp_len);
@@ -221,13 +221,14 @@ int main() {
     std::cout << "Profile service listening on unix://" << socket_path << std::endl;
     
     ProfileService service;
+    Ser1de_re ser1de;
     ThreadPool pool(64); // Use 64 threads for the pool
     
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);
         if (client_fd < 0) continue;
         pool.enqueue_task([client_fd, &service]() {
-            handle_client(client_fd, service);
+            handle_client(client_fd, service, ser1de);
         });
     }
     close(server_fd);

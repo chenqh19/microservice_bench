@@ -48,6 +48,8 @@ private:
     }
 
 public:
+    Ser1de_re ser1de;
+    
     ReservationService() {
         InitializeSampleData();
     }
@@ -88,9 +90,9 @@ public:
         user_req.set_username(req.username());
         user_req.set_password(req.password());
         user_req.set_padding(microservice::utils::generate_padding());
-        std::string user_resp_str = sendProtobufOverUDS("/tmp/user_service.sock", microservice::utils::serialize_message(user_req));
+        std::string user_resp_str = sendProtobufOverUDS("/tmp/user_service.sock", microservice::utils::serialize_message(ser1de, user_req));
         hotelreservation::CheckUserResponse user_resp;
-        if (!microservice::utils::deserialize_message(user_resp_str, user_resp) || !user_resp.exists()) {
+        if (!microservice::utils::deserialize_message(ser1de, user_resp_str, user_resp) || !user_resp.exists()) {
             response.set_message("Invalid user credentials");
             response.set_padding(microservice::utils::generate_padding());
             return response;
@@ -117,7 +119,7 @@ public:
     }
 };
 
-void handle_client(int client_fd, ReservationService& service) {
+void handle_client(int client_fd, ReservationService& service, Ser1de_re& ser1de) {
     char len_buf[4];
     ssize_t n = read(client_fd, len_buf, 4);
     if (n != 4) { close(client_fd); return; }
@@ -127,10 +129,10 @@ void handle_client(int client_fd, ReservationService& service) {
     n = read(client_fd, buf.data(), msg_len);
     if (n != (ssize_t)msg_len) { close(client_fd); return; }
     hotelreservation::ReservationRequest request;
-    bool ok = microservice::utils::deserialize_message(std::string(buf.begin(), buf.end()), request);
+    bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), request);
     if (ok) {
         auto response = service.MakeReservation(request);
-        std::string resp_str = microservice::utils::serialize_message(response);
+        std::string resp_str = microservice::utils::serialize_message(ser1de, response);
         uint32_t resp_len = resp_str.size();
         write(client_fd, &resp_len, 4);
         write(client_fd, resp_str.data(), resp_len);
@@ -163,13 +165,14 @@ int main() {
     std::cout << "Reservation service listening on unix://" << socket_path << std::endl;
     
     ReservationService service;
+    Ser1de_re ser1de;
     ThreadPool pool(64); // Use 64 threads for the pool
     
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);
         if (client_fd < 0) continue;
         pool.enqueue_task([client_fd, &service]() {
-            handle_client(client_fd, service);
+            handle_client(client_fd, service, ser1de);
         });
     }
     close(server_fd);

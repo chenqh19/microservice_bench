@@ -11,30 +11,24 @@
 namespace microservice {
 namespace utils {
 
-// Static global ser1de instance
-static Ser1de_re& get_ser1de_instance() {
-    static Ser1de_re instance; // Default constructor uses hardware path
-    return instance;
-}
-
 // Serialize protobuf message to string using ser1de
 template<typename T>
-std::string serialize_message(const T& message) {
+std::string serialize_message(Ser1de_re& ser1de, const T& message) {
     //std::cout << "Using SERenaDE for serialization" << std::endl;
     std::string serialized;
     // Cast to base Message type for ser1de
     T& non_const_message = const_cast<T&>(message);
-    get_ser1de_instance().SerializeToString(non_const_message, &serialized);
+    ser1de.SerializeToString(non_const_message, &serialized);
     //std::cout << "Used SERenaDE for serialization successfully!" << std::endl;
     return serialized;
 }
 
 // Deserialize string to protobuf message using ser1de
 template<typename T>
-bool deserialize_message(const std::string& data, T& message) {
+bool deserialize_message(Ser1de_re& ser1de, const std::string& data, T& message) {
     //std::cout << "Using SERenaDE for deserialization" << std::endl;
     try {
-        get_ser1de_instance().ParseFromString(data, &message);
+        ser1de.ParseFromString(data, &message);
         //std::cout << "Used SERenaDE for deserialization successfully!" << std::endl;
         return true;
     } catch (const std::exception& e) {
@@ -53,7 +47,7 @@ namespace utils {
 
 // Serialize protobuf message to string using standard protobuf
 template<typename T>
-std::string serialize_message(const T& message) {
+std::string serialize_message(Ser1de_re& ser1de, const T& message) {
     std::string serialized;
     message.SerializeToString(&serialized);
     return serialized;
@@ -61,7 +55,7 @@ std::string serialize_message(const T& message) {
 
 // Deserialize string to protobuf message using standard protobuf
 template<typename T>
-bool deserialize_message(const std::string& data, T& message) {
+bool deserialize_message(Ser1de_re& ser1de, const std::string& data, T& message) {
     return message.ParseFromString(data);
 }
 

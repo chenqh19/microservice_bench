@@ -44,6 +44,8 @@ private:
     }
 
 public:
+    Ser1de_re ser1de;
+
     SearchService() {
         // Initialize client pools
         // This class is now purely UDS+Protobuf, so no client pools are needed.
@@ -55,9 +57,9 @@ public:
         geo_req.set_lat(req.lat());
         geo_req.set_lon(req.lon());
         geo_req.set_padding(microservice::utils::generate_padding());
-        std::string geo_resp_str = sendProtobufOverUDS("/tmp/geo_service.sock", microservice::utils::serialize_message(geo_req));
+        std::string geo_resp_str = sendProtobufOverUDS("/tmp/geo_service.sock", microservice::utils::serialize_message(ser1de, geo_req));
         hotelreservation::NearbyResponse geo_resp;
-        if (!microservice::utils::deserialize_message(geo_resp_str, geo_resp)) {
+        if (!microservice::utils::deserialize_message(ser1de, geo_resp_str, geo_resp)) {
             return hotelreservation::SearchResponse();
         }
         // Get rates for these hotels
@@ -68,9 +70,9 @@ public:
         rate_req.set_in_date(req.in_date());
         rate_req.set_out_date(req.out_date());
         rate_req.set_padding(microservice::utils::generate_padding());
-        std::string rate_resp_str = sendProtobufOverUDS("/tmp/rate_service.sock", microservice::utils::serialize_message(rate_req));
+        std::string rate_resp_str = sendProtobufOverUDS("/tmp/rate_service.sock", microservice::utils::serialize_message(ser1de, rate_req));
         hotelreservation::GetRatesResponse rate_resp;
-        if (!microservice::utils::deserialize_message(rate_resp_str, rate_resp)) {
+        if (!microservice::utils::deserialize_message(ser1de, rate_resp_str, rate_resp)) {
             return hotelreservation::SearchResponse();
         }
         // Get hotel profiles
@@ -80,9 +82,9 @@ public:
         }
         profile_req.set_locale(req.locale());
         profile_req.set_padding(microservice::utils::generate_padding());
-        std::string profile_resp_str = sendProtobufOverUDS("/tmp/profile_service.sock", microservice::utils::serialize_message(profile_req));
+        std::string profile_resp_str = sendProtobufOverUDS("/tmp/profile_service.sock", microservice::utils::serialize_message(ser1de, profile_req));
         hotelreservation::GetProfilesResponse profile_resp;
-        if (!microservice::utils::deserialize_message(profile_resp_str, profile_resp)) {
+        if (!microservice::utils::deserialize_message(ser1de, profile_resp_str, profile_resp)) {
             return hotelreservation::SearchResponse();
         }
         // Combine results
@@ -95,7 +97,7 @@ public:
     }
 };
 
-void handle_client(int client_fd, SearchService& service) {
+void handle_client(int client_fd, SearchService& service, Ser1de_re& ser1de) {
     char len_buf[4];
     ssize_t n = read(client_fd, len_buf, 4);
     if (n != 4) { close(client_fd); return; }
@@ -105,10 +107,10 @@ void handle_client(int client_fd, SearchService& service) {
     n = read(client_fd, buf.data(), msg_len);
     if (n != (ssize_t)msg_len) { close(client_fd); return; }
     hotelreservation::SearchRequest request;
-    bool ok = microservice::utils::deserialize_message(std::string(buf.begin(), buf.end()), request);
+    bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), request);
     if (ok) {
         auto response = service.Search(request);
-        std::string resp_str = microservice::utils::serialize_message(response);
+        std::string resp_str = microservice::utils::serialize_message(ser1de, response);
         uint32_t resp_len = resp_str.size();
         write(client_fd, &resp_len, 4);
         write(client_fd, resp_str.data(), resp_len);
@@ -141,13 +143,14 @@ int main() {
     std::cout << "Search service listening on unix://" << socket_path << std::endl;
     
     SearchService service;
+    Ser1de_re ser1de;
     ThreadPool pool(64); // Use 64 threads for the pool
     
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);
         if (client_fd < 0) continue;
         pool.enqueue_task([client_fd, &service]() {
-            handle_client(client_fd, service);
+            handle_client(client_fd, service, ser1de);
         });
     }
     close(server_fd);

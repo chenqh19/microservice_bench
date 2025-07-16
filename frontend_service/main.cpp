@@ -145,6 +145,8 @@ public:
     ~FrontEndService() {
         // No cleanup needed
     }
+    
+    Ser1de_re ser1de;
 
     std::string HandleSearch(const std::string& json_str) {
         Json::Value json;
@@ -153,10 +155,10 @@ public:
             return "{\"error\": \"Invalid JSON format\"}";
         }
         auto search_req = parseSearchRequest(json);
-        std::string serialized_request = microservice::utils::serialize_message(search_req);
+        std::string serialized_request = microservice::utils::serialize_message(ser1de, search_req);
         std::string response_str = sendProtobufOverUDS("/tmp/search_service.sock", serialized_request);
         hotelreservation::SearchResponse response;
-        if (!microservice::utils::deserialize_message(response_str, response)) {
+        if (!microservice::utils::deserialize_message(ser1de, response_str, response)) {
             return "{\"error\": \"Failed to process search results\"}";
         }
         Json::Value response_json = searchResponseToJson(response);
@@ -171,10 +173,10 @@ public:
             return "{\"error\": \"Invalid JSON format\"}";
         }
         auto req = parseRecommendRequest(json);
-        std::string serialized_request = microservice::utils::serialize_message(req);
+        std::string serialized_request = microservice::utils::serialize_message(ser1de, req);
         std::string response_str = sendProtobufOverUDS("/tmp/recommendation_service.sock", serialized_request);
         hotelreservation::RecommendResponse response;
-        if (!microservice::utils::deserialize_message(response_str, response)) {
+        if (!microservice::utils::deserialize_message(ser1de, response_str, response)) {
             return "{\"error\": \"Failed to process recommendations\"}";
         }
         return recommendResponseToJson(response).toStyledString();
@@ -187,10 +189,10 @@ public:
             return "{\"error\": \"Invalid JSON format\"}";
         }
         auto req = parseUserRequest(json);
-        std::string serialized_request = microservice::utils::serialize_message(req);
+        std::string serialized_request = microservice::utils::serialize_message(ser1de, req);
         std::string response_str = sendProtobufOverUDS("/tmp/user_service.sock", serialized_request);
         hotelreservation::UserResponse response;
-        if (!microservice::utils::deserialize_message(response_str, response)) {
+        if (!microservice::utils::deserialize_message(ser1de, response_str, response)) {
             return "{\"error\": \"Failed to process user request\"}";
         }
         Json::Value response_json;
@@ -205,10 +207,10 @@ public:
             return "{\"error\": \"Invalid JSON format\"}";
         }
         auto req = parseReservationRequest(json);
-        std::string serialized_request = microservice::utils::serialize_message(req);
+        std::string serialized_request = microservice::utils::serialize_message(ser1de, req);
         std::string response_str = sendProtobufOverUDS("/tmp/reservation_service.sock", serialized_request);
         hotelreservation::ReservationResponse response;
-        if (!microservice::utils::deserialize_message(response_str, response)) {
+        if (!microservice::utils::deserialize_message(ser1de, response_str, response)) {
             return "{\"error\": \"Failed to process reservation\"}";
         }
         Json::Value response_json;
