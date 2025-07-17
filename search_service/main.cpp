@@ -149,7 +149,7 @@ int main() {
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);
         if (client_fd < 0) continue;
-        pool.enqueue_task([client_fd, &service]() {
+        pool.enqueue_task([client_fd, &service, &ser1de]() {
             handle_client(client_fd, service, ser1de);
         });
     }
