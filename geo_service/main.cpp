@@ -144,7 +144,7 @@ int main() {
     
     GeoService service;
     Ser1de_re ser1de;
-    ThreadPool pool(64); // Use 64 threads for the pool
+    ThreadPool pool(8); // Use 8 threads for the pool
     
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);

@@ -45,7 +45,7 @@ private:
 
 public:
     Ser1de_re ser1de;
-
+    
     SearchService() {
         // Initialize client pools
         // This class is now purely UDS+Protobuf, so no client pools are needed.
@@ -144,7 +144,7 @@ int main() {
     
     SearchService service;
     Ser1de_re ser1de;
-    ThreadPool pool(64); // Use 64 threads for the pool
+    ThreadPool pool(8); // Use 8 threads for the pool
     
     while (true) {
         int client_fd = accept(server_fd, nullptr, nullptr);

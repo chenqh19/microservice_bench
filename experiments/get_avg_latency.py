@@ -34,12 +34,12 @@ def process_file(filename):
 
 ser1de = "tail_ser1de"
 proto = "tail_protobuf"
-ser1de_improved = "tail_ser1de_improved"
+# ser1de_improved = "tail_ser1de_improved"
 
 # Process all three files
 res1 = process_file(ser1de+'.txt')
 res2 = process_file(proto+'.txt')
-res3 = process_file(ser1de_improved+'.txt')
+# res3 = process_file(ser1de_improved+'.txt')
 
 labels = {
     "0.500000": "p50",
@@ -52,10 +52,10 @@ for key in ["0.500000", "0.900000", "0.990625"]:
     # Sort RPS for consistent plotting
     rps1 = sorted(res1[key].keys())
     rps2 = sorted(res2[key].keys())
-    rps3 = sorted(res3[key].keys())
+    # rps3 = sorted(res3[key].keys())
     plt.plot(rps1, [res1[key][rps] for rps in rps1], marker='o', label=ser1de)
     plt.plot(rps2, [res2[key][rps] for rps in rps2], marker='o', label=proto)
-    plt.plot(rps3, [res3[key][rps] for rps in rps3], marker='o', label=ser1de_improved)
+    # plt.plot(rps3, [res3[key][rps] for rps in rps3], marker='o', label=ser1de_improved)
     plt.xlabel("RPS")
     plt.ylabel(f"Latency ({labels[key]})")
     plt.title(f"Latency vs RPS @ {labels[key]}")

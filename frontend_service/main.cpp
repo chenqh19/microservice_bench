@@ -16,8 +16,7 @@
 class FrontEndService {
 public:
     // Define constants as static constexpr to ensure they're available at compile time
-    static constexpr int POOL_SIZE = 512;  // Reduced pool size for better resource management
-    static constexpr int MAX_CONCURRENT_CONNECTIONS = 1024;  // Reduced concurrent connections
+    static constexpr int POOL_SIZE = 16;  // Reduced pool size for better resource management
 
     // Helper function to convert JSON to protobuf messages
     hotelreservation::SearchRequest parseSearchRequest(const Json::Value& json) {
@@ -221,7 +220,6 @@ public:
 
 // Define the static constexpr members outside the class
 constexpr int FrontEndService::POOL_SIZE;
-constexpr int FrontEndService::MAX_CONCURRENT_CONNECTIONS;
 
 int main() {
     httplib::Server svr;

@@ -35,7 +35,7 @@ def main():
     time.sleep(5)
     with open("tail.txt", "a") as f:
         f.write("start experiment\n")
-    for rps in range(15000, 18000, 200):
+    for rps in range(16000, 16600, 200):
         run_one_rps(rps, 30)
         time.sleep(5)
     with open("tail.txt", "a") as f:

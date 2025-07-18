@@ -133,7 +133,7 @@ int main() {
     std::cout << "User service listening on unix://" << socket_path << std::endl;
     
     UserService service;
-    ThreadPool pool(64); // Use 64 threads for the pool
+    ThreadPool pool(8); // Use 8 threads for the pool
     Ser1de_re ser1de;
     
     while (true) {

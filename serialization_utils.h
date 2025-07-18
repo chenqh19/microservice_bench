@@ -2,64 +2,113 @@
 
 #include <string>
 #include "hotel_reservation.pb.h"
+#include <chrono>
+#include <fstream>
+#include <mutex>
+#include <sys/stat.h>
+#include <typeinfo>
 
-#define USE_SER1DE 1
+#define USE_SER1DE 0
+#define ENABLE_TIMING 0
 
 #if USE_SER1DE
 #include <ser1de/ser1de_re.h>
+#else
+// Dummy struct so the interface is always the same
+struct Ser1de_re {};
+#endif
 
 namespace microservice {
 namespace utils {
 
-// Serialize protobuf message to string using ser1de
-template<typename T>
-std::string serialize_message(Ser1de_re& ser1de, const T& message) {
-    //std::cout << "Using SERenaDE for serialization" << std::endl;
-    std::string serialized;
-    // Cast to base Message type for ser1de
-    T& non_const_message = const_cast<T&>(message);
-    ser1de.SerializeToString(non_const_message, &serialized);
-    //std::cout << "Used SERenaDE for serialization successfully!" << std::endl;
-    return serialized;
-}
-
-// Deserialize string to protobuf message using ser1de
-template<typename T>
-bool deserialize_message(Ser1de_re& ser1de, const std::string& data, T& message) {
-    //std::cout << "Using SERenaDE for deserialization" << std::endl;
-    try {
-        ser1de.ParseFromString(data, &message);
-        //std::cout << "Used SERenaDE for deserialization successfully!" << std::endl;
-        return true;
-    } catch (const std::exception& e) {
-        //std::cout << "Failed to deserialize message using SERenaDE" << std::endl;
-        return false;
+namespace detail {
+    static std::mutex log_mutex;
+    static bool logs_dir_created = false;
+    
+    static void ensure_logs_dir() {
+        if (!logs_dir_created) {
+            struct stat st = {};
+            if (stat("/logs", &st) == -1) {
+                mkdir("/logs", 0777);
+            }
+            logs_dir_created = true;
+        }
+    }
+    template<typename T>
+    std::string get_type_name() {
+        return typeid(T).name();
     }
 }
 
-} // namespace utils
-} // namespace microservice
-
-#else
-
-namespace microservice {
-namespace utils {
-
-// Serialize protobuf message to string using standard protobuf
 template<typename T>
 std::string serialize_message(Ser1de_re& ser1de, const T& message) {
+    using namespace std::chrono;
+    
     std::string serialized;
+    
+#if ENABLE_TIMING
+    auto start = high_resolution_clock::now();
+#endif
+
+#if USE_SER1DE
+    T& non_const_message = const_cast<T&>(message);
+    ser1de.SerializeToString(non_const_message, &serialized);
+#else
     message.SerializeToString(&serialized);
+#endif
+
+#if ENABLE_TIMING
+    auto end = high_resolution_clock::now();
+    auto duration = duration_cast<nanoseconds>(end - start).count();
+    std::string type_name = detail::get_type_name<T>();
+    std::string log_file = "/logs/" + type_name + "Se.txt";
+    {
+        std::lock_guard<std::mutex> lock(detail::log_mutex);
+        detail::ensure_logs_dir();
+        std::ofstream ofs(log_file, std::ios::app);
+        ofs << duration << std::endl;
+    }
+#endif
+    
     return serialized;
 }
 
-// Deserialize string to protobuf message using standard protobuf
 template<typename T>
 bool deserialize_message(Ser1de_re& ser1de, const std::string& data, T& message) {
-    return message.ParseFromString(data);
+    using namespace std::chrono;
+    
+    bool result = false;
+    
+#if ENABLE_TIMING
+    auto start = high_resolution_clock::now();
+#endif
+
+#if USE_SER1DE
+    try {
+        ser1de.ParseFromString(data, &message);
+        result = true;
+    } catch (const std::exception& e) {
+        result = false;
+    }
+#else
+    result = message.ParseFromString(data);
+#endif
+
+#if ENABLE_TIMING
+    auto end = high_resolution_clock::now();
+    auto duration = duration_cast<nanoseconds>(end - start).count();
+    std::string type_name = detail::get_type_name<T>();
+    std::string log_file = "/logs/" + type_name + "De.txt";
+    {
+        std::lock_guard<std::mutex> lock(detail::log_mutex);
+        detail::ensure_logs_dir();
+        std::ofstream ofs(log_file, std::ios::app);
+        ofs << duration << std::endl;
+    }
+#endif
+    
+    return result;
 }
 
 } // namespace utils
-} // namespace microservice
-
-#endif // USE_SER1DE 
+} // namespace microservice 
