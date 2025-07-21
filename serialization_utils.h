@@ -9,7 +9,7 @@
 #include <typeinfo>
 
 #define USE_SER1DE 0
-#define ENABLE_TIMING 0
+#define ENABLE_TIMING 1
 
 #if USE_SER1DE
 #include <ser1de/ser1de_re.h>
@@ -25,6 +25,7 @@ namespace detail {
     static std::mutex log_mutex;
     static bool logs_dir_created = false;
     
+#if ENABLE_TIMING
     static void ensure_logs_dir() {
         if (!logs_dir_created) {
             struct stat st = {};
@@ -34,6 +35,7 @@ namespace detail {
             logs_dir_created = true;
         }
     }
+#endif
     template<typename T>
     std::string get_type_name() {
         return typeid(T).name();
@@ -54,6 +56,7 @@ std::string serialize_message(Ser1de_re& ser1de, const T& message) {
     T& non_const_message = const_cast<T&>(message);
     ser1de.SerializeToString(non_const_message, &serialized);
 #else
+    (void)ser1de; // Suppress unused parameter warning
     message.SerializeToString(&serialized);
 #endif
 
@@ -91,6 +94,7 @@ bool deserialize_message(Ser1de_re& ser1de, const std::string& data, T& message)
         result = false;
     }
 #else
+    (void)ser1de; // Suppress unused parameter warning
     result = message.ParseFromString(data);
 #endif
 

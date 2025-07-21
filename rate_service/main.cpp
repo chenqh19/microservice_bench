@@ -14,7 +14,7 @@
 #include <thread>
 #include <condition_variable>
 #include <cstring>
-#include "../thread_pool.h"
+#include "../prefork_utils.h"
 
 class RateService {
 private:
@@ -38,7 +38,15 @@ public:
             standard.set_room_description("Standard Room");
             standard.set_total_rate(standard.bookable_rate() * 1.1);
             standard.set_total_rate_inclusive(standard.total_rate() * 1.2);
-            standard.set_padding(microservice::utils::generate_padding());
+            auto pads = microservice::utils::generate_padding_fields();
+            standard.set_padding1(pads[0]);
+            standard.set_padding2(pads[1]);
+            standard.set_padding3(pads[2]);
+            standard.set_padding4(pads[3]);
+            standard.set_padding5(pads[4]);
+            standard.set_padding6(pads[5]);
+            standard.set_padding7(pads[6]);
+            standard.set_padding8(pads[7]);
             room_types.push_back(standard);
 
             // Deluxe Room
@@ -48,19 +56,28 @@ public:
             deluxe.set_room_description("Deluxe Room");
             deluxe.set_total_rate(deluxe.bookable_rate() * 1.1);
             deluxe.set_total_rate_inclusive(deluxe.total_rate() * 1.2);
-            deluxe.set_padding(microservice::utils::generate_padding());
+            auto pads_deluxe = microservice::utils::generate_padding_fields();
+            deluxe.set_padding1(pads_deluxe[0]);
+            deluxe.set_padding2(pads_deluxe[1]);
+            deluxe.set_padding3(pads_deluxe[2]);
+            deluxe.set_padding4(pads_deluxe[3]);
+            deluxe.set_padding5(pads_deluxe[4]);
+            deluxe.set_padding6(pads_deluxe[5]);
+            deluxe.set_padding7(pads_deluxe[6]);
+            deluxe.set_padding8(pads_deluxe[7]);
             room_types.push_back(deluxe);
 
             hotel_rates_[hotel_id] = room_types;
         }
     }
 
-    hotelreservation::GetRatesResponse GetRates(const hotelreservation::GetRatesRequest& req) {
+    hotelreservation::GetRatesResponse process_request(const hotelreservation::GetRatesRequest& req) {
         hotelreservation::GetRatesResponse response;
         
         for (const auto& hotel_id : req.hotel_ids()) {
             auto it = hotel_rates_.find(hotel_id);
             if (it != hotel_rates_.end()) {
+                // Create a rate plan for each room type
                 for (const auto& room_type : it->second) {
                     auto* rate_plan = response.add_rate_plans();
                     rate_plan->set_hotel_id(hotel_id);
@@ -68,71 +85,60 @@ public:
                     rate_plan->set_in_date(req.in_date());
                     rate_plan->set_out_date(req.out_date());
                     *rate_plan->mutable_room_type() = room_type;
-                    rate_plan->set_padding(microservice::utils::generate_padding());
+                    auto pads_rateplan = microservice::utils::generate_padding_fields();
+                    rate_plan->set_padding1(pads_rateplan[0]);
+                    rate_plan->set_padding2(pads_rateplan[1]);
+                    rate_plan->set_padding3(pads_rateplan[2]);
+                    rate_plan->set_padding4(pads_rateplan[3]);
+                    rate_plan->set_padding5(pads_rateplan[4]);
+                    rate_plan->set_padding6(pads_rateplan[5]);
+                    rate_plan->set_padding7(pads_rateplan[6]);
+                    rate_plan->set_padding8(pads_rateplan[7]);
                 }
             }
         }
         
-        response.set_padding(microservice::utils::generate_padding());
+        auto pads_response = microservice::utils::generate_padding_fields();
+        response.set_padding1(pads_response[0]);
+        response.set_padding2(pads_response[1]);
+        response.set_padding3(pads_response[2]);
+        response.set_padding4(pads_response[3]);
+        response.set_padding5(pads_response[4]);
+        response.set_padding6(pads_response[5]);
+        response.set_padding7(pads_response[6]);
+        response.set_padding8(pads_response[7]);
         return response;
     }
 };
 
-void handle_client(int client_fd, RateService& service, Ser1de_re& ser1de) {
-    char len_buf[4];
-    ssize_t n = read(client_fd, len_buf, 4);
-    if (n != 4) { close(client_fd); return; }
-    uint32_t msg_len = 0;
-    memcpy(&msg_len, len_buf, 4);
-    std::vector<char> buf(msg_len);
-    n = read(client_fd, buf.data(), msg_len);
-    if (n != (ssize_t)msg_len) { close(client_fd); return; }
-    hotelreservation::GetRatesRequest req;
-    bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), req);
-    if (!ok) { close(client_fd); return; }
-    auto response = service.GetRates(req);
-    std::string resp_str = microservice::utils::serialize_message(ser1de, response);
-    uint32_t resp_len = resp_str.size();
-    write(client_fd, &resp_len, 4);
-    write(client_fd, resp_str.data(), resp_len);
-    close(client_fd);
-}
-
 int main() {
     const char* socket_path = "/tmp/rate_service.sock";
-    unlink(socket_path); // Remove if exists
-    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (server_fd < 0) {
-        perror("socket");
-        return 1;
-    }
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
-    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("bind");
-        close(server_fd);
-        return 1;
-    }
-    chmod(socket_path, 0777); // Ensure world-writable for Docker
-    if (listen(server_fd, 1024) < 0) {
-        perror("listen");
-        close(server_fd);
-        return 1;
-    }
-    std::cout << "Rate service listening on unix://" << socket_path << std::endl;
+    const int NUM_WORKERS = 8;  // Number of worker processes
     
-    RateService service;
-    Ser1de_re ser1de;
-    ThreadPool pool(8); // Use 8 threads for the pool
+    PreforkServer server(NUM_WORKERS);
     
-    while (true) {
-        int client_fd = accept(server_fd, nullptr, nullptr);
-        if (client_fd < 0) continue;
-        pool.enqueue_task([client_fd, &service, &ser1de]() {
-            handle_client(client_fd, service, ser1de);
-        });
+    if (!server.setup_socket(socket_path)) {
+        std::cerr << "Failed to setup socket" << std::endl;
+        return 1;
     }
-    close(server_fd);
-    return 0;
+    
+    std::cout << "Rate service socket setup complete" << std::endl;
+    
+    // Fork worker processes
+    if (server.fork_workers()) {
+        // This is a worker process
+        RateService service;
+        Ser1de_re ser1de;
+        
+        // Worker process main loop
+        worker_loop<RateService, hotelreservation::GetRatesRequest, hotelreservation::GetRatesResponse>(
+            server.get_server_fd(), service, ser1de);
+        
+        return 0;
+    } else {
+        // This is the master process
+        std::cout << "Rate service master process started with " << NUM_WORKERS << " workers" << std::endl;
+        server.master_loop();
+        return 0;
+    }
 } 

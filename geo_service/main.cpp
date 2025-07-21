@@ -14,7 +14,7 @@
 #include <thread>
 #include <condition_variable>
 #include <cstring>
-#include "../thread_pool.h"
+#include "../prefork_utils.h"
 
 class GeoService {
 private:
@@ -60,7 +60,7 @@ public:
         return EARTH_RADIUS * c;
     }
 
-    hotelreservation::NearbyResponse GetNearbyHotels(const hotelreservation::NearbyRequest& req) {
+    hotelreservation::NearbyResponse process_request(const hotelreservation::NearbyRequest& req) {
         hotelreservation::NearbyResponse response;
         
         std::vector<std::pair<double, std::string>> distances;
@@ -75,84 +75,51 @@ public:
         // Sort by distance and take top results
         std::sort(distances.begin(), distances.end());
         
-        for (size_t i = 0; i < std::min(distances.size(), static_cast<size_t>(MAX_SEARCH_RESULTS)); ++i) {
+        for (int i = 0; i < std::min(static_cast<int>(distances.size()), MAX_SEARCH_RESULTS); ++i) {
             response.add_hotel_ids(distances[i].second);
         }
         
-        response.set_padding(microservice::utils::generate_padding());
+        auto pads = microservice::utils::generate_padding_fields();
+        response.set_padding1(pads[0]);
+        response.set_padding2(pads[1]);
+        response.set_padding3(pads[2]);
+        response.set_padding4(pads[3]);
+        response.set_padding5(pads[4]);
+        response.set_padding6(pads[5]);
+        response.set_padding7(pads[6]);
+        response.set_padding8(pads[7]);
         return response;
-    }
-
-    hotelreservation::Point GetPoint(const std::string& hotel_id) {
-        hotelreservation::Point point;
-        auto it = std::find_if(hotels_.begin(), hotels_.end(),
-                              [&](const HotelLocation& h) { return h.id == hotel_id; });
-        
-        if (it != hotels_.end()) {
-            point.set_pid(it->id);
-            point.set_plat(it->lat);
-            point.set_plon(it->lon);
-            point.set_padding(microservice::utils::generate_padding());
-        }
-        return point;
     }
 };
 
-void handle_client(int client_fd, GeoService& service, Ser1de_re& ser1de) {
-    char len_buf[4];
-    ssize_t n = read(client_fd, len_buf, 4);
-    if (n != 4) { close(client_fd); return; }
-    uint32_t msg_len = 0;
-    memcpy(&msg_len, len_buf, 4);
-    std::vector<char> buf(msg_len);
-    n = read(client_fd, buf.data(), msg_len);
-    if (n != (ssize_t)msg_len) { close(client_fd); return; }
-    hotelreservation::NearbyRequest req;
-    bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), req);
-    if (!ok) { close(client_fd); return; }
-    auto response = service.GetNearbyHotels(req);
-    std::string resp_str = microservice::utils::serialize_message(ser1de, response);
-    uint32_t resp_len = resp_str.size();
-    write(client_fd, &resp_len, 4);
-    write(client_fd, resp_str.data(), resp_len);
-    close(client_fd);
-}
-
 int main() {
     const char* socket_path = "/tmp/geo_service.sock";
-    unlink(socket_path); // Remove if exists
-    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (server_fd < 0) {
-        perror("socket");
-        return 1;
-    }
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
-    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("bind");
-        close(server_fd);
-        return 1;
-    }
-    chmod(socket_path, 0777); // Ensure world-writable for Docker
-    if (listen(server_fd, 1024) < 0) {
-        perror("listen");
-        close(server_fd);
-        return 1;
-    }
-    std::cout << "Geo service listening on unix://" << socket_path << std::endl;
+    const int NUM_WORKERS = 8;  // Number of worker processes
     
-    GeoService service;
-    Ser1de_re ser1de;
-    ThreadPool pool(8); // Use 8 threads for the pool
+    PreforkServer server(NUM_WORKERS);
     
-    while (true) {
-        int client_fd = accept(server_fd, nullptr, nullptr);
-        if (client_fd < 0) continue;
-        pool.enqueue_task([client_fd, &service, &ser1de]() {
-            handle_client(client_fd, service, ser1de);
-        });
+    if (!server.setup_socket(socket_path)) {
+        std::cerr << "Failed to setup socket" << std::endl;
+        return 1;
     }
-    close(server_fd);
-    return 0;
+    
+    std::cout << "Geo service socket setup complete" << std::endl;
+    
+    // Fork worker processes
+    if (server.fork_workers()) {
+        // This is a worker process
+        GeoService service;
+        Ser1de_re ser1de;
+        
+        // Worker process main loop
+        worker_loop<GeoService, hotelreservation::NearbyRequest, hotelreservation::NearbyResponse>(
+            server.get_server_fd(), service, ser1de);
+        
+        return 0;
+    } else {
+        // This is the master process
+        std::cout << "Geo service master process started with " << NUM_WORKERS << " workers" << std::endl;
+        server.master_loop();
+        return 0;
+    }
 } 

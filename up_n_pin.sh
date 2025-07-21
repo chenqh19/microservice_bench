@@ -4,7 +4,7 @@ sudo docker compose down
 sudo docker compose build
 sudo docker compose up -d
 
-sleep 1
+# sleep 1
 
 sudo docker update --cpuset-cpus="0-3" microservice_bench-frontend-1
 sudo docker update --cpuset-cpus="0-3" microservice_bench-user-1
@@ -37,9 +37,9 @@ done
 # echo "All containers have been pinned to CPU cores" 
 
 # # For the main dockerd process
-# sudo taskset -pc 20-31 $(pgrep -f "dockerd --containerd=/run/containerd/containerd.sock")
+# sudo taskset -pc 20-3 $(pgrep -f "dockerd --containerd=/run/containerd/containerd.sock")
 
 # # For all dockerd threads
 # for pid in $(ps -eLf | grep dockerd | awk '{print $4}'); do
-#     sudo taskset -pc 20-31 $pid
+#     sudo taskset -pc 20-3 $pid
 # done

@@ -12,11 +12,15 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <vector>
+#include <algorithm>
 
 class FrontEndService {
 public:
     // Define constants as static constexpr to ensure they're available at compile time
-    static constexpr int POOL_SIZE = 16;  // Reduced pool size for better resource management
+    static constexpr int POOL_SIZE = 16;  // Number of worker processes
 
     // Helper function to convert JSON to protobuf messages
     hotelreservation::SearchRequest parseSearchRequest(const Json::Value& json) {
@@ -27,7 +31,15 @@ public:
         req.set_lat(json["latitude"].asDouble());
         req.set_lon(json["longitude"].asDouble());
         req.set_locale(json["locale"].asString());
-        req.set_padding(microservice::utils::generate_padding());
+        auto pads = microservice::utils::generate_padding_fields();
+        req.set_padding1(pads[0]);
+        req.set_padding2(pads[1]);
+        req.set_padding3(pads[2]);
+        req.set_padding4(pads[3]);
+        req.set_padding5(pads[4]);
+        req.set_padding6(pads[5]);
+        req.set_padding7(pads[6]);
+        req.set_padding8(pads[7]);
         return req;
     }
 
@@ -37,7 +49,15 @@ public:
         req.set_lon(json["longitude"].asDouble());
         req.set_require(json["require"].asString());
         req.set_locale(json["locale"].asString());
-        req.set_padding(microservice::utils::generate_padding());
+        auto pads = microservice::utils::generate_padding_fields();
+        req.set_padding1(pads[0]);
+        req.set_padding2(pads[1]);
+        req.set_padding3(pads[2]);
+        req.set_padding4(pads[3]);
+        req.set_padding5(pads[4]);
+        req.set_padding6(pads[5]);
+        req.set_padding7(pads[6]);
+        req.set_padding8(pads[7]);
         return req;
     }
 
@@ -45,7 +65,15 @@ public:
         hotelreservation::UserRequest req;
         req.set_username(json["username"].asString());
         req.set_password(json["password"].asString());
-        req.set_padding(microservice::utils::generate_padding());
+        auto pads = microservice::utils::generate_padding_fields();
+        req.set_padding1(pads[0]);
+        req.set_padding2(pads[1]);
+        req.set_padding3(pads[2]);
+        req.set_padding4(pads[3]);
+        req.set_padding5(pads[4]);
+        req.set_padding6(pads[5]);
+        req.set_padding7(pads[6]);
+        req.set_padding8(pads[7]);
         return req;
     }
 
@@ -58,7 +86,15 @@ public:
         req.set_room_number(json["roomNumber"].asInt64());
         req.set_username(json["username"].asString());
         req.set_password(json["password"].asString());
-        req.set_padding(microservice::utils::generate_padding());
+        auto pads = microservice::utils::generate_padding_fields();
+        req.set_padding1(pads[0]);
+        req.set_padding2(pads[1]);
+        req.set_padding3(pads[2]);
+        req.set_padding4(pads[3]);
+        req.set_padding5(pads[4]);
+        req.set_padding6(pads[5]);
+        req.set_padding7(pads[6]);
+        req.set_padding8(pads[7]);
         return req;
     }
 
@@ -221,197 +257,286 @@ public:
 // Define the static constexpr members outside the class
 constexpr int FrontEndService::POOL_SIZE;
 
+class PreforkHTTPServer {
+private:
+    int num_workers_;
+    std::vector<pid_t> worker_pids_;
+    bool should_stop_;
+
+public:
+    PreforkHTTPServer(int num_workers = 32) : num_workers_(num_workers), should_stop_(false) {
+        // Set up signal handlers for graceful shutdown
+        signal(SIGTERM, [](int) { /* handled in main loop */ });
+        signal(SIGINT, [](int) { /* handled in main loop */ });
+    }
+
+    // Fork worker processes
+    bool fork_workers() {
+        std::cout << "Starting " << num_workers_ << " HTTP worker processes..." << std::endl;
+        
+        for (int i = 0; i < num_workers_; ++i) {
+            pid_t pid = fork();
+            
+            if (pid == 0) {
+                // Worker process
+                std::cout << "HTTP Worker process " << getpid() << " started" << std::endl;
+                return true; // Return true to indicate this is a worker
+            } else if (pid > 0) {
+                // Master process
+                worker_pids_.push_back(pid);
+            } else {
+                // Fork failed
+                perror("fork");
+                return false;
+            }
+        }
+
+        // Master process continues here
+        std::cout << "HTTP Master process " << getpid() << " started " << worker_pids_.size() << " workers" << std::endl;
+        return false; // Return false to indicate this is the master
+    }
+
+    // Master process main loop
+    void master_loop() {
+        std::cout << "HTTP Master process waiting for workers..." << std::endl;
+        
+        while (!should_stop_) {
+            // Check if any workers have died
+            int status;
+            pid_t dead_pid = waitpid(-1, &status, WNOHANG);
+            
+            if (dead_pid > 0) {
+                std::cout << "HTTP Worker " << dead_pid << " died, restarting..." << std::endl;
+                
+                // Remove from our list
+                worker_pids_.erase(
+                    std::remove(worker_pids_.begin(), worker_pids_.end(), dead_pid),
+                    worker_pids_.end()
+                );
+                
+                // Fork a new worker
+                pid_t new_pid = fork();
+                if (new_pid == 0) {
+                    // New worker process
+                    std::cout << "Restarted HTTP worker process " << getpid() << std::endl;
+                    return; // Return to indicate this is a worker
+                } else if (new_pid > 0) {
+                    // Master process
+                    worker_pids_.push_back(new_pid);
+                }
+            }
+            
+            // Sleep a bit to avoid busy waiting
+            usleep(100000); // 100ms
+        }
+        
+        // Graceful shutdown
+        std::cout << "HTTP Master process shutting down workers..." << std::endl;
+        for (pid_t pid : worker_pids_) {
+            kill(pid, SIGTERM);
+        }
+        
+        // Wait for all workers to exit
+        for (pid_t pid : worker_pids_) {
+            waitpid(pid, nullptr, 0);
+        }
+    }
+
+    // Set stop flag for graceful shutdown
+    void stop() { should_stop_ = true; }
+};
+
 int main() {
-    httplib::Server svr;
-    FrontEndService service;
-
-    // Set up multi-threading options with CPU affinity
-    svr.new_task_queue = [] { 
-        auto pool = new httplib::ThreadPool(FrontEndService::POOL_SIZE);  // Use the static constexpr value
-        // Set CPU affinity for each thread in the pool
-        for (int i = 0; i < FrontEndService::POOL_SIZE; i++) {
-            pool->enqueue([i]() {
-                cpu_set_t cpuset;
-                CPU_ZERO(&cpuset);
-                CPU_SET(i % 256, &cpuset);  // Distribute threads across all cores
-                pthread_setaffinity_np(pthread_self(), sizeof(cpu_set_t), &cpuset);
-            });
-        }
-        return pool;
-    };
-
-    // Configure server settings for high performance
-    svr.set_keep_alive_max_count(50000);  // Increased keep-alive connections
-    svr.set_read_timeout(5);
-    svr.set_write_timeout(5);
-    svr.set_idle_interval(0, 100000);
-    svr.set_payload_max_length(1024 * 1024);  // 1MB max payload
-
-    svr.Get("/search", [&](const httplib::Request& req, httplib::Response& res) {
-        auto start_time = std::chrono::steady_clock::now();
+    const int NUM_WORKERS = FrontEndService::POOL_SIZE;
+    
+    PreforkHTTPServer server(NUM_WORKERS);
+    
+    // Fork worker processes
+    if (server.fork_workers()) {
+        // This is a worker process
+        FrontEndService service;
         
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 10; // 10ms timeout
-        };
-
-        if (check_timeout()) {
-            std::cerr << "Search request timeout - Request took too long to process" << std::endl;
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout\"}", "application/json");
-            return;
-        }
-
-        try {
-            Json::Value json;
-            json["customerName"] = req.get_param_value("customerName");
-            json["inDate"] = req.get_param_value("inDate");
-            json["outDate"] = req.get_param_value("outDate");
-            json["latitude"] = std::stod(req.get_param_value("latitude"));
-            json["longitude"] = std::stod(req.get_param_value("longitude"));
-            json["locale"] = req.get_param_value("locale");    
-
-            if (check_timeout()) {
-                std::cerr << "Search request timeout during parameter processing" << std::endl;
-                res.status = 408;
-                res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-                return;
-            }
-
-            Json::FastWriter writer;
-            res.set_content(service.HandleSearch(writer.write(json)), "application/json");
-        } catch (const std::exception& e) {
-            std::cerr << "Search request error: " << e.what() << std::endl;
-            res.status = 400;
-            res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
-        }
-    });
-
-    svr.Get("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
-        auto start_time = std::chrono::steady_clock::now();
+        // Set up HTTP server for this worker
+        httplib::Server svr;
         
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 100;
-        };
+        // Configure server settings for high performance
+        svr.set_keep_alive_max_count(50000);
+        svr.set_read_timeout(5);
+        svr.set_write_timeout(5);
+        svr.set_idle_interval(0, 100000);
+        svr.set_payload_max_length(1024 * 1024);  // 1MB max payload
 
-        if (check_timeout()) {
-            std::cerr << "Recommend request timeout - Request took too long to process" << std::endl;
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout\"}", "application/json");
-            return;
-        }
-
-        try {
-            Json::Value json;
-            json["latitude"] = std::stod(req.get_param_value("latitude"));
-            json["longitude"] = std::stod(req.get_param_value("longitude"));
-            json["require"] = req.get_param_value("require");
-            json["locale"] = req.get_param_value("locale");
-
-            if (check_timeout()) {
-                std::cerr << "Recommend request timeout during parameter processing" << std::endl;
-                res.status = 408;
-                res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-                return;
-            }
+        svr.Get("/search", [&](const httplib::Request& req, httplib::Response& res) {
+            auto start_time = std::chrono::steady_clock::now();
             
-            Json::FastWriter writer;
-            res.set_content(service.HandleRecommend(writer.write(json)), "application/json");
-        } catch (const std::exception& e) {
-            std::cerr << "Recommend request error: " << e.what() << std::endl;
-            res.status = 400;
-            res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
-        }
-    });
-
-    svr.Get("/user", [&](const httplib::Request& req, httplib::Response& res) {
-        auto start_time = std::chrono::steady_clock::now();
-        
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 100;
-        };
-
-        if (check_timeout()) {
-            std::cerr << "User request timeout - Request took too long to process" << std::endl;
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout\"}", "application/json");
-            return;
-        }
-
-        try {
-            Json::Value json;
-            json["username"] = req.get_param_value("username");
-            json["password"] = req.get_param_value("password");
+            auto check_timeout = [&start_time]() -> bool {
+                auto current_time = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    current_time - start_time).count();
+                return elapsed > 10; // 10ms timeout
+            };
 
             if (check_timeout()) {
-                std::cerr << "User request timeout during parameter processing" << std::endl;
+                std::cerr << "Search request timeout - Request took too long to process" << std::endl;
                 res.status = 408;
-                res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                res.set_content("{\"error\": \"Request timeout\"}", "application/json");
                 return;
             }
+
+            try {
+                Json::Value json;
+                json["customerName"] = req.get_param_value("customerName");
+                json["inDate"] = req.get_param_value("inDate");
+                json["outDate"] = req.get_param_value("outDate");
+                json["latitude"] = std::stod(req.get_param_value("latitude"));
+                json["longitude"] = std::stod(req.get_param_value("longitude"));
+                json["locale"] = req.get_param_value("locale");    
+
+                if (check_timeout()) {
+                    std::cerr << "Search request timeout during parameter processing" << std::endl;
+                    res.status = 408;
+                    res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                    return;
+                }
+
+                Json::FastWriter writer;
+                res.set_content(service.HandleSearch(writer.write(json)), "application/json");
+            } catch (const std::exception& e) {
+                std::cerr << "Search request error: " << e.what() << std::endl;
+                res.status = 400;
+                res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
+            }
+        });
+
+        svr.Get("/recommend", [&](const httplib::Request& req, httplib::Response& res) {
+            auto start_time = std::chrono::steady_clock::now();
             
-            Json::FastWriter writer;
-            res.set_content(service.HandleUser(writer.write(json)), "application/json");
-        } catch (const std::exception& e) {
-            std::cerr << "User request error: " << e.what() << std::endl;
-            res.status = 400;
-            res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
-        }
-    });
-
-    svr.Get("/reservation", [&](const httplib::Request& req, httplib::Response& res) {
-        auto start_time = std::chrono::steady_clock::now();
-        
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 100;
-        };
-
-        if (check_timeout()) {
-            std::cerr << "Reservation request timeout - Request took too long to process" << std::endl;
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout\"}", "application/json");
-            return;
-        }
-
-        try {
-            Json::Value json;
-            json["customerName"] = req.get_param_value("customerName");
-            json["hotelId"] = req.get_param_value("hotelId");
-            json["inDate"] = req.get_param_value("inDate");
-            json["outDate"] = req.get_param_value("outDate");
-            json["roomNumber"] = std::stoi(req.get_param_value("roomNumber"));
-            json["username"] = req.get_param_value("username");
-            json["password"] = req.get_param_value("password");
+            auto check_timeout = [&start_time]() -> bool {
+                auto current_time = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    current_time - start_time).count();
+                return elapsed > 100;
+            };
 
             if (check_timeout()) {
-                std::cerr << "Reservation request timeout during parameter processing" << std::endl;
+                std::cerr << "Recommend request timeout - Request took too long to process" << std::endl;
                 res.status = 408;
-                res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                res.set_content("{\"error\": \"Request timeout\"}", "application/json");
                 return;
             }
+
+            try {
+                Json::Value json;
+                json["latitude"] = std::stod(req.get_param_value("latitude"));
+                json["longitude"] = std::stod(req.get_param_value("longitude"));
+                json["require"] = req.get_param_value("require");
+                json["locale"] = req.get_param_value("locale");
+
+                if (check_timeout()) {
+                    std::cerr << "Recommend request timeout during parameter processing" << std::endl;
+                    res.status = 408;
+                    res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                    return;
+                }
+                
+                Json::FastWriter writer;
+                res.set_content(service.HandleRecommend(writer.write(json)), "application/json");
+            } catch (const std::exception& e) {
+                std::cerr << "Recommend request error: " << e.what() << std::endl;
+                res.status = 400;
+                res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
+            }
+        });
+
+        svr.Get("/user", [&](const httplib::Request& req, httplib::Response& res) {
+            auto start_time = std::chrono::steady_clock::now();
             
-            Json::FastWriter writer;
-            res.set_content(service.HandleReservation(writer.write(json)), "application/json");
-        } catch (const std::exception& e) {
-            std::cerr << "Reservation request error: " << e.what() << std::endl;
-            res.status = 400;
-            res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
-        }
-    });
+            auto check_timeout = [&start_time]() -> bool {
+                auto current_time = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    current_time - start_time).count();
+                return elapsed > 100;
+            };
 
-    std::cout << "Frontend service listening on 0.0.0.0:50050 with 512 worker threads" << std::endl;
-    svr.listen("0.0.0.0", 50050);
+            if (check_timeout()) {
+                std::cerr << "User request timeout - Request took too long to process" << std::endl;
+                res.status = 408;
+                res.set_content("{\"error\": \"Request timeout\"}", "application/json");
+                return;
+            }
 
-    return 0;
+            try {
+                Json::Value json;
+                json["username"] = req.get_param_value("username");
+                json["password"] = req.get_param_value("password");
+
+                if (check_timeout()) {
+                    std::cerr << "User request timeout during parameter processing" << std::endl;
+                    res.status = 408;
+                    res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                    return;
+                }
+                
+                Json::FastWriter writer;
+                res.set_content(service.HandleUser(writer.write(json)), "application/json");
+            } catch (const std::exception& e) {
+                std::cerr << "User request error: " << e.what() << std::endl;
+                res.status = 400;
+                res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
+            }
+        });
+
+        svr.Get("/reservation", [&](const httplib::Request& req, httplib::Response& res) {
+            auto start_time = std::chrono::steady_clock::now();
+            
+            auto check_timeout = [&start_time]() -> bool {
+                auto current_time = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                    current_time - start_time).count();
+                return elapsed > 100;
+            };
+
+            if (check_timeout()) {
+                std::cerr << "Reservation request timeout - Request took too long to process" << std::endl;
+                res.status = 408;
+                res.set_content("{\"error\": \"Request timeout\"}", "application/json");
+                return;
+            }
+
+            try {
+                Json::Value json;
+                json["customerName"] = req.get_param_value("customerName");
+                json["hotelId"] = req.get_param_value("hotelId");
+                json["inDate"] = req.get_param_value("inDate");
+                json["outDate"] = req.get_param_value("outDate");
+                json["roomNumber"] = std::stoi(req.get_param_value("roomNumber"));
+                json["username"] = req.get_param_value("username");
+                json["password"] = req.get_param_value("password");
+
+                if (check_timeout()) {
+                    std::cerr << "Reservation request timeout during parameter processing" << std::endl;
+                    res.status = 408;
+                    res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                    return;
+                }
+                
+                Json::FastWriter writer;
+                res.set_content(service.HandleReservation(writer.write(json)), "application/json");
+            } catch (const std::exception& e) {
+                std::cerr << "Reservation request error: " << e.what() << std::endl;
+                res.status = 400;
+                res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
+            }
+        });
+
+        std::cout << "HTTP Worker " << getpid() << " listening on 0.0.0.0:50050" << std::endl;
+        svr.listen("0.0.0.0", 50050);
+        
+        return 0;
+    } else {
+        // This is the master process
+        std::cout << "Frontend service master process started with " << NUM_WORKERS << " HTTP workers" << std::endl;
+        server.master_loop();
+        return 0;
+    }
 }

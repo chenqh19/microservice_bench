@@ -17,7 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include "../thread_pool.h"
+#include "../prefork_utils.h"
 
 class UserService {
 private:
@@ -45,104 +45,142 @@ public:
         }
     }
 
-    hotelreservation::UserResponse RegisterUser(const hotelreservation::UserRequest& req) {
+    hotelreservation::UserResponse process_request(const hotelreservation::UserRequest& req) {
         std::lock_guard<std::mutex> lock(users_mutex_);
 
         if (users_.find(req.username()) != users_.end()) {
             hotelreservation::UserResponse response;
             response.set_message("User already exists");
-            response.set_padding(microservice::utils::generate_padding());
+            auto pads = microservice::utils::generate_padding_fields();
+            response.set_padding1(pads[0]);
+            response.set_padding2(pads[1]);
+            response.set_padding3(pads[2]);
+            response.set_padding4(pads[3]);
+            response.set_padding5(pads[4]);
+            response.set_padding6(pads[5]);
+            response.set_padding7(pads[6]);
+            response.set_padding8(pads[7]);
             return response;
         }
 
         users_[req.username()] = req.password();
         hotelreservation::UserResponse response;
         response.set_message("User registered successfully");
-        response.set_padding(microservice::utils::generate_padding());
+        auto pads = microservice::utils::generate_padding_fields();
+        response.set_padding1(pads[0]);
+        response.set_padding2(pads[1]);
+        response.set_padding3(pads[2]);
+        response.set_padding4(pads[3]);
+        response.set_padding5(pads[4]);
+        response.set_padding6(pads[5]);
+        response.set_padding7(pads[6]);
+        response.set_padding8(pads[7]);
         return response;
     }
 
-    bool CheckUser(const hotelreservation::CheckUserRequest& req) {
+    hotelreservation::CheckUserResponse process_check_request(const hotelreservation::CheckUserRequest& req) {
         std::lock_guard<std::mutex> lock(users_mutex_);
+
         auto it = users_.find(req.username());
-        return (it != users_.end() && it->second == req.password());
+        hotelreservation::CheckUserResponse response;
+        
+        if (it != users_.end() && it->second == req.password()) {
+            response.set_exists(true);
+        } else {
+            response.set_exists(false);
+        }
+        
+        auto pads = microservice::utils::generate_padding_fields();
+        response.set_padding1(pads[0]);
+        response.set_padding2(pads[1]);
+        response.set_padding3(pads[2]);
+        response.set_padding4(pads[3]);
+        response.set_padding5(pads[4]);
+        response.set_padding6(pads[5]);
+        response.set_padding7(pads[6]);
+        response.set_padding8(pads[7]);
+        return response;
     }
 };
 
-void handle_client(int client_fd, UserService& service, Ser1de_re& ser1de) {
-    char len_buf[4];
-    ssize_t n = read(client_fd, len_buf, 4);
-    if (n != 4) { close(client_fd); return; }
-    uint32_t msg_len = 0;
-    memcpy(&msg_len, len_buf, 4);
-    std::vector<char> buf(msg_len);
-    n = read(client_fd, buf.data(), msg_len);
-    if (n != (ssize_t)msg_len) { close(client_fd); return; }
-    // Try UserRequest
-    hotelreservation::UserRequest user_req;
-    bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), user_req);
-    if (ok) {
-        auto response = service.RegisterUser(user_req);
-        std::string resp_str = microservice::utils::serialize_message(ser1de, response);
-        uint32_t resp_len = resp_str.size();
-        write(client_fd, &resp_len, 4);
-        write(client_fd, resp_str.data(), resp_len);
-        close(client_fd);
-        return;
-    }
-    // Try CheckUserRequest
-    hotelreservation::CheckUserRequest check_req;
-    ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), check_req);
-    if (ok) {
-        hotelreservation::CheckUserResponse response;
-        response.set_exists(service.CheckUser(check_req));
-        response.set_padding(microservice::utils::generate_padding());
-        std::string resp_str = microservice::utils::serialize_message(ser1de, response);
-        uint32_t resp_len = resp_str.size();
-        write(client_fd, &resp_len, 4);
-        write(client_fd, resp_str.data(), resp_len);
-        close(client_fd);
-        return;
-    }
-    // Unknown request
-    close(client_fd);
-}
-
 int main() {
     const char* socket_path = "/tmp/user_service.sock";
-    unlink(socket_path); // Remove if exists
-    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (server_fd < 0) {
-        perror("socket");
-        return 1;
-    }
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
-    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("bind");
-        close(server_fd);
-        return 1;
-    }
-    chmod(socket_path, 0777); // Ensure world-writable for Docker
-    if (listen(server_fd, 1024) < 0) {
-        perror("listen");
-        close(server_fd);
-        return 1;
-    }
-    std::cout << "User service listening on unix://" << socket_path << std::endl;
+    const int NUM_WORKERS = 8;  // Number of worker processes
     
-    UserService service;
-    ThreadPool pool(8); // Use 8 threads for the pool
-    Ser1de_re ser1de;
+    PreforkServer server(NUM_WORKERS);
     
-    while (true) {
-        int client_fd = accept(server_fd, nullptr, nullptr);
-        if (client_fd < 0) continue;
-        pool.enqueue_task([client_fd, &service, &ser1de]() {
-            handle_client(client_fd, service, ser1de);
-        });
+    if (!server.setup_socket(socket_path)) {
+        std::cerr << "Failed to setup socket" << std::endl;
+        return 1;
     }
-    close(server_fd);
-    return 0;
+    
+    std::cout << "User service socket setup complete" << std::endl;
+    
+    // Fork worker processes
+    if (server.fork_workers()) {
+        // This is a worker process
+        UserService service;
+        Ser1de_re ser1de;
+        
+        // Worker process main loop - handle both UserRequest and CheckUserRequest
+        std::cout << "Worker " << getpid() << " ready to accept connections" << std::endl;
+        
+        while (true) {
+            int client_fd = accept(server.get_server_fd(), nullptr, nullptr);
+            if (client_fd < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                perror("accept");
+                break;
+            }
+
+            // Handle the client
+            char len_buf[4];
+            ssize_t n = read(client_fd, len_buf, 4);
+            if (n != 4) { 
+                close(client_fd); 
+                continue; 
+            }
+            
+            uint32_t msg_len = 0;
+            memcpy(&msg_len, len_buf, 4);
+            std::vector<char> buf(msg_len);
+            n = read(client_fd, buf.data(), msg_len);
+            if (n != (ssize_t)msg_len) { 
+                close(client_fd); 
+                continue; 
+            }
+            
+            // Try to deserialize as UserRequest first
+            hotelreservation::UserRequest user_req;
+            bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), user_req);
+            if (ok) {
+                auto response = service.process_request(user_req);
+                std::string resp_str = microservice::utils::serialize_message(ser1de, response);
+                uint32_t resp_len = resp_str.size();
+                write(client_fd, &resp_len, 4);
+                write(client_fd, resp_str.data(), resp_len);
+            } else {
+                // Try as CheckUserRequest
+                hotelreservation::CheckUserRequest check_req;
+                ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), check_req);
+                if (ok) {
+                    auto response = service.process_check_request(check_req);
+                    std::string resp_str = microservice::utils::serialize_message(ser1de, response);
+                    uint32_t resp_len = resp_str.size();
+                    write(client_fd, &resp_len, 4);
+                    write(client_fd, resp_str.data(), resp_len);
+                }
+            }
+            close(client_fd);
+        }
+        
+        return 0;
+    } else {
+        // This is the master process
+        std::cout << "User service master process started with " << NUM_WORKERS << " workers" << std::endl;
+        server.master_loop();
+        return 0;
+    }
 }

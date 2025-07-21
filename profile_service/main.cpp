@@ -12,7 +12,7 @@
 #include <vector>
 #include <thread>
 #include <cstring>
-#include "../thread_pool.h"
+#include "../prefork_utils.h"
 
 class ProfileService {
 private:
@@ -40,8 +40,23 @@ public:
         address1->set_postal_code("94102");
         address1->set_lat(37.7867);
         address1->set_lon(-122.4112);
-        address1->set_padding(microservice::utils::generate_padding());
-        profile1.set_padding(microservice::utils::generate_padding());
+        auto pads = microservice::utils::generate_padding_fields();
+        address1->set_padding1(pads[0]);
+        address1->set_padding2(pads[1]);
+        address1->set_padding3(pads[2]);
+        address1->set_padding4(pads[3]);
+        address1->set_padding5(pads[4]);
+        address1->set_padding6(pads[5]);
+        address1->set_padding7(pads[6]);
+        address1->set_padding8(pads[7]);
+        profile1.set_padding1(pads[0]);
+        profile1.set_padding2(pads[1]);
+        profile1.set_padding3(pads[2]);
+        profile1.set_padding4(pads[3]);
+        profile1.set_padding5(pads[4]);
+        profile1.set_padding6(pads[5]);
+        profile1.set_padding7(pads[6]);
+        profile1.set_padding8(pads[7]);
         profiles_[profile1.id()] = profile1;
 
         // Hotel 2
@@ -59,8 +74,23 @@ public:
         address2->set_postal_code("94103");
         address2->set_lat(37.7854);
         address2->set_lon(-122.4005);
-        address2->set_padding(microservice::utils::generate_padding());
-        profile2.set_padding(microservice::utils::generate_padding());
+        auto pads2 = microservice::utils::generate_padding_fields();
+        address2->set_padding1(pads2[0]);
+        address2->set_padding2(pads2[1]);
+        address2->set_padding3(pads2[2]);
+        address2->set_padding4(pads2[3]);
+        address2->set_padding5(pads2[4]);
+        address2->set_padding6(pads2[5]);
+        address2->set_padding7(pads2[6]);
+        address2->set_padding8(pads2[7]);
+        profile2.set_padding1(pads2[0]);
+        profile2.set_padding2(pads2[1]);
+        profile2.set_padding3(pads2[2]);
+        profile2.set_padding4(pads2[3]);
+        profile2.set_padding5(pads2[4]);
+        profile2.set_padding6(pads2[5]);
+        profile2.set_padding7(pads2[6]);
+        profile2.set_padding8(pads2[7]);
         profiles_[profile2.id()] = profile2;
 
         // Hotel 3
@@ -68,7 +98,7 @@ public:
         profile3.set_id("3");
         profile3.set_name("Hotel Zetta San Francisco");
         profile3.set_phone_number("(415) 543-8555");
-        profile3.set_description("A 2-minute walk from the Powell Street cable car turnaround and BART station, this hip hotel in a 1913 building features high-tech amenities.");
+        profile3.set_description("A 2-minute walk from the San Francisco Museum of Modern Art in SoMa, this hip hotel features a game room and a 24-hour fitness center.");
         auto* address3 = profile3.mutable_address();
         address3->set_street_number("55");
         address3->set_street_name("5th St");
@@ -78,8 +108,23 @@ public:
         address3->set_postal_code("94103");
         address3->set_lat(37.7854);
         address3->set_lon(-122.4071);
-        address3->set_padding(microservice::utils::generate_padding());
-        profile3.set_padding(microservice::utils::generate_padding());
+        auto pads3 = microservice::utils::generate_padding_fields();
+        address3->set_padding1(pads3[0]);
+        address3->set_padding2(pads3[1]);
+        address3->set_padding3(pads3[2]);
+        address3->set_padding4(pads3[3]);
+        address3->set_padding5(pads3[4]);
+        address3->set_padding6(pads3[5]);
+        address3->set_padding7(pads3[6]);
+        address3->set_padding8(pads3[7]);
+        profile3.set_padding1(pads3[0]);
+        profile3.set_padding2(pads3[1]);
+        profile3.set_padding3(pads3[2]);
+        profile3.set_padding4(pads3[3]);
+        profile3.set_padding5(pads3[4]);
+        profile3.set_padding6(pads3[5]);
+        profile3.set_padding7(pads3[6]);
+        profile3.set_padding8(pads3[7]);
         profiles_[profile3.id()] = profile3;
 
         // Hotel 4
@@ -87,7 +132,7 @@ public:
         profile4.set_id("4");
         profile4.set_name("Hotel Vitale");
         profile4.set_phone_number("(415) 278-3700");
-        profile4.set_description("A 5-minute walk from the Ferry Building and Embarcadero BART station, this boutique hotel offers bay views and a rooftop spa.");
+        profile4.set_description("This boutique hotel with a rooftop spa is located in the Financial District, a 5-minute walk from the Ferry Building.");
         auto* address4 = profile4.mutable_address();
         address4->set_street_number("8");
         address4->set_street_name("Mission St");
@@ -97,8 +142,23 @@ public:
         address4->set_postal_code("94105");
         address4->set_lat(37.7936);
         address4->set_lon(-122.3930);
-        address4->set_padding(microservice::utils::generate_padding());
-        profile4.set_padding(microservice::utils::generate_padding());
+        auto pads4 = microservice::utils::generate_padding_fields();
+        address4->set_padding1(pads4[0]);
+        address4->set_padding2(pads4[1]);
+        address4->set_padding3(pads4[2]);
+        address4->set_padding4(pads4[3]);
+        address4->set_padding5(pads4[4]);
+        address4->set_padding6(pads4[5]);
+        address4->set_padding7(pads4[6]);
+        address4->set_padding8(pads4[7]);
+        profile4.set_padding1(pads4[0]);
+        profile4.set_padding2(pads4[1]);
+        profile4.set_padding3(pads4[2]);
+        profile4.set_padding4(pads4[3]);
+        profile4.set_padding5(pads4[4]);
+        profile4.set_padding6(pads4[5]);
+        profile4.set_padding7(pads4[6]);
+        profile4.set_padding8(pads4[7]);
         profiles_[profile4.id()] = profile4;
 
         // Hotel 5
@@ -106,7 +166,7 @@ public:
         profile5.set_id("5");
         profile5.set_name("Phoenix Hotel");
         profile5.set_phone_number("(415) 776-1380");
-        profile5.set_description("A 10-minute walk from the Mission District, this retro-chic hotel features a heated outdoor pool and free bike rentals.");
+        profile5.set_description("This retro-chic hotel in the Tenderloin neighborhood features a heated outdoor pool and a restaurant serving California cuisine.");
         auto* address5 = profile5.mutable_address();
         address5->set_street_number("601");
         address5->set_street_name("Eddy St");
@@ -116,27 +176,57 @@ public:
         address5->set_postal_code("94109");
         address5->set_lat(37.7831);
         address5->set_lon(-122.4181);
-        address5->set_padding(microservice::utils::generate_padding());
-        profile5.set_padding(microservice::utils::generate_padding());
+        auto pads5 = microservice::utils::generate_padding_fields();
+        address5->set_padding1(pads5[0]);
+        address5->set_padding2(pads5[1]);
+        address5->set_padding3(pads5[2]);
+        address5->set_padding4(pads5[3]);
+        address5->set_padding5(pads5[4]);
+        address5->set_padding6(pads5[5]);
+        address5->set_padding7(pads5[6]);
+        address5->set_padding8(pads5[7]);
+        profile5.set_padding1(pads5[0]);
+        profile5.set_padding2(pads5[1]);
+        profile5.set_padding3(pads5[2]);
+        profile5.set_padding4(pads5[3]);
+        profile5.set_padding5(pads5[4]);
+        profile5.set_padding6(pads5[5]);
+        profile5.set_padding7(pads5[6]);
+        profile5.set_padding8(pads5[7]);
         profiles_[profile5.id()] = profile5;
 
         // Hotel 6
         hotelreservation::HotelProfile profile6;
         profile6.set_id("6");
-        profile6.set_name("The St. Regis San Francisco");
-        profile6.set_phone_number("(415) 284-4000");
-        profile6.set_description("A 4-minute walk from the San Francisco Museum of Modern Art, this luxury hotel features a spa and 2 restaurants.");
+        profile6.set_name("Hotel Nikko San Francisco");
+        profile6.set_phone_number("(415) 394-1111");
+        profile6.set_description("This upscale hotel in Nob Hill features a Japanese restaurant, a fitness center, and a heated indoor pool.");
         auto* address6 = profile6.mutable_address();
-        address6->set_street_number("125");
-        address6->set_street_name("3rd St");
+        address6->set_street_number("222");
+        address6->set_street_name("Mason St");
         address6->set_city("San Francisco");
         address6->set_state("CA");
         address6->set_country("United States");
-        address6->set_postal_code("94103");
+        address6->set_postal_code("94102");
         address6->set_lat(37.7863);
         address6->set_lon(-122.4015);
-        address6->set_padding(microservice::utils::generate_padding());
-        profile6.set_padding(microservice::utils::generate_padding());
+        auto pads6 = microservice::utils::generate_padding_fields();
+        address6->set_padding1(pads6[0]);
+        address6->set_padding2(pads6[1]);
+        address6->set_padding3(pads6[2]);
+        address6->set_padding4(pads6[3]);
+        address6->set_padding5(pads6[4]);
+        address6->set_padding6(pads6[5]);
+        address6->set_padding7(pads6[6]);
+        address6->set_padding8(pads6[7]);
+        profile6.set_padding1(pads6[0]);
+        profile6.set_padding2(pads6[1]);
+        profile6.set_padding3(pads6[2]);
+        profile6.set_padding4(pads6[3]);
+        profile6.set_padding5(pads6[4]);
+        profile6.set_padding6(pads6[5]);
+        profile6.set_padding7(pads6[6]);
+        profile6.set_padding8(pads6[7]);
         profiles_[profile6.id()] = profile6;
 
         // Add more hotels 7-80 with generated data
@@ -145,23 +235,40 @@ public:
             profile.set_id(std::to_string(i));
             profile.set_name("Hotel " + std::to_string(i));
             profile.set_phone_number("(415) 555-" + std::to_string(1000 + i));
-            profile.set_description("A modern hotel in San Francisco with excellent amenities and service.");
+            profile.set_description("A comfortable hotel in San Francisco with modern amenities and excellent service.");
+            
             auto* address = profile.mutable_address();
             address->set_street_number(std::to_string(100 + i));
             address->set_street_name("Main St");
             address->set_city("San Francisco");
             address->set_state("CA");
             address->set_country("United States");
-            address->set_postal_code("9410" + std::to_string(i % 10));
+            address->set_postal_code("94102");
             address->set_lat(37.7835 + static_cast<double>(i)/500.0*3);
             address->set_lon(-122.41 + static_cast<double>(i)/500.0*4);
-            address->set_padding(microservice::utils::generate_padding());
-            profile.set_padding(microservice::utils::generate_padding());
+            auto pads = microservice::utils::generate_padding_fields();
+            address->set_padding1(pads[0]);
+            address->set_padding2(pads[1]);
+            address->set_padding3(pads[2]);
+            address->set_padding4(pads[3]);
+            address->set_padding5(pads[4]);
+            address->set_padding6(pads[5]);
+            address->set_padding7(pads[6]);
+            address->set_padding8(pads[7]);
+            
+            profile.set_padding1(pads[0]);
+            profile.set_padding2(pads[1]);
+            profile.set_padding3(pads[2]);
+            profile.set_padding4(pads[3]);
+            profile.set_padding5(pads[4]);
+            profile.set_padding6(pads[5]);
+            profile.set_padding7(pads[6]);
+            profile.set_padding8(pads[7]);
             profiles_[profile.id()] = profile;
         }
     }
 
-    hotelreservation::GetProfilesResponse GetProfiles(const hotelreservation::GetProfilesRequest& req) {
+    hotelreservation::GetProfilesResponse process_request(const hotelreservation::GetProfilesRequest& req) {
         hotelreservation::GetProfilesResponse response;
         
         for (const auto& hotel_id : req.hotel_ids()) {
@@ -171,66 +278,47 @@ public:
             }
         }
         
-        response.set_padding(microservice::utils::generate_padding());
+        auto pads_response = microservice::utils::generate_padding_fields();
+        response.set_padding1(pads_response[0]);
+        response.set_padding2(pads_response[1]);
+        response.set_padding3(pads_response[2]);
+        response.set_padding4(pads_response[3]);
+        response.set_padding5(pads_response[4]);
+        response.set_padding6(pads_response[5]);
+        response.set_padding7(pads_response[6]);
+        response.set_padding8(pads_response[7]);
         return response;
     }
 };
 
-void handle_client(int client_fd, ProfileService& service, Ser1de_re& ser1de) {
-    char len_buf[4];
-    ssize_t n = read(client_fd, len_buf, 4);
-    if (n != 4) { close(client_fd); return; }
-    uint32_t msg_len = 0;
-    memcpy(&msg_len, len_buf, 4);
-    std::vector<char> buf(msg_len);
-    n = read(client_fd, buf.data(), msg_len);
-    if (n != (ssize_t)msg_len) { close(client_fd); return; }
-    hotelreservation::GetProfilesRequest req;
-    bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), req);
-    if (!ok) { close(client_fd); return; }
-    auto response = service.GetProfiles(req);
-    std::string resp_str = microservice::utils::serialize_message(ser1de, response);
-    uint32_t resp_len = resp_str.size();
-    write(client_fd, &resp_len, 4);
-    write(client_fd, resp_str.data(), resp_len);
-    close(client_fd);
-}
-
 int main() {
     const char* socket_path = "/tmp/profile_service.sock";
-    unlink(socket_path); // Remove if exists
-    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (server_fd < 0) {
-        perror("socket");
-        return 1;
-    }
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
-    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("bind");
-        close(server_fd);
-        return 1;
-    }
-    chmod(socket_path, 0777); // Ensure world-writable for Docker
-    if (listen(server_fd, 1024) < 0) {
-        perror("listen");
-        close(server_fd);
-        return 1;
-    }
-    std::cout << "Profile service listening on unix://" << socket_path << std::endl;
+    const int NUM_WORKERS = 8;  // Number of worker processes
     
-    ProfileService service;
-    Ser1de_re ser1de;
-    ThreadPool pool(8); // Use 8 threads for the pool
+    PreforkServer server(NUM_WORKERS);
     
-    while (true) {
-        int client_fd = accept(server_fd, nullptr, nullptr);
-        if (client_fd < 0) continue;
-        pool.enqueue_task([client_fd, &service, &ser1de]() {
-            handle_client(client_fd, service, ser1de);
-        });
+    if (!server.setup_socket(socket_path)) {
+        std::cerr << "Failed to setup socket" << std::endl;
+        return 1;
     }
-    close(server_fd);
-    return 0;
+    
+    std::cout << "Profile service socket setup complete" << std::endl;
+    
+    // Fork worker processes
+    if (server.fork_workers()) {
+        // This is a worker process
+        ProfileService service;
+        Ser1de_re ser1de;
+        
+        // Worker process main loop
+        worker_loop<ProfileService, hotelreservation::GetProfilesRequest, hotelreservation::GetProfilesResponse>(
+            server.get_server_fd(), service, ser1de);
+        
+        return 0;
+    } else {
+        // This is the master process
+        std::cout << "Profile service master process started with " << NUM_WORKERS << " workers" << std::endl;
+        server.master_loop();
+        return 0;
+    }
 } 

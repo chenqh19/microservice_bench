@@ -12,7 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include "../thread_pool.h"
+#include "../prefork_utils.h"
 
 class ReservationService {
 private:
@@ -80,8 +80,7 @@ public:
         return reserved_rooms < it->second.total_rooms;
     }
 
-    hotelreservation::ReservationResponse MakeReservation(
-        const hotelreservation::ReservationRequest& req) {
+    hotelreservation::ReservationResponse process_request(const hotelreservation::ReservationRequest& req) {
         
         hotelreservation::ReservationResponse response;
 
@@ -89,92 +88,122 @@ public:
         hotelreservation::CheckUserRequest user_req;
         user_req.set_username(req.username());
         user_req.set_password(req.password());
-        user_req.set_padding(microservice::utils::generate_padding());
+        auto pads_user = microservice::utils::generate_padding_fields();
+        user_req.set_padding1(pads_user[0]);
+        user_req.set_padding2(pads_user[1]);
+        user_req.set_padding3(pads_user[2]);
+        user_req.set_padding4(pads_user[3]);
+        user_req.set_padding5(pads_user[4]);
+        user_req.set_padding6(pads_user[5]);
+        user_req.set_padding7(pads_user[6]);
+        user_req.set_padding8(pads_user[7]);
         std::string user_resp_str = sendProtobufOverUDS("/tmp/user_service.sock", microservice::utils::serialize_message(ser1de, user_req));
         hotelreservation::CheckUserResponse user_resp;
         if (!microservice::utils::deserialize_message(ser1de, user_resp_str, user_resp) || !user_resp.exists()) {
             response.set_message("Invalid user credentials");
-            response.set_padding(microservice::utils::generate_padding());
+            auto pads_response = microservice::utils::generate_padding_fields();
+            response.set_padding1(pads_response[0]);
+            response.set_padding2(pads_response[1]);
+            response.set_padding3(pads_response[2]);
+            response.set_padding4(pads_response[3]);
+            response.set_padding5(pads_response[4]);
+            response.set_padding6(pads_response[5]);
+            response.set_padding7(pads_response[6]);
+            response.set_padding8(pads_response[7]);
             return response;
         }
         std::lock_guard<std::mutex> lock(reservations_mutex_);
         // Check if hotel exists and has availability
-        if (!checkAvailability(req.hotel_id(), req.in_date(), req.out_date(), req.room_number())) {
-            response.set_message("No availability for the selected dates");
-            response.set_padding(microservice::utils::generate_padding());
+        auto it = hotel_reservations_.find(req.hotel_id());
+        if (it == hotel_reservations_.end()) {
+            response.set_message("Hotel not found");
+            auto pads_response = microservice::utils::generate_padding_fields();
+            response.set_padding1(pads_response[0]);
+            response.set_padding2(pads_response[1]);
+            response.set_padding3(pads_response[2]);
+            response.set_padding4(pads_response[3]);
+            response.set_padding5(pads_response[4]);
+            response.set_padding6(pads_response[5]);
+            response.set_padding7(pads_response[6]);
+            response.set_padding8(pads_response[7]);
             return response;
         }
+
+        if (!checkAvailability(req.hotel_id(), req.in_date(), req.out_date(), req.room_number())) {
+            response.set_message("No availability for the requested dates");
+            auto pads_response = microservice::utils::generate_padding_fields();
+            response.set_padding1(pads_response[0]);
+            response.set_padding2(pads_response[1]);
+            response.set_padding3(pads_response[2]);
+            response.set_padding4(pads_response[3]);
+            response.set_padding5(pads_response[4]);
+            response.set_padding6(pads_response[5]);
+            response.set_padding7(pads_response[6]);
+            response.set_padding8(pads_response[7]);
+            return response;
+        }
+
         // Create reservation
         hotelreservation::Reservation reservation;
-        reservation.set_hotel_id(req.hotel_id());
         reservation.set_customer_name(req.customer_name());
+        reservation.set_hotel_id(req.hotel_id());
         reservation.set_in_date(req.in_date());
         reservation.set_out_date(req.out_date());
         reservation.set_number(req.room_number());
-        reservation.set_padding(microservice::utils::generate_padding());
-        hotel_reservations_[req.hotel_id()].reservations.push_back(reservation);
-        response.set_message("Reservation confirmed");
-        response.set_padding(microservice::utils::generate_padding());
+        auto pads = microservice::utils::generate_padding_fields();
+        reservation.set_padding1(pads[0]);
+        reservation.set_padding2(pads[1]);
+        reservation.set_padding3(pads[2]);
+        reservation.set_padding4(pads[3]);
+        reservation.set_padding5(pads[4]);
+        reservation.set_padding6(pads[5]);
+        reservation.set_padding7(pads[6]);
+        reservation.set_padding8(pads[7]);
+
+        it->second.reservations.push_back(reservation);
+
+        response.set_message("Reservation successful");
+        auto pads_response = microservice::utils::generate_padding_fields();
+        response.set_padding1(pads_response[0]);
+        response.set_padding2(pads_response[1]);
+        response.set_padding3(pads_response[2]);
+        response.set_padding4(pads_response[3]);
+        response.set_padding5(pads_response[4]);
+        response.set_padding6(pads_response[5]);
+        response.set_padding7(pads_response[6]);
+        response.set_padding8(pads_response[7]);
         return response;
     }
 };
 
-void handle_client(int client_fd, ReservationService& service, Ser1de_re& ser1de) {
-    char len_buf[4];
-    ssize_t n = read(client_fd, len_buf, 4);
-    if (n != 4) { close(client_fd); return; }
-    uint32_t msg_len = 0;
-    memcpy(&msg_len, len_buf, 4);
-    std::vector<char> buf(msg_len);
-    n = read(client_fd, buf.data(), msg_len);
-    if (n != (ssize_t)msg_len) { close(client_fd); return; }
-    hotelreservation::ReservationRequest request;
-    bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), request);
-    if (ok) {
-        auto response = service.MakeReservation(request);
-        std::string resp_str = microservice::utils::serialize_message(ser1de, response);
-        uint32_t resp_len = resp_str.size();
-        write(client_fd, &resp_len, 4);
-        write(client_fd, resp_str.data(), resp_len);
-    }
-    close(client_fd);
-}
-
 int main() {
     const char* socket_path = "/tmp/reservation_service.sock";
-    unlink(socket_path); // Remove if exists
-    int server_fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (server_fd < 0) {
-        perror("socket");
-        return 1;
-    }
-    sockaddr_un addr{};
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, socket_path, sizeof(addr.sun_path) - 1);
-    if (bind(server_fd, (sockaddr*)&addr, sizeof(addr)) < 0) {
-        perror("bind");
-        close(server_fd);
-        return 1;
-    }
-    chmod(socket_path, 0777); // Ensure world-writable for Docker
-    if (listen(server_fd, 1024) < 0) {
-        perror("listen");
-        close(server_fd);
-        return 1;
-    }
-    std::cout << "Reservation service listening on unix://" << socket_path << std::endl;
+    const int NUM_WORKERS = 8;  // Number of worker processes
     
-    ReservationService service;
-    Ser1de_re ser1de;
-    ThreadPool pool(8); // Use 8 threads for the pool
+    PreforkServer server(NUM_WORKERS);
     
-    while (true) {
-        int client_fd = accept(server_fd, nullptr, nullptr);
-        if (client_fd < 0) continue;
-        pool.enqueue_task([client_fd, &service, &ser1de]() {
-            handle_client(client_fd, service, ser1de);
-        });
+    if (!server.setup_socket(socket_path)) {
+        std::cerr << "Failed to setup socket" << std::endl;
+        return 1;
     }
-    close(server_fd);
-    return 0;
+    
+    std::cout << "Reservation service socket setup complete" << std::endl;
+    
+    // Fork worker processes
+    if (server.fork_workers()) {
+        // This is a worker process
+        ReservationService service;
+        Ser1de_re ser1de;
+        
+        // Worker process main loop
+        worker_loop<ReservationService, hotelreservation::ReservationRequest, hotelreservation::ReservationResponse>(
+            server.get_server_fd(), service, ser1de);
+        
+        return 0;
+    } else {
+        // This is the master process
+        std::cout << "Reservation service master process started with " << NUM_WORKERS << " workers" << std::endl;
+        server.master_loop();
+        return 0;
+    }
 } 
