@@ -56,15 +56,7 @@ public:
         hotelreservation::NearbyRequest geo_req;
         geo_req.set_lat(req.lat());
         geo_req.set_lon(req.lon());
-        auto pads_geo = microservice::utils::generate_padding_fields();
-        geo_req.set_padding1(pads_geo[0]);
-        geo_req.set_padding2(pads_geo[1]);
-        geo_req.set_padding3(pads_geo[2]);
-        geo_req.set_padding4(pads_geo[3]);
-        geo_req.set_padding5(pads_geo[4]);
-        geo_req.set_padding6(pads_geo[5]);
-        geo_req.set_padding7(pads_geo[6]);
-        geo_req.set_padding8(pads_geo[7]);
+        *geo_req.mutable_padding() = microservice::utils::generate_person_padding();
         std::string geo_resp_str = sendProtobufOverUDS("/tmp/geo_service.sock", microservice::utils::serialize_message(ser1de, geo_req));
         hotelreservation::NearbyResponse geo_resp;
         if (!microservice::utils::deserialize_message(ser1de, geo_resp_str, geo_resp)) {
@@ -77,15 +69,7 @@ public:
         }
         rate_req.set_in_date(req.in_date());
         rate_req.set_out_date(req.out_date());
-        auto pads_rate = microservice::utils::generate_padding_fields();
-        rate_req.set_padding1(pads_rate[0]);
-        rate_req.set_padding2(pads_rate[1]);
-        rate_req.set_padding3(pads_rate[2]);
-        rate_req.set_padding4(pads_rate[3]);
-        rate_req.set_padding5(pads_rate[4]);
-        rate_req.set_padding6(pads_rate[5]);
-        rate_req.set_padding7(pads_rate[6]);
-        rate_req.set_padding8(pads_rate[7]);
+        *rate_req.mutable_padding() = microservice::utils::generate_person_padding();
         std::string rate_resp_str = sendProtobufOverUDS("/tmp/rate_service.sock", microservice::utils::serialize_message(ser1de, rate_req));
         hotelreservation::GetRatesResponse rate_resp;
         if (!microservice::utils::deserialize_message(ser1de, rate_resp_str, rate_resp)) {
@@ -97,15 +81,7 @@ public:
             profile_req.add_hotel_ids(hotel_id);
         }
         profile_req.set_locale(req.locale());
-        auto pads_profile = microservice::utils::generate_padding_fields();
-        profile_req.set_padding1(pads_profile[0]);
-        profile_req.set_padding2(pads_profile[1]);
-        profile_req.set_padding3(pads_profile[2]);
-        profile_req.set_padding4(pads_profile[3]);
-        profile_req.set_padding5(pads_profile[4]);
-        profile_req.set_padding6(pads_profile[5]);
-        profile_req.set_padding7(pads_profile[6]);
-        profile_req.set_padding8(pads_profile[7]);
+        *profile_req.mutable_padding() = microservice::utils::generate_person_padding();
         std::string profile_resp_str = sendProtobufOverUDS("/tmp/profile_service.sock", microservice::utils::serialize_message(ser1de, profile_req));
         hotelreservation::GetProfilesResponse profile_resp;
         if (!microservice::utils::deserialize_message(ser1de, profile_resp_str, profile_resp)) {
@@ -116,15 +92,7 @@ public:
         for (const auto& profile : profile_resp.profiles()) {
             *response.add_hotels() = profile;
         }
-        auto pads = microservice::utils::generate_padding_fields();
-        response.set_padding1(pads[0]);
-        response.set_padding2(pads[1]);
-        response.set_padding3(pads[2]);
-        response.set_padding4(pads[3]);
-        response.set_padding5(pads[4]);
-        response.set_padding6(pads[5]);
-        response.set_padding7(pads[6]);
-        response.set_padding8(pads[7]);
+        *response.mutable_padding() = microservice::utils::generate_person_padding();
         return response;
     }
 };

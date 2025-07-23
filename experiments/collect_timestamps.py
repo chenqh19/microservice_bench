@@ -40,14 +40,15 @@ def collect_averages():
                 print(f"Warning: No valid data found in {log_file.name}")
                 continue
             
-            # Take entries from position 5001 to 15000 (entries 5001-15000)
-            if len(values) >= 15000:
-                selected_values = values[5000:15000]  # 0-indexed, so 5000-14999
-            elif len(values) > 5000:
-                selected_values = values[5000:]  # From 5001 to end
-            else:
-                print(f"Warning: Not enough data in {log_file.name} (need at least 5001 entries, got {len(values)})")
-                continue
+            # # Take entries from position 5001 to 15000 (entries 5001-15000)
+            # if len(values) >= 15000:
+            #     selected_values = values[5000:15000]  # 0-indexed, so 5000-14999
+            # elif len(values) > 5000:
+            #     selected_values = values[5000:]  # From 5001 to end
+            # else:
+            #     print(f"Warning: Not enough data in {log_file.name} (need at least 5001 entries, got {len(values)})")
+            #     continue
+            selected_values = values
             
             # Calculate average of selected values
             avg_latency = np.mean(selected_values)

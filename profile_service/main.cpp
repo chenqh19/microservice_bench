@@ -40,23 +40,8 @@ public:
         address1->set_postal_code("94102");
         address1->set_lat(37.7867);
         address1->set_lon(-122.4112);
-        auto pads = microservice::utils::generate_padding_fields();
-        address1->set_padding1(pads[0]);
-        address1->set_padding2(pads[1]);
-        address1->set_padding3(pads[2]);
-        address1->set_padding4(pads[3]);
-        address1->set_padding5(pads[4]);
-        address1->set_padding6(pads[5]);
-        address1->set_padding7(pads[6]);
-        address1->set_padding8(pads[7]);
-        profile1.set_padding1(pads[0]);
-        profile1.set_padding2(pads[1]);
-        profile1.set_padding3(pads[2]);
-        profile1.set_padding4(pads[3]);
-        profile1.set_padding5(pads[4]);
-        profile1.set_padding6(pads[5]);
-        profile1.set_padding7(pads[6]);
-        profile1.set_padding8(pads[7]);
+        *address1->mutable_padding() = microservice::utils::generate_person_padding();
+        *profile1.mutable_padding() = microservice::utils::generate_person_padding();
         profiles_[profile1.id()] = profile1;
 
         // Hotel 2
@@ -74,23 +59,8 @@ public:
         address2->set_postal_code("94103");
         address2->set_lat(37.7854);
         address2->set_lon(-122.4005);
-        auto pads2 = microservice::utils::generate_padding_fields();
-        address2->set_padding1(pads2[0]);
-        address2->set_padding2(pads2[1]);
-        address2->set_padding3(pads2[2]);
-        address2->set_padding4(pads2[3]);
-        address2->set_padding5(pads2[4]);
-        address2->set_padding6(pads2[5]);
-        address2->set_padding7(pads2[6]);
-        address2->set_padding8(pads2[7]);
-        profile2.set_padding1(pads2[0]);
-        profile2.set_padding2(pads2[1]);
-        profile2.set_padding3(pads2[2]);
-        profile2.set_padding4(pads2[3]);
-        profile2.set_padding5(pads2[4]);
-        profile2.set_padding6(pads2[5]);
-        profile2.set_padding7(pads2[6]);
-        profile2.set_padding8(pads2[7]);
+        *address2->mutable_padding() = microservice::utils::generate_person_padding();
+        *profile2.mutable_padding() = microservice::utils::generate_person_padding();
         profiles_[profile2.id()] = profile2;
 
         // Hotel 3
@@ -108,23 +78,8 @@ public:
         address3->set_postal_code("94103");
         address3->set_lat(37.7854);
         address3->set_lon(-122.4071);
-        auto pads3 = microservice::utils::generate_padding_fields();
-        address3->set_padding1(pads3[0]);
-        address3->set_padding2(pads3[1]);
-        address3->set_padding3(pads3[2]);
-        address3->set_padding4(pads3[3]);
-        address3->set_padding5(pads3[4]);
-        address3->set_padding6(pads3[5]);
-        address3->set_padding7(pads3[6]);
-        address3->set_padding8(pads3[7]);
-        profile3.set_padding1(pads3[0]);
-        profile3.set_padding2(pads3[1]);
-        profile3.set_padding3(pads3[2]);
-        profile3.set_padding4(pads3[3]);
-        profile3.set_padding5(pads3[4]);
-        profile3.set_padding6(pads3[5]);
-        profile3.set_padding7(pads3[6]);
-        profile3.set_padding8(pads3[7]);
+        *address3->mutable_padding() = microservice::utils::generate_person_padding();
+        *profile3.mutable_padding() = microservice::utils::generate_person_padding();
         profiles_[profile3.id()] = profile3;
 
         // Hotel 4
@@ -142,23 +97,8 @@ public:
         address4->set_postal_code("94105");
         address4->set_lat(37.7936);
         address4->set_lon(-122.3930);
-        auto pads4 = microservice::utils::generate_padding_fields();
-        address4->set_padding1(pads4[0]);
-        address4->set_padding2(pads4[1]);
-        address4->set_padding3(pads4[2]);
-        address4->set_padding4(pads4[3]);
-        address4->set_padding5(pads4[4]);
-        address4->set_padding6(pads4[5]);
-        address4->set_padding7(pads4[6]);
-        address4->set_padding8(pads4[7]);
-        profile4.set_padding1(pads4[0]);
-        profile4.set_padding2(pads4[1]);
-        profile4.set_padding3(pads4[2]);
-        profile4.set_padding4(pads4[3]);
-        profile4.set_padding5(pads4[4]);
-        profile4.set_padding6(pads4[5]);
-        profile4.set_padding7(pads4[6]);
-        profile4.set_padding8(pads4[7]);
+        *address4->mutable_padding() = microservice::utils::generate_person_padding();
+        *profile4.mutable_padding() = microservice::utils::generate_person_padding();
         profiles_[profile4.id()] = profile4;
 
         // Hotel 5
@@ -176,23 +116,8 @@ public:
         address5->set_postal_code("94109");
         address5->set_lat(37.7831);
         address5->set_lon(-122.4181);
-        auto pads5 = microservice::utils::generate_padding_fields();
-        address5->set_padding1(pads5[0]);
-        address5->set_padding2(pads5[1]);
-        address5->set_padding3(pads5[2]);
-        address5->set_padding4(pads5[3]);
-        address5->set_padding5(pads5[4]);
-        address5->set_padding6(pads5[5]);
-        address5->set_padding7(pads5[6]);
-        address5->set_padding8(pads5[7]);
-        profile5.set_padding1(pads5[0]);
-        profile5.set_padding2(pads5[1]);
-        profile5.set_padding3(pads5[2]);
-        profile5.set_padding4(pads5[3]);
-        profile5.set_padding5(pads5[4]);
-        profile5.set_padding6(pads5[5]);
-        profile5.set_padding7(pads5[6]);
-        profile5.set_padding8(pads5[7]);
+        *address5->mutable_padding() = microservice::utils::generate_person_padding();
+        *profile5.mutable_padding() = microservice::utils::generate_person_padding();
         profiles_[profile5.id()] = profile5;
 
         // Hotel 6
@@ -210,23 +135,8 @@ public:
         address6->set_postal_code("94102");
         address6->set_lat(37.7863);
         address6->set_lon(-122.4015);
-        auto pads6 = microservice::utils::generate_padding_fields();
-        address6->set_padding1(pads6[0]);
-        address6->set_padding2(pads6[1]);
-        address6->set_padding3(pads6[2]);
-        address6->set_padding4(pads6[3]);
-        address6->set_padding5(pads6[4]);
-        address6->set_padding6(pads6[5]);
-        address6->set_padding7(pads6[6]);
-        address6->set_padding8(pads6[7]);
-        profile6.set_padding1(pads6[0]);
-        profile6.set_padding2(pads6[1]);
-        profile6.set_padding3(pads6[2]);
-        profile6.set_padding4(pads6[3]);
-        profile6.set_padding5(pads6[4]);
-        profile6.set_padding6(pads6[5]);
-        profile6.set_padding7(pads6[6]);
-        profile6.set_padding8(pads6[7]);
+        *address6->mutable_padding() = microservice::utils::generate_person_padding();
+        *profile6.mutable_padding() = microservice::utils::generate_person_padding();
         profiles_[profile6.id()] = profile6;
 
         // Add more hotels 7-80 with generated data
@@ -246,24 +156,8 @@ public:
             address->set_postal_code("94102");
             address->set_lat(37.7835 + static_cast<double>(i)/500.0*3);
             address->set_lon(-122.41 + static_cast<double>(i)/500.0*4);
-            auto pads = microservice::utils::generate_padding_fields();
-            address->set_padding1(pads[0]);
-            address->set_padding2(pads[1]);
-            address->set_padding3(pads[2]);
-            address->set_padding4(pads[3]);
-            address->set_padding5(pads[4]);
-            address->set_padding6(pads[5]);
-            address->set_padding7(pads[6]);
-            address->set_padding8(pads[7]);
-            
-            profile.set_padding1(pads[0]);
-            profile.set_padding2(pads[1]);
-            profile.set_padding3(pads[2]);
-            profile.set_padding4(pads[3]);
-            profile.set_padding5(pads[4]);
-            profile.set_padding6(pads[5]);
-            profile.set_padding7(pads[6]);
-            profile.set_padding8(pads[7]);
+            *address->mutable_padding() = microservice::utils::generate_person_padding();
+            *profile.mutable_padding() = microservice::utils::generate_person_padding();
             profiles_[profile.id()] = profile;
         }
     }
@@ -278,15 +172,7 @@ public:
             }
         }
         
-        auto pads_response = microservice::utils::generate_padding_fields();
-        response.set_padding1(pads_response[0]);
-        response.set_padding2(pads_response[1]);
-        response.set_padding3(pads_response[2]);
-        response.set_padding4(pads_response[3]);
-        response.set_padding5(pads_response[4]);
-        response.set_padding6(pads_response[5]);
-        response.set_padding7(pads_response[6]);
-        response.set_padding8(pads_response[7]);
+        *response.mutable_padding() = microservice::utils::generate_person_padding();
         return response;
     }
 };

@@ -2,31 +2,75 @@ syntax = "proto3";
 
 package hotelreservation;
 
+// Begin inlined message M from person.proto
+message M {
+  optional int32 f1 = 1;
+  optional int32 f2 = 2;
+  optional int32 f3 = 3;
+  optional int32 f4 = 4;
+  optional int32 f5 = 5;
+  optional int32 f6 = 6;
+  optional int32 f7 = 7;
+  optional int32 f8 = 8;
+  optional int32 f9 = 9;
+  optional int32 f10 = 10;
+  optional int32 f11 = 11;
+  optional int32 f12 = 12;
+  optional string f13 = 13;
+  optional string f14 = 14;
+  optional string f15 = 15;
+  message M10 {
+    optional int32 f1 = 1;
+    optional int32 f2 = 2;
+    optional int32 f3 = 3;
+    optional int32 f4 = 4;
+    optional int32 f5 = 5;
+    optional int32 f6 = 6;
+    optional int32 f7 = 7;
+    optional int32 f8 = 8;
+    optional int32 f9 = 9;
+    optional int32 f10 = 10;
+    optional int32 f11 = 11;
+    optional int32 f12 = 12;
+    optional string f13 = 13;
+    optional string f14 = 14;
+    optional string f15 = 15;
+    message M20 {
+      optional int32 f1 = 1;
+      optional int32 f2 = 2;
+      optional int32 f3 = 3;
+      optional int32 f4 = 4;
+      optional int32 f5 = 5;
+      optional int32 f6 = 6;
+      optional int32 f7 = 7;
+      optional int32 f8 = 8;
+      optional int32 f9 = 9;
+      optional int32 f10 = 10;
+      optional int32 f11 = 11;
+      optional int32 f12 = 12;
+      optional string f13 = 13;
+      optional string f14 = 14;
+      optional string f15 = 15;
+    }
+    optional M20 f16 = 16;
+    // ... (other nested messages M21, M22, M23, etc. can be added here as needed)
+  }
+  optional M10 f16 = 16;
+  // ... (other nested messages M11, M12, M13, etc. can be added here as needed)
+}
+// End inlined message M from person.proto
+
 message Point {
   string pid = 1;
   double plat = 2;
   double plon = 3;
-  string padding1 = 4;  // 1000-byte random string for padding
-  string padding2 = 5;  // 1000-byte random string for padding
-  string padding3 = 6;  // 1000-byte random string for padding
-  string padding4 = 7;  // 1000-byte random string for padding
-  string padding5 = 8;  // 1000-byte random string for padding
-  string padding6 = 9;  // 1000-byte random string for padding
-  string padding7 = 10;  // 1000-byte random string for padding
-  string padding8 = 11;  // 1000-byte random string for padding
+  M padding = 4;  // padding message from person.proto
 }
 
 message User {
   string username = 1;
   string password = 2;
-  string padding1 = 3;  // 1000-byte random string for padding
-  string padding2 = 4;  // 1000-byte random string for padding
-  string padding3 = 5;  // 1000-byte random string for padding
-  string padding4 = 6;  // 1000-byte random string for padding
-  string padding5 = 7;  // 1000-byte random string for padding
-  string padding6 = 8;  // 1000-byte random string for padding
-  string padding7 = 9;  // 1000-byte random string for padding
-  string padding8 = 10;  // 1000-byte random string for padding
+  M padding = 3;  // padding message from person.proto
 }
 
 message RoomType {
@@ -35,14 +79,7 @@ message RoomType {
   string room_description = 3;
   double total_rate = 4;
   double total_rate_inclusive = 5;
-  string padding1 = 6;  // 1000-byte random string for padding
-  string padding2 = 7;  // 1000-byte random string for padding
-  string padding3 = 8;  // 1000-byte random string for padding
-  string padding4 = 9;  // 1000-byte random string for padding
-  string padding5 = 10;  // 1000-byte random string for padding
-  string padding6 = 11;  // 1000-byte random string for padding
-  string padding7 = 12;  // 1000-byte random string for padding
-  string padding8 = 13;  // 1000-byte random string for padding
+  M padding = 6;  // padding message from person.proto
 }
 
 message RatePlan {
@@ -51,14 +88,7 @@ message RatePlan {
   string in_date = 3;
   string out_date = 4;
   RoomType room_type = 5;
-  string padding1 = 6;  // 1000-byte random string for padding
-  string padding2 = 7;  // 1000-byte random string for padding
-  string padding3 = 8;  // 1000-byte random string for padding
-  string padding4 = 9;  // 1000-byte random string for padding
-  string padding5 = 10;  // 1000-byte random string for padding
-  string padding6 = 11;  // 1000-byte random string for padding
-  string padding7 = 12;  // 1000-byte random string for padding
-  string padding8 = 13;  // 1000-byte random string for padding
+  M padding = 6;  // padding message from person.proto
 }
 
 message Reservation {
@@ -67,27 +97,13 @@ message Reservation {
   string in_date = 3;
   string out_date = 4;
   int64 number = 5;
-  string padding1 = 6;  // 1000-byte random string for padding
-  string padding2 = 7;  // 1000-byte random string for padding
-  string padding3 = 8;  // 1000-byte random string for padding
-  string padding4 = 9;  // 1000-byte random string for padding
-  string padding5 = 10;  // 1000-byte random string for padding
-  string padding6 = 11;  // 1000-byte random string for padding
-  string padding7 = 12;  // 1000-byte random string for padding
-  string padding8 = 13;  // 1000-byte random string for padding
+  M padding = 6;  // padding message from person.proto
 }
 
 message HotelNumber {
   string hotel_id = 1;
   int64 number = 2;
-  string padding1 = 3;  // 1000-byte random string for padding
-  string padding2 = 4;  // 1000-byte random string for padding
-  string padding3 = 5;  // 1000-byte random string for padding
-  string padding4 = 6;  // 1000-byte random string for padding
-  string padding5 = 7;  // 1000-byte random string for padding
-  string padding6 = 8;  // 1000-byte random string for padding
-  string padding7 = 9;  // 1000-byte random string for padding
-  string padding8 = 10;  // 1000-byte random string for padding
+  M padding = 3;  // padding message from person.proto
 }
 
 message Hotel {
@@ -96,14 +112,7 @@ message Hotel {
   double h_lon = 3;
   double h_rate = 4;
   double h_price = 5;
-  string padding1 = 6;  // 1000-byte random string for padding
-  string padding2 = 7;  // 1000-byte random string for padding
-  string padding3 = 8;  // 1000-byte random string for padding
-  string padding4 = 9;  // 1000-byte random string for padding
-  string padding5 = 10;  // 1000-byte random string for padding
-  string padding6 = 11;  // 1000-byte random string for padding
-  string padding7 = 12;  // 1000-byte random string for padding
-  string padding8 = 13;  // 1000-byte random string for padding
+  M padding = 6;  // padding message from person.proto
 }
 
 message Address {
@@ -115,14 +124,7 @@ message Address {
   string postal_code = 6;
   double lat = 7;
   double lon = 8;
-  string padding1 = 9;  // 1000-byte random string for padding
-  string padding2 = 10;  // 1000-byte random string for padding
-  string padding3 = 11;  // 1000-byte random string for padding
-  string padding4 = 12;  // 1000-byte random string for padding
-  string padding5 = 13;  // 1000-byte random string for padding
-  string padding6 = 14;  // 1000-byte random string for padding
-  string padding7 = 15;  // 1000-byte random string for padding
-  string padding8 = 16;  // 1000-byte random string for padding
+  M padding = 9;  // padding message from person.proto
 }
 
 message HotelProfile {
@@ -131,14 +133,7 @@ message HotelProfile {
   string phone_number = 3;
   string description = 4;
   Address address = 5;
-  string padding1 = 6;  // 1000-byte random string for padding
-  string padding2 = 7;  // 1000-byte random string for padding
-  string padding3 = 8;  // 1000-byte random string for padding
-  string padding4 = 9;  // 1000-byte random string for padding
-  string padding5 = 10;  // 1000-byte random string for padding
-  string padding6 = 11;  // 1000-byte random string for padding
-  string padding7 = 12;  // 1000-byte random string for padding
-  string padding8 = 13;  // 1000-byte random string for padding
+  M padding = 6;  // padding message from person.proto
 }
 
 // Service Requests/Responses
@@ -150,26 +145,12 @@ message SearchRequest {
   double lat = 4;
   double lon = 5;
   string locale = 6;
-  string padding1 = 7;  // 1000-byte random string for padding
-  string padding2 = 8;  // 1000-byte random string for padding
-  string padding3 = 9;  // 1000-byte random string for padding
-  string padding4 = 10;  // 1000-byte random string for padding
-  string padding5 = 11;  // 1000-byte random string for padding
-  string padding6 = 12;  // 1000-byte random string for padding
-  string padding7 = 13;  // 1000-byte random string for padding
-  string padding8 = 14;  // 1000-byte random string for padding
+  M padding = 7;  // padding message from person.proto
 }
 
 message SearchResponse {
   repeated HotelProfile hotels = 1;
-  string padding1 = 2;  // 1000-byte random string for padding
-  string padding2 = 3;  // 1000-byte random string for padding
-  string padding3 = 4;  // 1000-byte random string for padding
-  string padding4 = 5;  // 1000-byte random string for padding
-  string padding5 = 6;  // 1000-byte random string for padding
-  string padding6 = 7;  // 1000-byte random string for padding
-  string padding7 = 8;  // 1000-byte random string for padding
-  string padding8 = 9;  // 1000-byte random string for padding
+  M padding = 2;  // padding message from person.proto
 }
 
 message RecommendRequest {
@@ -177,51 +158,23 @@ message RecommendRequest {
   double lon = 2;
   string require = 3;
   string locale = 4;
-  string padding1 = 5;  // 1000-byte random string for padding
-  string padding2 = 6;  // 1000-byte random string for padding
-  string padding3 = 7;  // 1000-byte random string for padding
-  string padding4 = 8;  // 1000-byte random string for padding
-  string padding5 = 9;  // 1000-byte random string for padding
-  string padding6 = 10;  // 1000-byte random string for padding
-  string padding7 = 11;  // 1000-byte random string for padding
-  string padding8 = 12;  // 1000-byte random string for padding
+  M padding = 5;  // padding message from person.proto
 }
 
 message RecommendResponse {
   repeated HotelProfile hotels = 1;
-  string padding1 = 2;  // 1000-byte random string for padding
-  string padding2 = 3;  // 1000-byte random string for padding
-  string padding3 = 4;  // 1000-byte random string for padding
-  string padding4 = 5;  // 1000-byte random string for padding
-  string padding5 = 6;  // 1000-byte random string for padding
-  string padding6 = 7;  // 1000-byte random string for padding
-  string padding7 = 8;  // 1000-byte random string for padding
-  string padding8 = 9;  // 1000-byte random string for padding
+  M padding = 2;  // padding message from person.proto
 }
 
 message UserRequest {
   string username = 1;
   string password = 2;
-  string padding1 = 3;  // 1000-byte random string for padding
-  string padding2 = 4;  // 1000-byte random string for padding
-  string padding3 = 5;  // 1000-byte random string for padding
-  string padding4 = 6;  // 1000-byte random string for padding
-  string padding5 = 7;  // 1000-byte random string for padding
-  string padding6 = 8;  // 1000-byte random string for padding
-  string padding7 = 9;  // 1000-byte random string for padding
-  string padding8 = 10;  // 1000-byte random string for padding
+  M padding = 3;  // padding message from person.proto
 }
 
 message UserResponse {
   string message = 1;
-  string padding1 = 2;  // 1000-byte random string for padding
-  string padding2 = 3;  // 1000-byte random string for padding
-  string padding3 = 4;  // 1000-byte random string for padding
-  string padding4 = 5;  // 1000-byte random string for padding
-  string padding5 = 6;  // 1000-byte random string for padding
-  string padding6 = 7;  // 1000-byte random string for padding
-  string padding7 = 8;  // 1000-byte random string for padding
-  string padding8 = 9;  // 1000-byte random string for padding
+  M padding = 2;  // padding message from person.proto
 }
 
 message ReservationRequest {
@@ -232,125 +185,55 @@ message ReservationRequest {
   string username = 5;
   string password = 6;
   int64 room_number = 7;
-  string padding1 = 8;  // 1000-byte random string for padding
-  string padding2 = 9;  // 1000-byte random string for padding
-  string padding3 = 10;  // 1000-byte random string for padding
-  string padding4 = 11;  // 1000-byte random string for padding
-  string padding5 = 12;  // 1000-byte random string for padding
-  string padding6 = 13;  // 1000-byte random string for padding
-  string padding7 = 14;  // 1000-byte random string for padding
-  string padding8 = 15;  // 1000-byte random string for padding
+  M padding = 8;  // padding message from person.proto
 }
 
 message ReservationResponse {
   string message = 1;
-  string padding1 = 2;  // 1000-byte random string for padding
-  string padding2 = 3;  // 1000-byte random string for padding
-  string padding3 = 4;  // 1000-byte random string for padding
-  string padding4 = 5;  // 1000-byte random string for padding
-  string padding5 = 6;  // 1000-byte random string for padding
-  string padding6 = 7;  // 1000-byte random string for padding
-  string padding7 = 8;  // 1000-byte random string for padding
-  string padding8 = 9;  // 1000-byte random string for padding
+  M padding = 2;  // padding message from person.proto
 }
 
 message NearbyRequest {
   double lat = 1;
   double lon = 2;
-  string padding1 = 3;  // 1000-byte random string for padding
-  string padding2 = 4;  // 1000-byte random string for padding
-  string padding3 = 5;  // 1000-byte random string for padding
-  string padding4 = 6;  // 1000-byte random string for padding
-  string padding5 = 7;  // 1000-byte random string for padding
-  string padding6 = 8;  // 1000-byte random string for padding
-  string padding7 = 9;  // 1000-byte random string for padding
-  string padding8 = 10;  // 1000-byte random string for padding
+  M padding = 3;  // padding message from person.proto
 }
 
 message NearbyResponse {
   repeated string hotel_ids = 1;
-  string padding1 = 2;  // 1000-byte random string for padding
-  string padding2 = 3;  // 1000-byte random string for padding
-  string padding3 = 4;  // 1000-byte random string for padding
-  string padding4 = 5;  // 1000-byte random string for padding
-  string padding5 = 6;  // 1000-byte random string for padding
-  string padding6 = 7;  // 1000-byte random string for padding
-  string padding7 = 8;  // 1000-byte random string for padding
-  string padding8 = 9;  // 1000-byte random string for padding
+  M padding = 2;  // padding message from person.proto
 }
 
 message GetProfilesRequest {
   repeated string hotel_ids = 1;
   string locale = 2;
-  string padding1 = 3;  // 1000-byte random string for padding
-  string padding2 = 4;  // 1000-byte random string for padding
-  string padding3 = 5;  // 1000-byte random string for padding
-  string padding4 = 6;  // 1000-byte random string for padding
-  string padding5 = 7;  // 1000-byte random string for padding
-  string padding6 = 8;  // 1000-byte random string for padding
-  string padding7 = 9;  // 1000-byte random string for padding
-  string padding8 = 10;  // 1000-byte random string for padding
+  M padding = 3;  // padding message from person.proto
 }
 
 message GetProfilesResponse {
   repeated HotelProfile profiles = 1;
-  string padding1 = 2;  // 1000-byte random string for padding
-  string padding2 = 3;  // 1000-byte random string for padding
-  string padding3 = 4;  // 1000-byte random string for padding
-  string padding4 = 5;  // 1000-byte random string for padding
-  string padding5 = 6;  // 1000-byte random string for padding
-  string padding6 = 7;  // 1000-byte random string for padding
-  string padding7 = 8;  // 1000-byte random string for padding
-  string padding8 = 9;  // 1000-byte random string for padding
+  M padding = 2;  // padding message from person.proto
 }
 
 message GetRatesRequest {
   repeated string hotel_ids = 1;
   string in_date = 2;
   string out_date = 3;
-  string padding1 = 4;  // 1000-byte random string for padding
-  string padding2 = 5;  // 1000-byte random string for padding
-  string padding3 = 6;  // 1000-byte random string for padding
-  string padding4 = 7;  // 1000-byte random string for padding
-  string padding5 = 8;  // 1000-byte random string for padding
-  string padding6 = 9;  // 1000-byte random string for padding
-  string padding7 = 10;  // 1000-byte random string for padding
-  string padding8 = 11;  // 1000-byte random string for padding
+  M padding = 4;  // padding message from person.proto
 }
 
 message GetRatesResponse {
   repeated RatePlan rate_plans = 1;
-  string padding1 = 2;  // 1000-byte random string for padding
-  string padding2 = 3;  // 1000-byte random string for padding
-  string padding3 = 4;  // 1000-byte random string for padding
-  string padding4 = 5;  // 1000-byte random string for padding
-  string padding5 = 6;  // 1000-byte random string for padding
-  string padding6 = 7;  // 1000-byte random string for padding
-  string padding7 = 8;  // 1000-byte random string for padding
-  string padding8 = 9;  // 1000-byte random string for padding
+  M padding = 2;  // padding message from person.proto
 }
 
 message CheckUserRequest {
   string username = 1;
   string password = 2;
-  string padding1 = 3;  // 1000-byte random string for padding
-  string padding2 = 4;  // 1000-byte random string for padding
-  string padding3 = 5;  // 1000-byte random string for padding
-  string padding4 = 6;  // 1000-byte random string for padding
-  string padding5 = 7;  // 1000-byte random string for padding
-  string padding6 = 8;  // 1000-byte random string for padding
-  string padding7 = 9;  // 1000-byte random string for padding
-  string padding8 = 10;  // 1000-byte random string for padding
+  M padding = 3;  // padding message from person.proto
 }
 
 message CheckUserResponse {
   bool exists = 1;
-  string padding1 = 2;  // 1000-byte random string for padding
-  string padding2 = 3;  // 1000-byte random string for padding
-  string padding3 = 4;  // 1000-byte random string for padding
-  string padding4 = 5;  // 1000-byte random string for padding
-  string padding5 = 6;  // 1000-byte random string for padding
-  string padding6 = 7;  // 1000-byte random string for padding
-  string padding7 = 8;  // 1000-byte random string for padding
-  string padding8 = 9;  // 1000-byte random string for padding
+  M padding = 2;  // padding message from person.proto
 } 

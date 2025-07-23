@@ -31,15 +31,7 @@ public:
         req.set_lat(json["latitude"].asDouble());
         req.set_lon(json["longitude"].asDouble());
         req.set_locale(json["locale"].asString());
-        auto pads = microservice::utils::generate_padding_fields();
-        req.set_padding1(pads[0]);
-        req.set_padding2(pads[1]);
-        req.set_padding3(pads[2]);
-        req.set_padding4(pads[3]);
-        req.set_padding5(pads[4]);
-        req.set_padding6(pads[5]);
-        req.set_padding7(pads[6]);
-        req.set_padding8(pads[7]);
+        *req.mutable_padding() = microservice::utils::generate_person_padding();
         return req;
     }
 
@@ -49,15 +41,7 @@ public:
         req.set_lon(json["longitude"].asDouble());
         req.set_require(json["require"].asString());
         req.set_locale(json["locale"].asString());
-        auto pads = microservice::utils::generate_padding_fields();
-        req.set_padding1(pads[0]);
-        req.set_padding2(pads[1]);
-        req.set_padding3(pads[2]);
-        req.set_padding4(pads[3]);
-        req.set_padding5(pads[4]);
-        req.set_padding6(pads[5]);
-        req.set_padding7(pads[6]);
-        req.set_padding8(pads[7]);
+        *req.mutable_padding() = microservice::utils::generate_person_padding();
         return req;
     }
 
@@ -65,15 +49,7 @@ public:
         hotelreservation::UserRequest req;
         req.set_username(json["username"].asString());
         req.set_password(json["password"].asString());
-        auto pads = microservice::utils::generate_padding_fields();
-        req.set_padding1(pads[0]);
-        req.set_padding2(pads[1]);
-        req.set_padding3(pads[2]);
-        req.set_padding4(pads[3]);
-        req.set_padding5(pads[4]);
-        req.set_padding6(pads[5]);
-        req.set_padding7(pads[6]);
-        req.set_padding8(pads[7]);
+        *req.mutable_padding() = microservice::utils::generate_person_padding();
         return req;
     }
 
@@ -86,15 +62,7 @@ public:
         req.set_room_number(json["roomNumber"].asInt64());
         req.set_username(json["username"].asString());
         req.set_password(json["password"].asString());
-        auto pads = microservice::utils::generate_padding_fields();
-        req.set_padding1(pads[0]);
-        req.set_padding2(pads[1]);
-        req.set_padding3(pads[2]);
-        req.set_padding4(pads[3]);
-        req.set_padding5(pads[4]);
-        req.set_padding6(pads[5]);
-        req.set_padding7(pads[6]);
-        req.set_padding8(pads[7]);
+        *req.mutable_padding() = microservice::utils::generate_person_padding();
         return req;
     }
 

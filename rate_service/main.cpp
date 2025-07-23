@@ -38,15 +38,7 @@ public:
             standard.set_room_description("Standard Room");
             standard.set_total_rate(standard.bookable_rate() * 1.1);
             standard.set_total_rate_inclusive(standard.total_rate() * 1.2);
-            auto pads = microservice::utils::generate_padding_fields();
-            standard.set_padding1(pads[0]);
-            standard.set_padding2(pads[1]);
-            standard.set_padding3(pads[2]);
-            standard.set_padding4(pads[3]);
-            standard.set_padding5(pads[4]);
-            standard.set_padding6(pads[5]);
-            standard.set_padding7(pads[6]);
-            standard.set_padding8(pads[7]);
+            *standard.mutable_padding() = microservice::utils::generate_person_padding();
             room_types.push_back(standard);
 
             // Deluxe Room
@@ -56,15 +48,7 @@ public:
             deluxe.set_room_description("Deluxe Room");
             deluxe.set_total_rate(deluxe.bookable_rate() * 1.1);
             deluxe.set_total_rate_inclusive(deluxe.total_rate() * 1.2);
-            auto pads_deluxe = microservice::utils::generate_padding_fields();
-            deluxe.set_padding1(pads_deluxe[0]);
-            deluxe.set_padding2(pads_deluxe[1]);
-            deluxe.set_padding3(pads_deluxe[2]);
-            deluxe.set_padding4(pads_deluxe[3]);
-            deluxe.set_padding5(pads_deluxe[4]);
-            deluxe.set_padding6(pads_deluxe[5]);
-            deluxe.set_padding7(pads_deluxe[6]);
-            deluxe.set_padding8(pads_deluxe[7]);
+            *deluxe.mutable_padding() = microservice::utils::generate_person_padding();
             room_types.push_back(deluxe);
 
             hotel_rates_[hotel_id] = room_types;
@@ -85,28 +69,12 @@ public:
                     rate_plan->set_in_date(req.in_date());
                     rate_plan->set_out_date(req.out_date());
                     *rate_plan->mutable_room_type() = room_type;
-                    auto pads_rateplan = microservice::utils::generate_padding_fields();
-                    rate_plan->set_padding1(pads_rateplan[0]);
-                    rate_plan->set_padding2(pads_rateplan[1]);
-                    rate_plan->set_padding3(pads_rateplan[2]);
-                    rate_plan->set_padding4(pads_rateplan[3]);
-                    rate_plan->set_padding5(pads_rateplan[4]);
-                    rate_plan->set_padding6(pads_rateplan[5]);
-                    rate_plan->set_padding7(pads_rateplan[6]);
-                    rate_plan->set_padding8(pads_rateplan[7]);
+                    *rate_plan->mutable_padding() = microservice::utils::generate_person_padding();
                 }
             }
         }
         
-        auto pads_response = microservice::utils::generate_padding_fields();
-        response.set_padding1(pads_response[0]);
-        response.set_padding2(pads_response[1]);
-        response.set_padding3(pads_response[2]);
-        response.set_padding4(pads_response[3]);
-        response.set_padding5(pads_response[4]);
-        response.set_padding6(pads_response[5]);
-        response.set_padding7(pads_response[6]);
-        response.set_padding8(pads_response[7]);
+        *response.mutable_padding() = microservice::utils::generate_person_padding();
         return response;
     }
 };

@@ -79,15 +79,7 @@ public:
             response.add_hotel_ids(distances[i].second);
         }
         
-        auto pads = microservice::utils::generate_padding_fields();
-        response.set_padding1(pads[0]);
-        response.set_padding2(pads[1]);
-        response.set_padding3(pads[2]);
-        response.set_padding4(pads[3]);
-        response.set_padding5(pads[4]);
-        response.set_padding6(pads[5]);
-        response.set_padding7(pads[6]);
-        response.set_padding8(pads[7]);
+        *response.mutable_padding() = microservice::utils::generate_person_padding();
         return response;
     }
 };

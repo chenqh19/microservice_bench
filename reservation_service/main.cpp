@@ -88,28 +88,12 @@ public:
         hotelreservation::CheckUserRequest user_req;
         user_req.set_username(req.username());
         user_req.set_password(req.password());
-        auto pads_user = microservice::utils::generate_padding_fields();
-        user_req.set_padding1(pads_user[0]);
-        user_req.set_padding2(pads_user[1]);
-        user_req.set_padding3(pads_user[2]);
-        user_req.set_padding4(pads_user[3]);
-        user_req.set_padding5(pads_user[4]);
-        user_req.set_padding6(pads_user[5]);
-        user_req.set_padding7(pads_user[6]);
-        user_req.set_padding8(pads_user[7]);
+        *user_req.mutable_padding() = microservice::utils::generate_person_padding();
         std::string user_resp_str = sendProtobufOverUDS("/tmp/user_service.sock", microservice::utils::serialize_message(ser1de, user_req));
         hotelreservation::CheckUserResponse user_resp;
         if (!microservice::utils::deserialize_message(ser1de, user_resp_str, user_resp) || !user_resp.exists()) {
             response.set_message("Invalid user credentials");
-            auto pads_response = microservice::utils::generate_padding_fields();
-            response.set_padding1(pads_response[0]);
-            response.set_padding2(pads_response[1]);
-            response.set_padding3(pads_response[2]);
-            response.set_padding4(pads_response[3]);
-            response.set_padding5(pads_response[4]);
-            response.set_padding6(pads_response[5]);
-            response.set_padding7(pads_response[6]);
-            response.set_padding8(pads_response[7]);
+            *response.mutable_padding() = microservice::utils::generate_person_padding();
             return response;
         }
         std::lock_guard<std::mutex> lock(reservations_mutex_);
@@ -117,29 +101,13 @@ public:
         auto it = hotel_reservations_.find(req.hotel_id());
         if (it == hotel_reservations_.end()) {
             response.set_message("Hotel not found");
-            auto pads_response = microservice::utils::generate_padding_fields();
-            response.set_padding1(pads_response[0]);
-            response.set_padding2(pads_response[1]);
-            response.set_padding3(pads_response[2]);
-            response.set_padding4(pads_response[3]);
-            response.set_padding5(pads_response[4]);
-            response.set_padding6(pads_response[5]);
-            response.set_padding7(pads_response[6]);
-            response.set_padding8(pads_response[7]);
+            *response.mutable_padding() = microservice::utils::generate_person_padding();
             return response;
         }
 
         if (!checkAvailability(req.hotel_id(), req.in_date(), req.out_date(), req.room_number())) {
             response.set_message("No availability for the requested dates");
-            auto pads_response = microservice::utils::generate_padding_fields();
-            response.set_padding1(pads_response[0]);
-            response.set_padding2(pads_response[1]);
-            response.set_padding3(pads_response[2]);
-            response.set_padding4(pads_response[3]);
-            response.set_padding5(pads_response[4]);
-            response.set_padding6(pads_response[5]);
-            response.set_padding7(pads_response[6]);
-            response.set_padding8(pads_response[7]);
+            *response.mutable_padding() = microservice::utils::generate_person_padding();
             return response;
         }
 
@@ -150,28 +118,12 @@ public:
         reservation.set_in_date(req.in_date());
         reservation.set_out_date(req.out_date());
         reservation.set_number(req.room_number());
-        auto pads = microservice::utils::generate_padding_fields();
-        reservation.set_padding1(pads[0]);
-        reservation.set_padding2(pads[1]);
-        reservation.set_padding3(pads[2]);
-        reservation.set_padding4(pads[3]);
-        reservation.set_padding5(pads[4]);
-        reservation.set_padding6(pads[5]);
-        reservation.set_padding7(pads[6]);
-        reservation.set_padding8(pads[7]);
+        *reservation.mutable_padding() = microservice::utils::generate_person_padding();
 
         it->second.reservations.push_back(reservation);
 
         response.set_message("Reservation successful");
-        auto pads_response = microservice::utils::generate_padding_fields();
-        response.set_padding1(pads_response[0]);
-        response.set_padding2(pads_response[1]);
-        response.set_padding3(pads_response[2]);
-        response.set_padding4(pads_response[3]);
-        response.set_padding5(pads_response[4]);
-        response.set_padding6(pads_response[5]);
-        response.set_padding7(pads_response[6]);
-        response.set_padding8(pads_response[7]);
+        *response.mutable_padding() = microservice::utils::generate_person_padding();
         return response;
     }
 };

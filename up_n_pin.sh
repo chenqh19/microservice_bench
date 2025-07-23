@@ -22,6 +22,7 @@ sudo taskset -pc 0-3 $(pgrep -f "dockerd --containerd=/run/containerd/containerd
 
 # For all dockerd threads
 for pid in $(ps -eLf | grep dockerd | awk '{print $4}'); do
+    # do not show output
     sudo taskset -pc 0-3 $pid
 done
 
@@ -37,9 +38,9 @@ done
 # echo "All containers have been pinned to CPU cores" 
 
 # # For the main dockerd process
-# sudo taskset -pc 20-3 $(pgrep -f "dockerd --containerd=/run/containerd/containerd.sock")
+# sudo taskset -pc 20-32 $(pgrep -f "dockerd --containerd=/run/containerd/containerd.sock")
 
 # # For all dockerd threads
 # for pid in $(ps -eLf | grep dockerd | awk '{print $4}'); do
-#     sudo taskset -pc 20-3 $pid
+#     sudo taskset -pc 20-32 $pid
 # done
