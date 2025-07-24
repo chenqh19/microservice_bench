@@ -1,6 +1,8 @@
 import ast
 from collections import defaultdict
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import numpy as np
 
 def process_file(filename):
     result = {
@@ -32,14 +34,10 @@ def process_file(filename):
             final_result[key][rps] = avg
     return final_result
 
-ser1de = "tail_ser1de"
-proto = "tail_protobuf"
 # ser1de_improved = "tail_ser1de_improved"
 
-# Process all three files
-res1 = process_file(ser1de+'.txt')
-res2 = process_file(proto+'.txt')
-# res3 = process_file(ser1de_improved+'.txt')
+# List of dataset names
+names = ["1.7K", "600B", "300B", "NO"]
 
 labels = {
     "0.500000": "p50",
@@ -47,22 +45,35 @@ labels = {
     "0.990625": "p99"
 }
 
-for key in ["0.500000", "0.900000", "0.990625"]:
-    plt.figure()
-    # Sort RPS for consistent plotting
-    rps1 = sorted(res1[key].keys())
-    rps2 = sorted(res2[key].keys())
-    # rps3 = sorted(res3[key].keys())
-    plt.plot(rps1, [res1[key][rps] for rps in rps1], marker='o', label=ser1de)
-    plt.plot(rps2, [res2[key][rps] for rps in rps2], marker='o', label=proto)
-    # plt.plot(rps3, [res3[key][rps] for rps in rps3], marker='o', label=ser1de_improved)
-    plt.xlabel("RPS")
-    plt.ylabel(f"Latency ({labels[key]})")
-    plt.title(f"Latency vs RPS @ {labels[key]}")
-    plt.legend()
+ser1de = "tail_ser1de"
+proto = "tail_protobuf"
+
+# Assign a color to each dataset
+colors = cm.get_cmap('tab10', len(names))
+
+# Only plot p99 as in your original code, but you can loop over all if needed
+for key in ["0.990625"]:
+    plt.figure(figsize=(12, 6))
+    for idx, name in enumerate(names):
+        color = colors(idx)
+        # Process both files for each dataset
+        res1 = process_file(f"{ser1de}_{name}.txt")
+        res2 = process_file(f"{proto}_{name}.txt")
+        # Sort RPS for consistent plotting
+        rps1 = sorted(res1[key].keys())
+        rps2 = sorted(res2[key].keys())
+        plt.plot(rps1, [res1[key][rps] for rps in rps1], marker='o', color=color, label=f"{ser1de}_{name}")
+        plt.plot(rps2, [res2[key][rps] for rps in rps2], marker='x', color=color, label=f"{proto}_{name}")
+    plt.xlabel("RPS", fontsize=14)
+    plt.ylabel(f"Latency ({labels[key]})", fontsize=14)
+    plt.title(f"Latency vs RPS @ {labels[key]}", fontsize=14)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=4, fontsize=14)
     plt.grid(True)
     plt.tight_layout()
-    plt.savefig(f"latency_{labels[key]}.png")  # Save each plot as a PNG file
+    plt.ylim(top=500)
+    plt.savefig(f"latency_{labels[key]}_all.png")  # Save the combined plot as a PNG file
     # plt.show()  # Uncomment to display interactively
 
-print("Plots saved as latency_p50.png, latency_p90.png, latency_p99.png")
+print("Plot saved as latency_p99_all.png")

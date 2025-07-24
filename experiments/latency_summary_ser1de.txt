@@ -7,102 +7,102 @@ All values included in calculation (no outliers removed)
 
 Serialization Latencies:
 ------------------------------
-N16hotelreservation15GetRatesRequestE:
-  Average: 25322.69 ns (25.32 μs, 0.025 ms)
-  Entries: 24059 (entries 5001-29059) out of 24059 total
-
 N16hotelreservation18GetProfilesRequestE:
-  Average: 25946.59 ns (25.95 μs, 0.026 ms)
-  Entries: 24059 (entries 5001-29059) out of 24059 total
+  Average: 43116.36 ns (43.12 μs, 0.043 ms)
+  Entries: 23895 (entries 5001-28895) out of 23895 total
 
-N16hotelreservation13NearbyRequestE:
-  Average: 27334.79 ns (27.33 μs, 0.027 ms)
-  Entries: 12026 (entries 5001-17026) out of 12026 total
-
-N16hotelreservation14NearbyResponseE:
-  Average: 28299.85 ns (28.30 μs, 0.028 ms)
-  Entries: 12026 (entries 5001-17026) out of 12026 total
+N16hotelreservation15GetRatesRequestE:
+  Average: 43220.66 ns (43.22 μs, 0.043 ms)
+  Entries: 23895 (entries 5001-28895) out of 23895 total
 
 N16hotelreservation12UserResponseE:
-  Average: 29251.98 ns (29.25 μs, 0.029 ms)
-  Entries: 5937 (entries 5001-10937) out of 5937 total
+  Average: 46447.23 ns (46.45 μs, 0.046 ms)
+  Entries: 6102 (entries 5001-11102) out of 6102 total
 
-N16hotelreservation13SearchRequestE:
-  Average: 30865.74 ns (30.87 μs, 0.031 ms)
-  Entries: 12026 (entries 5001-17026) out of 12026 total
+N16hotelreservation14NearbyResponseE:
+  Average: 46525.03 ns (46.53 μs, 0.047 ms)
+  Entries: 11975 (entries 5001-16975) out of 11975 total
 
-N16hotelreservation16RecommendRequestE:
-  Average: 31959.09 ns (31.96 μs, 0.032 ms)
-  Entries: 12033 (entries 5001-17033) out of 12033 total
+N16hotelreservation13NearbyRequestE:
+  Average: 47135.99 ns (47.14 μs, 0.047 ms)
+  Entries: 11975 (entries 5001-16975) out of 11975 total
 
 N16hotelreservation11UserRequestE:
-  Average: 35506.96 ns (35.51 μs, 0.036 ms)
-  Entries: 5937 (entries 5001-10937) out of 5937 total
+  Average: 51966.72 ns (51.97 μs, 0.052 ms)
+  Entries: 6102 (entries 5001-11102) out of 6102 total
+
+N16hotelreservation13SearchRequestE:
+  Average: 53794.83 ns (53.79 μs, 0.054 ms)
+  Entries: 11975 (entries 5001-16975) out of 11975 total
+
+N16hotelreservation16RecommendRequestE:
+  Average: 57051.04 ns (57.05 μs, 0.057 ms)
+  Entries: 11920 (entries 5001-16920) out of 11920 total
 
 N16hotelreservation19GetProfilesResponseE:
-  Average: 43627.36 ns (43.63 μs, 0.044 ms)
-  Entries: 24059 (entries 5001-29059) out of 24059 total
+  Average: 103393.81 ns (103.39 μs, 0.103 ms)
+  Entries: 23895 (entries 5001-28895) out of 23895 total
 
 N16hotelreservation14SearchResponseE:
-  Average: 44766.39 ns (44.77 μs, 0.045 ms)
-  Entries: 12026 (entries 5001-17026) out of 12026 total
+  Average: 125233.14 ns (125.23 μs, 0.125 ms)
+  Entries: 11975 (entries 5001-16975) out of 11975 total
 
 N16hotelreservation16GetRatesResponseE:
-  Average: 59050.93 ns (59.05 μs, 0.059 ms)
-  Entries: 24059 (entries 5001-29059) out of 24059 total
+  Average: 149605.06 ns (149.61 μs, 0.150 ms)
+  Entries: 23895 (entries 5001-28895) out of 23895 total
 
 N16hotelreservation17RecommendResponseE:
-  Average: 63179.04 ns (63.18 μs, 0.063 ms)
-  Entries: 12033 (entries 5001-17033) out of 12033 total
+  Average: 178115.60 ns (178.12 μs, 0.178 ms)
+  Entries: 11920 (entries 5001-16920) out of 11920 total
 
 
 Deserialization Latencies:
 ------------------------------
-N16hotelreservation12UserResponseE:
-  Average: 18196.93 ns (18.20 μs, 0.018 ms)
-  Entries: 5937 (entries 5001-10937) out of 5937 total
-
 N16hotelreservation14NearbyResponseE:
-  Average: 19512.56 ns (19.51 μs, 0.020 ms)
-  Entries: 12026 (entries 5001-17026) out of 12026 total
-
-N16hotelreservation13SearchRequestE:
-  Average: 20630.24 ns (20.63 μs, 0.021 ms)
-  Entries: 12026 (entries 5001-17026) out of 12026 total
-
-N16hotelreservation13NearbyRequestE:
-  Average: 20888.74 ns (20.89 μs, 0.021 ms)
-  Entries: 12026 (entries 5001-17026) out of 12026 total
-
-N16hotelreservation16RecommendRequestE:
-  Average: 21017.35 ns (21.02 μs, 0.021 ms)
-  Entries: 12033 (entries 5001-17033) out of 12033 total
-
-N16hotelreservation11UserRequestE:
-  Average: 23334.16 ns (23.33 μs, 0.023 ms)
-  Entries: 5937 (entries 5001-10937) out of 5937 total
+  Average: 58981.69 ns (58.98 μs, 0.059 ms)
+  Entries: 11975 (entries 5001-16975) out of 11975 total
 
 N16hotelreservation18GetProfilesRequestE:
-  Average: 23844.73 ns (23.84 μs, 0.024 ms)
-  Entries: 24059 (entries 5001-29059) out of 24059 total
+  Average: 60961.04 ns (60.96 μs, 0.061 ms)
+  Entries: 23895 (entries 5001-28895) out of 23895 total
 
 N16hotelreservation15GetRatesRequestE:
-  Average: 24219.64 ns (24.22 μs, 0.024 ms)
-  Entries: 24059 (entries 5001-29059) out of 24059 total
+  Average: 61779.91 ns (61.78 μs, 0.062 ms)
+  Entries: 23895 (entries 5001-28895) out of 23895 total
+
+N16hotelreservation12UserResponseE:
+  Average: 61998.75 ns (62.00 μs, 0.062 ms)
+  Entries: 6102 (entries 5001-11102) out of 6102 total
+
+N16hotelreservation13NearbyRequestE:
+  Average: 62438.50 ns (62.44 μs, 0.062 ms)
+  Entries: 11975 (entries 5001-16975) out of 11975 total
+
+N16hotelreservation11UserRequestE:
+  Average: 63108.52 ns (63.11 μs, 0.063 ms)
+  Entries: 6102 (entries 5001-11102) out of 6102 total
+
+N16hotelreservation16RecommendRequestE:
+  Average: 64406.06 ns (64.41 μs, 0.064 ms)
+  Entries: 11920 (entries 5001-16920) out of 11920 total
+
+N16hotelreservation13SearchRequestE:
+  Average: 64429.38 ns (64.43 μs, 0.064 ms)
+  Entries: 11975 (entries 5001-16975) out of 11975 total
 
 N16hotelreservation14SearchResponseE:
-  Average: 51904.39 ns (51.90 μs, 0.052 ms)
-  Entries: 12026 (entries 5001-17026) out of 12026 total
+  Average: 204362.90 ns (204.36 μs, 0.204 ms)
+  Entries: 11975 (entries 5001-16975) out of 11975 total
 
 N16hotelreservation19GetProfilesResponseE:
-  Average: 54195.36 ns (54.20 μs, 0.054 ms)
-  Entries: 24059 (entries 5001-29059) out of 24059 total
-
-N16hotelreservation16GetRatesResponseE:
-  Average: 69230.92 ns (69.23 μs, 0.069 ms)
-  Entries: 24059 (entries 5001-29059) out of 24059 total
+  Average: 289478.53 ns (289.48 μs, 0.289 ms)
+  Entries: 23895 (entries 5001-28895) out of 23895 total
 
 N16hotelreservation17RecommendResponseE:
-  Average: 76417.19 ns (76.42 μs, 0.076 ms)
-  Entries: 12033 (entries 5001-17033) out of 12033 total
+  Average: 331866.29 ns (331.87 μs, 0.332 ms)
+  Entries: 11920 (entries 5001-16920) out of 11920 total
+
+N16hotelreservation16GetRatesResponseE:
+  Average: 440849.00 ns (440.85 μs, 0.441 ms)
+  Entries: 23895 (entries 5001-28895) out of 23895 total
 

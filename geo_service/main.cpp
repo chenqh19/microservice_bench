@@ -86,7 +86,7 @@ public:
 
 int main() {
     const char* socket_path = "/tmp/geo_service.sock";
-    const int NUM_WORKERS = 8;  // Number of worker processes
+    const int NUM_WORKERS = 16;  // Number of worker processes
     
     PreforkServer server(NUM_WORKERS);
     

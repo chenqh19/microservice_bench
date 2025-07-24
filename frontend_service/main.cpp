@@ -20,7 +20,7 @@
 class FrontEndService {
 public:
     // Define constants as static constexpr to ensure they're available at compile time
-    static constexpr int POOL_SIZE = 16;  // Number of worker processes
+    static constexpr int POOL_SIZE = 128;  // Number of worker processes
 
     // Helper function to convert JSON to protobuf messages
     hotelreservation::SearchRequest parseSearchRequest(const Json::Value& json) {

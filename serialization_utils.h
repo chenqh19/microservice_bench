@@ -9,7 +9,7 @@
 #include <typeinfo>
 
 #define USE_SER1DE 0
-#define ENABLE_TIMING 1
+#define ENABLE_TIMING 0
 
 #if USE_SER1DE
 #include <ser1de/ser1de_re.h>
