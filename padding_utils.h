@@ -441,59 +441,59 @@ namespace utils {
 
 // }
 
-// inline void person_generated_setters_300B(hotelreservation::M& m, size_t index) {
-//     size_t i = index;
-//     // <------------ SETTERS ------>
-// 		(&m)->set_f1(1479068556 + (i * 1) % 8);
-// 		(&m)->set_f2(181 + (i * 1) % 8);
-// 		(&m)->set_f3(54494 + (i * 1) % 8);
-// 		(&m)->set_f4(1148426996 + (i * 1) % 8);
-// 		(&m)->set_f5(28 + (i * 1) % 8);
-// 		(&m)->set_f6(1 + (i * 1) % 8);
-// 		(&m)->set_f7(5769275 + (i * 1) % 8);
-// 		(&m)->set_f8(6731 + (i * 1) % 8);
-// 		(&m)->set_f9(212 + (i * 1) % 8);
-// 		(&m)->set_f10(4384959 + (i * 1) % 8);
-// 		(&m)->set_f11("1CWQR6WQ6P");
-// 		(&m)->set_f12("1KQAPDE33A");
-// 		(&m)->set_f13("LO6D4FR0IN");
-// 		(&m)->set_f14("5BCVYMDCTP");
-// 		(&m)->set_f15("RE3W8ACZWK");
-// 		(&m)->set_f16("L5W5I37LX2");
-// 		(&m)->mutable_f17()->set_f1(6640918 + (i * 2) % 8);
-// 		(&m)->mutable_f17()->set_f2(23289 + (i * 2) % 8);
-// 		(&m)->mutable_f17()->set_f3(46 + (i * 2) % 8);
-// 		(&m)->mutable_f17()->set_f4(4224 + (i * 2) % 8);
-// 		(&m)->mutable_f17()->set_f5(905989987 + (i * 2) % 8);
-// 		(&m)->mutable_f17()->set_f6(77 + (i * 2) % 8);
-// 		(&m)->mutable_f17()->set_f7(162 + (i * 2) % 8);
-// 		(&m)->mutable_f17()->set_f8(134 + (i * 2) % 8);
-// 		(&m)->mutable_f17()->set_f9(88 + (i * 2) % 8);
-// 		(&m)->mutable_f17()->set_f10(35514 + (i * 2) % 8);
-// 		(&m)->mutable_f17()->set_f11("D58UKKSRZP");
-// 		(&m)->mutable_f17()->set_f12("SHZ4GPEVH6");
-// 		(&m)->mutable_f17()->set_f13("MM5J21RYOS");
-// 		(&m)->mutable_f17()->set_f14("QQ6XZDS7YX");
-// 		(&m)->mutable_f17()->set_f15("XUQB8AI1TY");
-// 		(&m)->mutable_f17()->set_f16("G0UAYRODBL");
-// 		(&m)->mutable_f18()->set_f1(11004057 + (i * 2) % 8);
-// 		(&m)->mutable_f18()->set_f2(58807 + (i * 2) % 8);
-// 		(&m)->mutable_f18()->set_f3(11737746 + (i * 2) % 8);
-// 		(&m)->mutable_f18()->set_f4(49001 + (i * 2) % 8);
-// 		(&m)->mutable_f18()->set_f5(3260028654 + (i * 2) % 8);
-// 		(&m)->mutable_f18()->set_f6(252 + (i * 2) % 8);
-// 		(&m)->mutable_f18()->set_f7(11133161 + (i * 2) % 8);
-// 		(&m)->mutable_f18()->set_f8(5042 + (i * 2) % 8);
-// 		(&m)->mutable_f18()->set_f9(241 + (i * 2) % 8);
-// 		(&m)->mutable_f18()->set_f10(14710523 + (i * 2) % 8);
-// 		(&m)->mutable_f18()->set_f11("V51XT3P35Q");
-// 		(&m)->mutable_f18()->set_f12("JE052082U0");
-// 		(&m)->mutable_f18()->set_f13("ZSX29A5AMH");
-// 		(&m)->mutable_f18()->set_f14("L5TGC7KNI9");
-// 		(&m)->mutable_f18()->set_f15("DOOHPN96BA");
-// 		(&m)->mutable_f18()->set_f16("BBY7ASHJH5");
+inline void person_generated_setters_300B(hotelreservation::M& m, size_t index) {
+    size_t i = index;
+    // <------------ SETTERS ------>
+		(&m)->set_f1(1479068556 + (i * 1) % 8);
+		(&m)->set_f2(181 + (i * 1) % 8);
+		(&m)->set_f3(54494 + (i * 1) % 8);
+		(&m)->set_f4(1148426996 + (i * 1) % 8);
+		(&m)->set_f5(28 + (i * 1) % 8);
+		(&m)->set_f6(1 + (i * 1) % 8);
+		(&m)->set_f7(5769275 + (i * 1) % 8);
+		(&m)->set_f8(6731 + (i * 1) % 8);
+		(&m)->set_f9(212 + (i * 1) % 8);
+		(&m)->set_f10(4384959 + (i * 1) % 8);
+		(&m)->set_f11("1CWQR6WQ6P");
+		(&m)->set_f12("1KQAPDE33A");
+		(&m)->set_f13("LO6D4FR0IN");
+		(&m)->set_f14("5BCVYMDCTP");
+		(&m)->set_f15("RE3W8ACZWK");
+		(&m)->set_f16("L5W5I37LX2");
+		(&m)->mutable_f17()->set_f1(6640918 + (i * 2) % 8);
+		(&m)->mutable_f17()->set_f2(23289 + (i * 2) % 8);
+		(&m)->mutable_f17()->set_f3(46 + (i * 2) % 8);
+		(&m)->mutable_f17()->set_f4(4224 + (i * 2) % 8);
+		(&m)->mutable_f17()->set_f5(905989987 + (i * 2) % 8);
+		(&m)->mutable_f17()->set_f6(77 + (i * 2) % 8);
+		(&m)->mutable_f17()->set_f7(162 + (i * 2) % 8);
+		(&m)->mutable_f17()->set_f8(134 + (i * 2) % 8);
+		(&m)->mutable_f17()->set_f9(88 + (i * 2) % 8);
+		(&m)->mutable_f17()->set_f10(35514 + (i * 2) % 8);
+		(&m)->mutable_f17()->set_f11("D58UKKSRZP");
+		(&m)->mutable_f17()->set_f12("SHZ4GPEVH6");
+		(&m)->mutable_f17()->set_f13("MM5J21RYOS");
+		(&m)->mutable_f17()->set_f14("QQ6XZDS7YX");
+		(&m)->mutable_f17()->set_f15("XUQB8AI1TY");
+		(&m)->mutable_f17()->set_f16("G0UAYRODBL");
+		(&m)->mutable_f18()->set_f1(11004057 + (i * 2) % 8);
+		(&m)->mutable_f18()->set_f2(58807 + (i * 2) % 8);
+		(&m)->mutable_f18()->set_f3(11737746 + (i * 2) % 8);
+		(&m)->mutable_f18()->set_f4(49001 + (i * 2) % 8);
+		(&m)->mutable_f18()->set_f5(3260028654 + (i * 2) % 8);
+		(&m)->mutable_f18()->set_f6(252 + (i * 2) % 8);
+		(&m)->mutable_f18()->set_f7(11133161 + (i * 2) % 8);
+		(&m)->mutable_f18()->set_f8(5042 + (i * 2) % 8);
+		(&m)->mutable_f18()->set_f9(241 + (i * 2) % 8);
+		(&m)->mutable_f18()->set_f10(14710523 + (i * 2) % 8);
+		(&m)->mutable_f18()->set_f11("V51XT3P35Q");
+		(&m)->mutable_f18()->set_f12("JE052082U0");
+		(&m)->mutable_f18()->set_f13("ZSX29A5AMH");
+		(&m)->mutable_f18()->set_f14("L5TGC7KNI9");
+		(&m)->mutable_f18()->set_f15("DOOHPN96BA");
+		(&m)->mutable_f18()->set_f16("BBY7ASHJH5");
 
-// }
+}
 
 // inline void person_generated_setters_1KB(hotelreservation::M& m, size_t index) {
 //     size_t i = index;
@@ -753,15 +753,15 @@ namespace utils {
 
 // }
 
-inline void person_generated_setters_NO(hotelreservation::M& m, size_t index) {
+// inline void person_generated_setters_NO(hotelreservation::M& m, size_t index) {
 
-}
+// }
 
 inline const hotelreservation::M& generate_person_padding() {
     static hotelreservation::M m;
     static bool initialized = false;
     if (!initialized) {
-        person_generated_setters_NO(m, 0);
+        person_generated_setters_300B(m, 0);
         initialized = true;
     }
     return m;

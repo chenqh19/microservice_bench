@@ -2,7 +2,7 @@ import subprocess
 import time
 
 
-def run_one_rps(RPS, duration=30):
+def run_one_rps(RPS, duration=30, file_name="tail.txt"):
     cmd = f"taskset -c 32-63 ../wrk2/wrk -D fixed -t 100 -c 100 -d {duration} -L -s ../wrk_scripts/scripts/hotel-reservation/mixed-workload_type_1.lua http://localhost:50050 -R {RPS}"
      
     # Create subprocesses to execute each command using subprocess.Popen
@@ -27,18 +27,19 @@ def run_one_rps(RPS, duration=30):
     #     assert tail in tail_lat[path_name]
     
     time.sleep(5)
-    with open("tail.txt", "a") as f:
+    with open(file_name, "a") as f:
         f.write(f"RPS: {RPS}, tail_lat: {tail_lat}\n")
     return tail_lat
 
 def main():
     time.sleep(5)
-    with open("tail.txt", "a") as f:
+    file_name = "tail_protobuf_600B.txt"
+    with open(file_name, "a") as f:
         f.write("start experiment\n")
-    for rps in range(46000, 52000, 500):
-        run_one_rps(rps, 30)
+    for rps in range(14000, 15500, 500):
+        run_one_rps(rps, 30, file_name)
         time.sleep(5)
-    with open("tail.txt", "a") as f:
+    with open(file_name, "a") as f:
         f.write("end experiment\n")
 
 if __name__ == "__main__":

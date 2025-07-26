@@ -37,7 +37,7 @@ def process_file(filename):
 # ser1de_improved = "tail_ser1de_improved"
 
 # List of dataset names
-names = ["1.7K", "600B", "300B", "NO"]
+names = ["600B", "300B", "0B"]
 
 labels = {
     "0.500000": "p50",
@@ -49,13 +49,13 @@ ser1de = "tail_ser1de"
 proto = "tail_protobuf"
 
 # Assign a color to each dataset
-colors = cm.get_cmap('tab10', len(names))
+colors = ["green", "blue", "orange"]
 
 # Only plot p99 as in your original code, but you can loop over all if needed
 for key in ["0.990625"]:
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(9, 5))
     for idx, name in enumerate(names):
-        color = colors(idx)
+        color = colors[idx]
         # Process both files for each dataset
         res1 = process_file(f"{ser1de}_{name}.txt")
         res2 = process_file(f"{proto}_{name}.txt")
@@ -69,11 +69,11 @@ for key in ["0.990625"]:
     plt.title(f"Latency vs RPS @ {labels[key]}", fontsize=14)
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=4, fontsize=14)
+    plt.legend(loc='upper center', bbox_to_anchor=(0.47, -0.15), ncol=3, fontsize=14)
     plt.grid(True)
     plt.tight_layout()
-    plt.ylim(top=500)
-    plt.savefig(f"latency_{labels[key]}_all.png")  # Save the combined plot as a PNG file
+    plt.ylim(bottom=0, top=500)
+    plt.savefig(f"latency_{labels[key]}_all.pdf")  # Save the combined plot as a PNG file
     # plt.show()  # Uncomment to display interactively
 
 print("Plot saved as latency_p99_all.png")

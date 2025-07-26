@@ -8,8 +8,8 @@
 #include <sys/stat.h>
 #include <typeinfo>
 
-#define USE_SER1DE 0
-#define ENABLE_TIMING 0
+#define USE_SER1DE 1
+#define ENABLE_TIMING 1
 
 #if USE_SER1DE
 #include <ser1de/ser1de_re.h>
@@ -112,6 +112,23 @@ bool deserialize_message(Ser1de_re& ser1de, const std::string& data, T& message)
 #endif
     
     return result;
+}
+
+// Function to log request timing data
+inline void log_request_timing(const std::string& endpoint, 
+                              const std::chrono::steady_clock::time_point& start_time,
+                              const std::chrono::steady_clock::time_point& end_time) {
+#if ENABLE_TIMING
+    using namespace std::chrono;
+    auto duration = duration_cast<nanoseconds>(end_time - start_time).count();
+    std::string log_file = "/logs/frontend_" + endpoint + "_request.txt";
+    {
+        std::lock_guard<std::mutex> lock(detail::log_mutex);
+        detail::ensure_logs_dir();
+        std::ofstream ofs(log_file, std::ios::app);
+        ofs << duration << std::endl;
+    }
+#endif
 }
 
 } // namespace utils

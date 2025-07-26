@@ -346,6 +346,6 @@ message CheckUserRequest {
 }
 
 message CheckUserResponse {
-  bool exists = 1;
+  string exists = 1;
   M padding = 2;  // padding message from person.proto
 } 

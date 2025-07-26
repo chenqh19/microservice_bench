@@ -91,7 +91,7 @@ public:
         *user_req.mutable_padding() = microservice::utils::generate_person_padding();
         std::string user_resp_str = sendProtobufOverUDS("/tmp/user_service.sock", microservice::utils::serialize_message(ser1de, user_req));
         hotelreservation::CheckUserResponse user_resp;
-        if (!microservice::utils::deserialize_message(ser1de, user_resp_str, user_resp) || !user_resp.exists()) {
+        if (!microservice::utils::deserialize_message(ser1de, user_resp_str, user_resp) || user_resp.exists() != "True") {
             response.set_message("Invalid user credentials");
             *response.mutable_padding() = microservice::utils::generate_person_padding();
             return response;

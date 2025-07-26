@@ -69,9 +69,9 @@ public:
         hotelreservation::CheckUserResponse response;
         
         if (it != users_.end() && it->second == req.password()) {
-            response.set_exists(true);
+            response.set_exists("True");
         } else {
-            response.set_exists(false);
+            response.set_exists("False");
         }
         
         *response.mutable_padding() = microservice::utils::generate_person_padding();

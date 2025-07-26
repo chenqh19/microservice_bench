@@ -348,6 +348,7 @@ int main() {
                 std::cerr << "Search request timeout - Request took too long to process" << std::endl;
                 res.status = 408;
                 res.set_content("{\"error\": \"Request timeout\"}", "application/json");
+                microservice::utils::log_request_timing("search", start_time, std::chrono::steady_clock::now());
                 return;
             }
 
@@ -364,15 +365,18 @@ int main() {
                     std::cerr << "Search request timeout during parameter processing" << std::endl;
                     res.status = 408;
                     res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                    microservice::utils::log_request_timing("search", start_time, std::chrono::steady_clock::now());
                     return;
                 }
 
                 Json::FastWriter writer;
                 res.set_content(service.HandleSearch(writer.write(json)), "application/json");
+                microservice::utils::log_request_timing("search", start_time, std::chrono::steady_clock::now());
             } catch (const std::exception& e) {
                 std::cerr << "Search request error: " << e.what() << std::endl;
                 res.status = 400;
                 res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
+                microservice::utils::log_request_timing("search", start_time, std::chrono::steady_clock::now());
             }
         });
 
@@ -390,6 +394,7 @@ int main() {
                 std::cerr << "Recommend request timeout - Request took too long to process" << std::endl;
                 res.status = 408;
                 res.set_content("{\"error\": \"Request timeout\"}", "application/json");
+                microservice::utils::log_request_timing("recommend", start_time, std::chrono::steady_clock::now());
                 return;
             }
 
@@ -404,15 +409,18 @@ int main() {
                     std::cerr << "Recommend request timeout during parameter processing" << std::endl;
                     res.status = 408;
                     res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                    microservice::utils::log_request_timing("recommend", start_time, std::chrono::steady_clock::now());
                     return;
                 }
                 
                 Json::FastWriter writer;
                 res.set_content(service.HandleRecommend(writer.write(json)), "application/json");
+                microservice::utils::log_request_timing("recommend", start_time, std::chrono::steady_clock::now());
             } catch (const std::exception& e) {
                 std::cerr << "Recommend request error: " << e.what() << std::endl;
                 res.status = 400;
                 res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
+                microservice::utils::log_request_timing("recommend", start_time, std::chrono::steady_clock::now());
             }
         });
 
@@ -430,6 +438,7 @@ int main() {
                 std::cerr << "User request timeout - Request took too long to process" << std::endl;
                 res.status = 408;
                 res.set_content("{\"error\": \"Request timeout\"}", "application/json");
+                microservice::utils::log_request_timing("user", start_time, std::chrono::steady_clock::now());
                 return;
             }
 
@@ -442,15 +451,18 @@ int main() {
                     std::cerr << "User request timeout during parameter processing" << std::endl;
                     res.status = 408;
                     res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                    microservice::utils::log_request_timing("user", start_time, std::chrono::steady_clock::now());
                     return;
                 }
                 
                 Json::FastWriter writer;
                 res.set_content(service.HandleUser(writer.write(json)), "application/json");
+                microservice::utils::log_request_timing("user", start_time, std::chrono::steady_clock::now());
             } catch (const std::exception& e) {
                 std::cerr << "User request error: " << e.what() << std::endl;
                 res.status = 400;
                 res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
+                microservice::utils::log_request_timing("user", start_time, std::chrono::steady_clock::now());
             }
         });
 
@@ -468,6 +480,7 @@ int main() {
                 std::cerr << "Reservation request timeout - Request took too long to process" << std::endl;
                 res.status = 408;
                 res.set_content("{\"error\": \"Request timeout\"}", "application/json");
+                microservice::utils::log_request_timing("reservation", start_time, std::chrono::steady_clock::now());
                 return;
             }
 
@@ -485,15 +498,18 @@ int main() {
                     std::cerr << "Reservation request timeout during parameter processing" << std::endl;
                     res.status = 408;
                     res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
+                    microservice::utils::log_request_timing("reservation", start_time, std::chrono::steady_clock::now());
                     return;
                 }
                 
                 Json::FastWriter writer;
                 res.set_content(service.HandleReservation(writer.write(json)), "application/json");
+                microservice::utils::log_request_timing("reservation", start_time, std::chrono::steady_clock::now());
             } catch (const std::exception& e) {
                 std::cerr << "Reservation request error: " << e.what() << std::endl;
                 res.status = 400;
                 res.set_content("{\"error\": \"Invalid request parameters\"}", "application/json");
+                microservice::utils::log_request_timing("reservation", start_time, std::chrono::steady_clock::now());
             }
         });
 
