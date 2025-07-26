@@ -127,29 +127,141 @@ def create_comparison_plot(protobuf_file, ser1de_file, output_file=None):
         # Add value labels on bars
         # Protobuf total
         ax.text(pos1, protobuf_req_avg_ms + 0.02, f'{protobuf_req_avg_ms:.2f}', 
-                ha='center', va='bottom', fontsize=8, rotation=90)
+                ha='center', va='bottom', fontsize=22, rotation=90)
         
         # Protobuf ser/de total
         total_protobuf_ser_de = protobuf_ser_ms + protobuf_de_ms
         ax.text(pos2, total_protobuf_ser_de + 0.02, f'{total_protobuf_ser_de:.2f}', 
-                ha='center', va='bottom', fontsize=8, rotation=90)
+                ha='center', va='bottom', fontsize=22, rotation=90)
         
         # Ser1de total
         ax.text(pos3, ser1de_req_avg_ms + 0.02, f'{ser1de_req_avg_ms:.2f}', 
-                ha='center', va='bottom', fontsize=8, rotation=90)
+                ha='center', va='bottom', fontsize=22, rotation=90)
         
         # Ser1de ser/de total
         total_ser1de_ser_de = ser1de_ser_ms + ser1de_de_ms
         ax.text(pos4, total_ser1de_ser_de + 0.02, f'{total_ser1de_ser_de:.2f}', 
-                ha='center', va='bottom', fontsize=8, rotation=90)
+                ha='center', va='bottom', fontsize=22, rotation=90)
     
     # Customize the plot
-    ax.set_xlabel('Request Types', fontsize=12)
-    ax.set_ylabel('Time (ms)', fontsize=12)
-    ax.set_title('Performance Comparison: Protobuf vs Ser1de\n(Total Request and Serialization/Deserialization Time)', fontsize=14)
+    ax.set_xlabel('Request Types', fontsize=22)
+    ax.set_ylabel('Time (ms)', fontsize=22)
+    ax.set_title('Performance Comparison: Protobuf vs Ser1de\n(Total Request and Serialization/Deserialization Time)', fontsize=26)
     ax.set_xticks(x)
-    ax.set_xticklabels([req.upper() for req in request_types])
-    ax.legend(loc='upper right')
+    ax.set_xticklabels([req.upper() for req in request_types], fontsize=22)
+    ax.legend(loc='upper right', fontsize=22)
+    
+    ax.tick_params(axis='both', which='major', labelsize=22)
+
+    ax.set_ylim(0, 3)
+    
+    # Add grid for better readability
+    ax.grid(True, alpha=0.3, axis='y')
+    
+    # Adjust layout
+    plt.tight_layout()
+    
+    if output_file:
+        plt.savefig(output_file, dpi=300, bbox_inches='tight')
+        print(f"Plot saved as {output_file}")
+    
+    plt.show()
+
+def create_stacked_breakdown_plot(protobuf_file, ser1de_file, output_file=None):
+    """
+    Create a stacked bar plot showing breakdown of time into serialization, 
+    deserialization, and other processing time.
+    
+    Args:
+        protobuf_file (str): Path to protobuf breakdown file
+        ser1de_file (str): Path to ser1de breakdown file
+        output_file (str): Optional path to save the plot
+    """
+    # Parse both files
+    protobuf_data = parse_breakdown_file(protobuf_file)
+    ser1de_data = parse_breakdown_file(ser1de_file)
+    
+    # Get all request types (should be the same in both files)
+    request_types = list(protobuf_data.keys())
+    
+    # Convert to milliseconds for better readability
+    def ns_to_ms(ns):
+        return ns / 1000000
+    
+    # Prepare data for plotting
+    n_requests = len(request_types)
+    x = np.arange(n_requests)
+    width = 0.35  # Width of bars
+    
+    fig, ax = plt.subplots(figsize=(14, 8))
+    
+    # For each request type, create stacked bars
+    for i, req_type in enumerate(request_types):
+        protobuf_req_avg, protobuf_ser, protobuf_de = protobuf_data[req_type]
+        ser1de_req_avg, ser1de_ser, ser1de_de = ser1de_data[req_type]
+        
+        # Convert to ms
+        protobuf_req_avg_ms = ns_to_ms(protobuf_req_avg)
+        protobuf_ser_ms = ns_to_ms(protobuf_ser)
+        protobuf_de_ms = ns_to_ms(protobuf_de)
+        
+        ser1de_req_avg_ms = ns_to_ms(ser1de_req_avg)
+        ser1de_ser_ms = ns_to_ms(ser1de_ser)
+        ser1de_de_ms = ns_to_ms(ser1de_de)
+        
+        # Calculate "other" time (total - serialization - deserialization)
+        protobuf_other_ms = protobuf_req_avg_ms - protobuf_ser_ms - protobuf_de_ms
+        ser1de_other_ms = ser1de_req_avg_ms - ser1de_ser_ms - ser1de_de_ms
+        
+        # Position bars
+        protobuf_pos = i - width/2
+        ser1de_pos = i + width/2
+        
+        # Create stacked bars
+        # Protobuf stacked bar
+        ax.bar(protobuf_pos, protobuf_other_ms, width, 
+               label='Protobuf Other' if i == 0 else "", 
+               color='#1f77b4', alpha=0.8)
+        ax.bar(protobuf_pos, protobuf_ser_ms, width, bottom=protobuf_other_ms,
+               label='Protobuf Serialization' if i == 0 else "", 
+               color='#ff7f0e', alpha=0.8)
+        ax.bar(protobuf_pos, protobuf_de_ms, width, 
+               bottom=protobuf_other_ms + protobuf_ser_ms,
+               label='Protobuf Deserialization' if i == 0 else "", 
+               color='#ffbb78', alpha=0.8)
+        
+        # Ser1de stacked bar
+        ax.bar(ser1de_pos, ser1de_other_ms, width, 
+               label='Ser1de Other' if i == 0 else "", 
+               color='#2ca02c', alpha=0.8)
+        ax.bar(ser1de_pos, ser1de_ser_ms, width, bottom=ser1de_other_ms,
+               label='Ser1de Serialization' if i == 0 else "", 
+               color='#d62728', alpha=0.8)
+        ax.bar(ser1de_pos, ser1de_de_ms, width, 
+               bottom=ser1de_other_ms + ser1de_ser_ms,
+               label='Ser1de Deserialization' if i == 0 else "", 
+               color='#ff9999', alpha=0.8)
+        
+        # Add value labels on bars (total time)
+        # Protobuf total
+        ax.text(protobuf_pos, protobuf_req_avg_ms + 0.02, f'{protobuf_req_avg_ms:.2f}', 
+                ha='center', va='bottom', fontsize=22, rotation=90)
+        
+        # Ser1de total
+        ax.text(ser1de_pos, ser1de_req_avg_ms + 0.02, f'{ser1de_req_avg_ms:.2f}', 
+                ha='center', va='bottom', fontsize=22, rotation=90)
+    
+    # Customize the plot
+    ax.set_xlabel('Request Types', fontsize=22)
+    ax.set_ylabel('Time (ms)', fontsize=22)
+    ax.set_title('Performance Breakdown: Protobuf vs Ser1de', fontsize=26)
+    ax.set_xticks(x)
+    ax.set_xticklabels([req.upper() for req in request_types], fontsize=22)
+    ax.legend(loc='upper right', fontsize=22)
+    
+    ax.tick_params(axis='both', which='major', labelsize=22)
+
+    ax.set_ylim(0, 3)
     
     # Add grid for better readability
     ax.grid(True, alpha=0.3, axis='y')
@@ -171,14 +283,19 @@ if __name__ == "__main__":
     print("Creating comparison plot...")
     create_comparison_plot(protobuf_file, ser1de_file, "performance_comparison.pdf")
     
+    print("\nCreating stacked breakdown plot...")
+    create_stacked_breakdown_plot(protobuf_file, ser1de_file, "performance_breakdown_stacked.pdf")
+    
     # Also print the data for verification
     print("\nParsed data:")
     print("Protobuf:")
     protobuf_data = parse_breakdown_file(protobuf_file)
     for req_type, (req_avg, ser_sum, de_sum) in protobuf_data.items():
-        print(f"  {req_type.upper()}: {req_avg/1000000:.2f}ms total, {ser_sum/1000000:.2f}ms ser, {de_sum/1000000:.2f}ms de")
+        other_time = (req_avg - ser_sum - de_sum) / 1000000
+        print(f"  {req_type.upper()}: {req_avg/1000000:.2f}ms total, {ser_sum/1000000:.2f}ms ser, {de_sum/1000000:.2f}ms de, {other_time:.2f}ms other")
     
     print("\nSer1de:")
     ser1de_data = parse_breakdown_file(ser1de_file)
     for req_type, (req_avg, ser_sum, de_sum) in ser1de_data.items():
-        print(f"  {req_type.upper()}: {req_avg/1000000:.2f}ms total, {ser_sum/1000000:.2f}ms ser, {de_sum/1000000:.2f}ms de")
+        other_time = (req_avg - ser_sum - de_sum) / 1000000
+        print(f"  {req_type.upper()}: {req_avg/1000000:.2f}ms total, {ser_sum/1000000:.2f}ms ser, {de_sum/1000000:.2f}ms de, {other_time:.2f}ms other")
