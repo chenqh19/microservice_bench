@@ -37,7 +37,7 @@ def process_file(filename):
 # ser1de_improved = "tail_ser1de_improved"
 
 # List of dataset names
-names = ["600B", "300B", "0B"]
+names = ["0B"]
 
 labels = {
     "0.500000": "p50",
@@ -48,28 +48,28 @@ labels = {
 ser1de = "tail_ser1de"
 proto = "tail_protobuf"
 
-# Assign a color to each dataset
-colors = ["green", "blue", "orange"]
+# Assign colors: blue for protobuf, orange for SERenaDE
+proto_color = "#1f77b4"  # Default matplotlib blue
+ser1de_color = "#ff7f0e"  # Default matplotlib orange
 
 # Only plot p99 as in your original code, but you can loop over all if needed
 for key in ["0.990625"]:
-    plt.figure(figsize=(9, 5))
+    plt.figure(figsize=(12, 5))
     for idx, name in enumerate(names):
-        color = colors[idx]
         # Process both files for each dataset
         res1 = process_file(f"{ser1de}_{name}.txt")
         res2 = process_file(f"{proto}_{name}.txt")
         # Sort RPS for consistent plotting
         rps1 = sorted(res1[key].keys())
         rps2 = sorted(res2[key].keys())
-        plt.plot(rps1, [res1[key][rps] for rps in rps1], marker='o', color=color, label=f"{ser1de}_{name}")
-        plt.plot(rps2, [res2[key][rps] for rps in rps2], marker='x', color=color, label=f"{proto}_{name}")
-    plt.xlabel("RPS", fontsize=14)
-    plt.ylabel(f"Latency ({labels[key]})", fontsize=14)
-    plt.title(f"Latency vs RPS @ {labels[key]}", fontsize=14)
-    plt.xticks(fontsize=14)
-    plt.yticks(fontsize=14)
-    plt.legend(loc='upper center', bbox_to_anchor=(0.47, -0.15), ncol=3, fontsize=14)
+        plt.plot(rps2, [res2[key][rps] for rps in rps2], marker='o', color=proto_color, label="Protobuf")
+        plt.plot(rps1, [res1[key][rps] for rps in rps1], marker='o', color=ser1de_color, label="SERenaDE")
+    plt.xlabel("RPS", fontsize=22)
+    plt.ylabel(f"Latency ({labels[key]})", fontsize=22)
+    plt.title(f"Latency vs RPS @ {labels[key]}", fontsize=22)
+    plt.xticks(fontsize=22)
+    plt.yticks(fontsize=22)
+    plt.legend(loc='upper left', fontsize=22)
     plt.grid(True)
     plt.tight_layout()
     plt.ylim(bottom=0, top=500)

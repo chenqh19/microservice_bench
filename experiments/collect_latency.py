@@ -33,10 +33,10 @@ def run_one_rps(RPS, duration=30, file_name="tail.txt"):
 
 def main():
     time.sleep(5)
-    file_name = "tail_protobuf_600B.txt"
+    file_name = "tail_ser1de_0B.txt"
     with open(file_name, "a") as f:
         f.write("start experiment\n")
-    for rps in range(14000, 15500, 500):
+    for rps in range(46000, 47000, 200):
         run_one_rps(rps, 30, file_name)
         time.sleep(5)
     with open(file_name, "a") as f:
