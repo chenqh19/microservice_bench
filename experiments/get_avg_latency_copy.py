@@ -49,7 +49,7 @@ ser1de = "tail_ser1de"
 proto = "tail_protobuf"
 
 # Assign a color to each dataset
-colors = ["green", "red", "blue"]
+colors = ["green", "blue", "orange"]
 
 # Only plot p99 as in your original code, but you can loop over all if needed
 for key in ["0.990625"]:
@@ -62,10 +62,10 @@ for key in ["0.990625"]:
         # Sort RPS for consistent plotting
         rps1 = sorted(res1[key].keys())
         rps2 = sorted(res2[key].keys())
-        plt.plot(rps1, [res1[key][rps] for rps in rps1], marker='o', color=color, label=f"SERenaDE {name}")
-        plt.plot(rps2, [res2[key][rps] for rps in rps2], marker='x', color=color, label=f"Protobuf {name}")
+        plt.plot(rps1, [res1[key][rps] for rps in rps1], marker='o', color=color, label=f"{ser1de}_{name}")
+        plt.plot(rps2, [res2[key][rps] for rps in rps2], marker='x', color=color, label=f"{proto}_{name}")
     plt.xlabel("RPS", fontsize=14)
-    plt.ylabel(f"Latency (ms)", fontsize=14)
+    plt.ylabel(f"Latency ({labels[key]})", fontsize=14)
     plt.title(f"Latency vs RPS @ {labels[key]}", fontsize=14)
     plt.xticks(fontsize=14)
     plt.yticks(fontsize=14)

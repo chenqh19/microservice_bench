@@ -113,15 +113,15 @@ def create_comparison_plot(protobuf_file, ser1de_file, output_file=None):
         
         # Ser1de total request time
         ax.bar(pos3, ser1de_req_avg_ms, width, 
-               label='Ser1de Total' if i == 0 else "", 
+               label='SERenaDE Total' if i == 0 else "", 
                color='#2ca02c', alpha=0.8)
         
         # Ser1de serialization + deserialization (stacked)
         ax.bar(pos4, ser1de_ser_ms, width, 
-               label='Ser1de Serialization' if i == 0 else "", 
+               label='SERenaDE Serialization' if i == 0 else "", 
                color='#d62728', alpha=0.8)
         ax.bar(pos4, ser1de_de_ms, width, bottom=ser1de_ser_ms,
-               label='Ser1de Deserialization' if i == 0 else "", 
+               label='SERenaDE Deserialization' if i == 0 else "", 
                color='#ff9999', alpha=0.8)
         
         # Add value labels on bars
@@ -146,7 +146,7 @@ def create_comparison_plot(protobuf_file, ser1de_file, output_file=None):
     # Customize the plot
     ax.set_xlabel('Request Types', fontsize=22)
     ax.set_ylabel('Time (ms)', fontsize=22)
-    ax.set_title('Performance Comparison: Protobuf vs Ser1de\n(Total Request and Serialization/Deserialization Time)', fontsize=26)
+    ax.set_title('Performance Comparison: Protobuf vs SERenaDE\n(Total Request and Serialization/Deserialization Time)', fontsize=26)
     ax.set_xticks(x)
     ax.set_xticklabels([req.upper() for req in request_types], fontsize=22)
     ax.legend(loc='upper right', fontsize=22)
@@ -184,6 +184,26 @@ def create_stacked_breakdown_plot(protobuf_file, ser1de_file, output_file=None):
     # Get all request types (should be the same in both files)
     request_types = list(protobuf_data.keys())
     
+    # Add weighted average as a new "request type"
+    weights = [0.6, 0.39, 0.005, 0.005]
+    
+    # Calculate weighted averages for protobuf
+    protobuf_weighted_req_avg = sum(weights[i] * protobuf_data[req_type][0] for i, req_type in enumerate(request_types))
+    protobuf_weighted_ser = sum(weights[i] * protobuf_data[req_type][1] for i, req_type in enumerate(request_types))
+    protobuf_weighted_de = sum(weights[i] * protobuf_data[req_type][2] for i, req_type in enumerate(request_types))
+    
+    # Calculate weighted averages for ser1de
+    ser1de_weighted_req_avg = sum(weights[i] * ser1de_data[req_type][0] for i, req_type in enumerate(request_types))
+    ser1de_weighted_ser = sum(weights[i] * ser1de_data[req_type][1] for i, req_type in enumerate(request_types))
+    ser1de_weighted_de = sum(weights[i] * ser1de_data[req_type][2] for i, req_type in enumerate(request_types))
+    
+    # Add weighted averages to data
+    protobuf_data['mixture'] = (protobuf_weighted_req_avg, protobuf_weighted_ser, protobuf_weighted_de)
+    ser1de_data['mixture'] = (ser1de_weighted_req_avg, ser1de_weighted_ser, ser1de_weighted_de)
+    
+    # Update request types to include mixture
+    request_types.append('mixture')
+    
     # Convert to milliseconds for better readability
     def ns_to_ms(ns):
         return ns / 1000000
@@ -193,7 +213,7 @@ def create_stacked_breakdown_plot(protobuf_file, ser1de_file, output_file=None):
     x = np.arange(n_requests)
     width = 0.35  # Width of bars
     
-    fig, ax = plt.subplots(figsize=(14, 8))
+    fig, ax = plt.subplots(figsize=(16, 8))  # Slightly wider to accommodate the extra bar
     
     # For each request type, create stacked bars
     for i, req_type in enumerate(request_types):
@@ -220,7 +240,7 @@ def create_stacked_breakdown_plot(protobuf_file, ser1de_file, output_file=None):
         # Create stacked bars
         # Protobuf stacked bar
         ax.bar(protobuf_pos, protobuf_other_ms, width, 
-               label='Protobuf Other' if i == 0 else "", 
+               label='Logic + Network' if i == 0 else "", 
                color='#1f77b4', alpha=0.8)
         ax.bar(protobuf_pos, protobuf_ser_ms, width, bottom=protobuf_other_ms,
                label='Protobuf Serialization' if i == 0 else "", 
@@ -232,14 +252,14 @@ def create_stacked_breakdown_plot(protobuf_file, ser1de_file, output_file=None):
         
         # Ser1de stacked bar
         ax.bar(ser1de_pos, ser1de_other_ms, width, 
-               label='Ser1de Other' if i == 0 else "", 
+               label='Logic + Network' if i == 0 else "", 
                color='#2ca02c', alpha=0.8)
         ax.bar(ser1de_pos, ser1de_ser_ms, width, bottom=ser1de_other_ms,
-               label='Ser1de Serialization' if i == 0 else "", 
+               label='SERenaDE Serialization' if i == 0 else "", 
                color='#d62728', alpha=0.8)
         ax.bar(ser1de_pos, ser1de_de_ms, width, 
                bottom=ser1de_other_ms + ser1de_ser_ms,
-               label='Ser1de Deserialization' if i == 0 else "", 
+               label='SERenaDE Deserialization' if i == 0 else "", 
                color='#ff9999', alpha=0.8)
         
         # Add value labels on bars (total time)
@@ -252,14 +272,14 @@ def create_stacked_breakdown_plot(protobuf_file, ser1de_file, output_file=None):
                 ha='center', va='bottom', fontsize=22, rotation=90)
     
     # Customize the plot
-    ax.set_xlabel('Request Types', fontsize=22)
-    ax.set_ylabel('Time (ms)', fontsize=22)
-    ax.set_title('Performance Breakdown: Protobuf vs Ser1de', fontsize=26)
+    ax.set_xlabel('Request Types', fontsize=24)
+    ax.set_ylabel('Time (ms)', fontsize=24)
+    ax.set_title('Performance Breakdown: Protobuf vs SERenaDE', fontsize=26)
     ax.set_xticks(x)
-    ax.set_xticklabels([req.upper() for req in request_types], fontsize=22)
-    ax.legend(loc='upper right', fontsize=22)
+    ax.set_xticklabels([req.upper() if req != 'mixture' else 'MIXTURE' for req in request_types], fontsize=22)
+    ax.legend(bbox_to_anchor=(0.5, 1.05), loc='lower center', ncol=3, fontsize=24)
     
-    ax.tick_params(axis='both', which='major', labelsize=22)
+    ax.tick_params(axis='both', which='major', labelsize=24)
 
     ax.set_ylim(0, 3)
     
