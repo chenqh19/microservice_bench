@@ -67,9 +67,9 @@ def create_comparison_plot(protobuf_file, ser1de_file, output_file=None):
     # Get all request types (should be the same in both files)
     request_types = list(protobuf_data.keys())
     
-    # Convert to milliseconds for better readability
-    def ns_to_ms(ns):
-        return ns / 1000000
+    # Convert to microseconds for better readability
+    def ns_to_us(ns):
+        return ns / 1000
     
     # Prepare data for plotting
     n_requests = len(request_types)
@@ -83,14 +83,14 @@ def create_comparison_plot(protobuf_file, ser1de_file, output_file=None):
         protobuf_req_avg, protobuf_ser, protobuf_de = protobuf_data[req_type]
         ser1de_req_avg, ser1de_ser, ser1de_de = ser1de_data[req_type]
         
-        # Convert to ms
-        protobuf_req_avg_ms = ns_to_ms(protobuf_req_avg)
-        protobuf_ser_ms = ns_to_ms(protobuf_ser)
-        protobuf_de_ms = ns_to_ms(protobuf_de)
+        # Convert to us
+        protobuf_req_avg_us = ns_to_us(protobuf_req_avg)
+        protobuf_ser_us = ns_to_us(protobuf_ser)
+        protobuf_de_us = ns_to_us(protobuf_de)
         
-        ser1de_req_avg_ms = ns_to_ms(ser1de_req_avg)
-        ser1de_ser_ms = ns_to_ms(ser1de_ser)
-        ser1de_de_ms = ns_to_ms(ser1de_de)
+        ser1de_req_avg_us = ns_to_us(ser1de_req_avg)
+        ser1de_ser_us = ns_to_us(ser1de_ser)
+        ser1de_de_us = ns_to_us(ser1de_de)
         
         # Position bars
         pos1 = i - 1.5*width  # Protobuf total
@@ -98,62 +98,48 @@ def create_comparison_plot(protobuf_file, ser1de_file, output_file=None):
         pos3 = i + 0.5*width  # Ser1de total
         pos4 = i + 1.5*width  # Ser1de ser/de stacked
         
-        # Protobuf total request time
-        ax.bar(pos1, protobuf_req_avg_ms, width, 
+        # Plot in specific order to achieve legend order: first row = protobuf items, second row = serenade items
+        # 1. Protobuf Total
+        ax.bar(pos1, protobuf_req_avg_us, width, 
                label='Protobuf Total' if i == 0 else "", 
                color='#1f77b4', alpha=0.8)
-        
-        # Protobuf serialization + deserialization (stacked)
-        ax.bar(pos2, protobuf_ser_ms, width, 
-               label='Protobuf Serialization' if i == 0 else "", 
-               color='#ff7f0e', alpha=0.8)
-        ax.bar(pos2, protobuf_de_ms, width, bottom=protobuf_ser_ms,
-               label='Protobuf Deserialization' if i == 0 else "", 
-               color='#ffbb78', alpha=0.8)
-        
-        # Ser1de total request time
-        ax.bar(pos3, ser1de_req_avg_ms, width, 
+
+        # 4. SERenaDE Total  
+        ax.bar(pos3, ser1de_req_avg_us, width, 
                label='SERenaDE Total' if i == 0 else "", 
                color='#2ca02c', alpha=0.8)
         
-        # Ser1de serialization + deserialization (stacked)
-        ax.bar(pos4, ser1de_ser_ms, width, 
+        # 2. Protobuf Serialization
+        ax.bar(pos2, protobuf_ser_us, width, 
+               label='Protobuf Serialization' if i == 0 else "", 
+               color='#ff7f0e', alpha=0.8)
+        
+        # 5. SERenaDE Serialization
+        ax.bar(pos4, ser1de_ser_us, width, 
                label='SERenaDE Serialization' if i == 0 else "", 
                color='#d62728', alpha=0.8)
-        ax.bar(pos4, ser1de_de_ms, width, bottom=ser1de_ser_ms,
+
+        # 3. Protobuf Deserialization
+        ax.bar(pos2, protobuf_de_us, width, bottom=protobuf_ser_us,
+               label='Protobuf Deserialization' if i == 0 else "", 
+               color='#ffbb78', alpha=0.8)
+        
+        # 6. SERenaDE Deserialization
+        ax.bar(pos4, ser1de_de_us, width, bottom=ser1de_ser_us,
                label='SERenaDE Deserialization' if i == 0 else "", 
                color='#ff9999', alpha=0.8)
-        
-        # Add value labels on bars
-        # Protobuf total
-        ax.text(pos1, protobuf_req_avg_ms + 0.02, f'{protobuf_req_avg_ms:.2f}', 
-                ha='center', va='bottom', fontsize=22, rotation=90)
-        
-        # Protobuf ser/de total
-        total_protobuf_ser_de = protobuf_ser_ms + protobuf_de_ms
-        ax.text(pos2, total_protobuf_ser_de + 0.02, f'{total_protobuf_ser_de:.2f}', 
-                ha='center', va='bottom', fontsize=22, rotation=90)
-        
-        # Ser1de total
-        ax.text(pos3, ser1de_req_avg_ms + 0.02, f'{ser1de_req_avg_ms:.2f}', 
-                ha='center', va='bottom', fontsize=22, rotation=90)
-        
-        # Ser1de ser/de total
-        total_ser1de_ser_de = ser1de_ser_ms + ser1de_de_ms
-        ax.text(pos4, total_ser1de_ser_de + 0.02, f'{total_ser1de_ser_de:.2f}', 
-                ha='center', va='bottom', fontsize=22, rotation=90)
     
     # Customize the plot
     ax.set_xlabel('Request Types', fontsize=22)
-    ax.set_ylabel('Time (ms)', fontsize=22)
+    ax.set_ylabel('Time (μs)', fontsize=22)
     ax.set_title('Performance Comparison: Protobuf vs SERenaDE\n(Total Request and Serialization/Deserialization Time)', fontsize=26)
     ax.set_xticks(x)
     ax.set_xticklabels([req.upper() for req in request_types], fontsize=22)
-    ax.legend(loc='upper right', fontsize=22)
+    ax.legend(loc='upper right', fontsize=22, ncol=3)
     
     ax.tick_params(axis='both', which='major', labelsize=22)
 
-    ax.set_ylim(0, 3)
+    ax.set_ylim(0, 1000)
     
     # Add grid for better readability
     ax.grid(True, alpha=0.3, axis='y')
@@ -204,84 +190,83 @@ def create_stacked_breakdown_plot(protobuf_file, ser1de_file, output_file=None):
     # Update request types to include mixture
     request_types.append('mixture')
     
-    # Convert to milliseconds for better readability
-    def ns_to_ms(ns):
-        return ns / 1000000
+    # Convert to microseconds for better readability
+    def ns_to_us(ns):
+        return ns / 1000
     
     # Prepare data for plotting
     n_requests = len(request_types)
     x = np.arange(n_requests)
     width = 0.35  # Width of bars
     
-    fig, ax = plt.subplots(figsize=(16, 8))  # Slightly wider to accommodate the extra bar
+    fig, ax = plt.subplots(figsize=(18, 8))  # Slightly wider to accommodate the extra bar
     
     # For each request type, create stacked bars
+    # Plot in specific order to achieve legend order: first row = protobuf items, second row = serenade items
     for i, req_type in enumerate(request_types):
         protobuf_req_avg, protobuf_ser, protobuf_de = protobuf_data[req_type]
         ser1de_req_avg, ser1de_ser, ser1de_de = ser1de_data[req_type]
         
-        # Convert to ms
-        protobuf_req_avg_ms = ns_to_ms(protobuf_req_avg)
-        protobuf_ser_ms = ns_to_ms(protobuf_ser)
-        protobuf_de_ms = ns_to_ms(protobuf_de)
+        # Convert to us
+        protobuf_req_avg_us = ns_to_us(protobuf_req_avg)
+        protobuf_ser_us = ns_to_us(protobuf_ser)
+        protobuf_de_us = ns_to_us(protobuf_de)
         
-        ser1de_req_avg_ms = ns_to_ms(ser1de_req_avg)
-        ser1de_ser_ms = ns_to_ms(ser1de_ser)
-        ser1de_de_ms = ns_to_ms(ser1de_de)
+        ser1de_req_avg_us = ns_to_us(ser1de_req_avg)
+        ser1de_ser_us = ns_to_us(ser1de_ser)
+        ser1de_de_us = ns_to_us(ser1de_de)
         
         # Calculate "other" time (total - serialization - deserialization)
-        protobuf_other_ms = protobuf_req_avg_ms - protobuf_ser_ms - protobuf_de_ms
-        ser1de_other_ms = ser1de_req_avg_ms - ser1de_ser_ms - ser1de_de_ms
+        protobuf_other_us = protobuf_req_avg_us - protobuf_ser_us - protobuf_de_us
+        ser1de_other_us = ser1de_req_avg_us - ser1de_ser_us - ser1de_de_us
         
         # Position bars
         protobuf_pos = i - width/2
         ser1de_pos = i + width/2
         
-        # Create stacked bars
-        # Protobuf stacked bar
-        ax.bar(protobuf_pos, protobuf_other_ms, width, 
-               label='Logic + Network' if i == 0 else "", 
+        # 1. Logic + Network (Protobuf)
+        ax.bar(protobuf_pos, protobuf_other_us, width, 
+               label='Logic + Network (Protobuf)' if i == 0 else "", 
                color='#1f77b4', alpha=0.8)
-        ax.bar(protobuf_pos, protobuf_ser_ms, width, bottom=protobuf_other_ms,
+        
+        # 4. Logic + Network (SERenaDE)
+        ax.bar(ser1de_pos, ser1de_other_us, width, 
+               label='Logic + Network (SERenaDE)' if i == 0 else "", 
+               color='#2ca02c', alpha=0.8)
+
+        # 2. Protobuf Serialization
+        ax.bar(protobuf_pos, protobuf_ser_us, width, bottom=protobuf_other_us,
                label='Protobuf Serialization' if i == 0 else "", 
                color='#ff7f0e', alpha=0.8)
-        ax.bar(protobuf_pos, protobuf_de_ms, width, 
-               bottom=protobuf_other_ms + protobuf_ser_ms,
+        
+        # 5. SERenaDE Serialization
+        ax.bar(ser1de_pos, ser1de_ser_us, width, bottom=ser1de_other_us,
+               label='SERenaDE Serialization' if i == 0 else "", 
+               color='#d62728', alpha=0.8)
+
+        # 3. Protobuf Deserialization
+        ax.bar(protobuf_pos, protobuf_de_us, width, 
+               bottom=protobuf_other_us + protobuf_ser_us,
                label='Protobuf Deserialization' if i == 0 else "", 
                color='#ffbb78', alpha=0.8)
         
-        # Ser1de stacked bar
-        ax.bar(ser1de_pos, ser1de_other_ms, width, 
-               label='Logic + Network' if i == 0 else "", 
-               color='#2ca02c', alpha=0.8)
-        ax.bar(ser1de_pos, ser1de_ser_ms, width, bottom=ser1de_other_ms,
-               label='SERenaDE Serialization' if i == 0 else "", 
-               color='#d62728', alpha=0.8)
-        ax.bar(ser1de_pos, ser1de_de_ms, width, 
-               bottom=ser1de_other_ms + ser1de_ser_ms,
+        # 6. SERenaDE Deserialization
+        ax.bar(ser1de_pos, ser1de_de_us, width, 
+               bottom=ser1de_other_us + ser1de_ser_us,
                label='SERenaDE Deserialization' if i == 0 else "", 
                color='#ff9999', alpha=0.8)
-        
-        # Add value labels on bars (total time)
-        # Protobuf total
-        ax.text(protobuf_pos, protobuf_req_avg_ms + 0.02, f'{protobuf_req_avg_ms:.2f}', 
-                ha='center', va='bottom', fontsize=22, rotation=90)
-        
-        # Ser1de total
-        ax.text(ser1de_pos, ser1de_req_avg_ms + 0.02, f'{ser1de_req_avg_ms:.2f}', 
-                ha='center', va='bottom', fontsize=22, rotation=90)
     
     # Customize the plot
     ax.set_xlabel('Request Types', fontsize=24)
-    ax.set_ylabel('Time (ms)', fontsize=24)
+    ax.set_ylabel('Time (μs)', fontsize=24)
     ax.set_title('Performance Breakdown: Protobuf vs SERenaDE', fontsize=26)
     ax.set_xticks(x)
     ax.set_xticklabels([req.upper() if req != 'mixture' else 'MIXTURE' for req in request_types], fontsize=22)
-    ax.legend(bbox_to_anchor=(0.5, 1.05), loc='lower center', ncol=3, fontsize=24)
+    ax.legend(bbox_to_anchor=(0.47, 1.05), loc='lower center', ncol=3, fontsize=24)
     
     ax.tick_params(axis='both', which='major', labelsize=24)
 
-    ax.set_ylim(0, 3)
+    ax.set_ylim(0, 1000)
     
     # Add grid for better readability
     ax.grid(True, alpha=0.3, axis='y')
@@ -297,8 +282,8 @@ def create_stacked_breakdown_plot(protobuf_file, ser1de_file, output_file=None):
 
 if __name__ == "__main__":
     # Example usage
-    protobuf_file = "breakdown_protobuf_300B.txt"
-    ser1de_file = "breakdown_ser1de_300B.txt"
+    protobuf_file = "breakdown_protobuf.txt"
+    ser1de_file = "breakdown_ser1de.txt"
     
     print("Creating comparison plot...")
     create_comparison_plot(protobuf_file, ser1de_file, "performance_comparison.pdf")
@@ -311,11 +296,11 @@ if __name__ == "__main__":
     print("Protobuf:")
     protobuf_data = parse_breakdown_file(protobuf_file)
     for req_type, (req_avg, ser_sum, de_sum) in protobuf_data.items():
-        other_time = (req_avg - ser_sum - de_sum) / 1000000
-        print(f"  {req_type.upper()}: {req_avg/1000000:.2f}ms total, {ser_sum/1000000:.2f}ms ser, {de_sum/1000000:.2f}ms de, {other_time:.2f}ms other")
+        other_time = (req_avg - ser_sum - de_sum) / 1000
+        print(f"  {req_type.upper()}: {req_avg/1000:.0f}μs total, {ser_sum/1000:.0f}μs ser, {de_sum/1000:.0f}μs de, {other_time:.0f}μs other")
     
     print("\nSer1de:")
     ser1de_data = parse_breakdown_file(ser1de_file)
     for req_type, (req_avg, ser_sum, de_sum) in ser1de_data.items():
-        other_time = (req_avg - ser_sum - de_sum) / 1000000
-        print(f"  {req_type.upper()}: {req_avg/1000000:.2f}ms total, {ser_sum/1000000:.2f}ms ser, {de_sum/1000000:.2f}ms de, {other_time:.2f}ms other")
+        other_time = (req_avg - ser_sum - de_sum) / 1000
+        print(f"  {req_type.upper()}: {req_avg/1000:.0f}μs total, {ser_sum/1000:.0f}μs ser, {de_sum/1000:.0f}μs de, {other_time:.0f}μs other")

@@ -8,7 +8,7 @@
 #include <sys/stat.h>
 #include <typeinfo>
 
-#define USE_SER1DE 1
+#define USE_SER1DE 0
 #define ENABLE_TIMING 1
 
 #if USE_SER1DE
