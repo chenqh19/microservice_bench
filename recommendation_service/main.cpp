@@ -1,3 +1,4 @@
+#include "../compression_utils.h"
 #include <iostream>
 #include <string>
 #include "hotel_reservation.pb.h"
@@ -49,6 +50,8 @@ public:
     RecommendationService() {
         // Initialize client pools
         // This class is now purely UDS+Protobuf, so no client pools are needed.
+        // Initialize compression manager
+        microservice::compression::init_compression();
     }
 
     hotelreservation::RecommendResponse process_request(const hotelreservation::RecommendRequest& req) {
@@ -83,7 +86,46 @@ public:
         // Combine results
         hotelreservation::RecommendResponse response;
         for (const auto& profile : profile_resp.profiles()) {
-            *response.add_hotels() = profile;
+            auto hotel = profile;
+            
+            // Apply compression to hotel data
+            std::string original_name = hotel.name();
+            std::string compressed_name = microservice::compression::compress_data(original_name);
+            hotel.set_name(compressed_name);
+            
+            std::string original_description = hotel.description();
+            std::string compressed_description = microservice::compression::compress_data(original_description);
+            hotel.set_description(compressed_description);
+            
+            std::string original_phone = hotel.phone_number();
+            std::string compressed_phone = microservice::compression::compress_data(original_phone);
+            hotel.set_phone_number(compressed_phone);
+            
+            // Compress address fields if present
+            if (hotel.has_address()) {
+                auto* address = hotel.mutable_address();
+                std::string original_street = address->street_name();
+                std::string compressed_street = microservice::compression::compress_data(original_street);
+                address->set_street_name(compressed_street);
+                
+                std::string original_city = address->city();
+                std::string compressed_city = microservice::compression::compress_data(original_city);
+                address->set_city(compressed_city);
+                
+                std::string original_state = address->state();
+                std::string compressed_state = microservice::compression::compress_data(original_state);
+                address->set_state(compressed_state);
+                
+                std::string original_country = address->country();
+                std::string compressed_country = microservice::compression::compress_data(original_country);
+                address->set_country(compressed_country);
+                
+                std::string original_postal = address->postal_code();
+                std::string compressed_postal = microservice::compression::compress_data(original_postal);
+                address->set_postal_code(compressed_postal);
+            }
+            
+            *response.add_hotels() = hotel;
         }
         
         *response.mutable_padding() = microservice::utils::generate_person_padding();

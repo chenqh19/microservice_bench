@@ -1,3 +1,4 @@
+#include "../compression_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -32,6 +33,8 @@ private:
 public:
     GeoService() {
         InitializeSampleData();
+        // Initialize compression manager
+        microservice::compression::init_compression();
     }
 
     void InitializeSampleData() {
@@ -76,7 +79,10 @@ public:
         std::sort(distances.begin(), distances.end());
         
         for (int i = 0; i < std::min(static_cast<int>(distances.size()), MAX_SEARCH_RESULTS); ++i) {
-            response.add_hotel_ids(distances[i].second);
+            // Apply compression to hotel IDs
+            std::string original_hotel_id = distances[i].second;
+            std::string compressed_hotel_id = microservice::compression::compress_data(original_hotel_id);
+            response.add_hotel_ids(compressed_hotel_id);
         }
         
         *response.mutable_padding() = microservice::utils::generate_person_padding();

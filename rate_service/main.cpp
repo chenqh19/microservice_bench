@@ -1,3 +1,4 @@
+#include "../compression_utils.h"
 #include <iostream>
 #include <string>
 #include <unordered_map>
@@ -23,6 +24,8 @@ private:
 public:
     RateService() {
         InitializeSampleRates();
+        // Initialize compression manager
+        microservice::compression::init_compression();
     }
 
     void InitializeSampleRates() {
@@ -64,11 +67,35 @@ public:
                 // Create a rate plan for each room type
                 for (const auto& room_type : it->second) {
                     auto* rate_plan = response.add_rate_plans();
-                    rate_plan->set_hotel_id(hotel_id);
-                    rate_plan->set_code(room_type.code());
-                    rate_plan->set_in_date(req.in_date());
-                    rate_plan->set_out_date(req.out_date());
-                    *rate_plan->mutable_room_type() = room_type;
+                    
+                    // Apply compression to rate plan data
+                    std::string original_hotel_id = hotel_id;
+                    std::string compressed_hotel_id = microservice::compression::compress_data(original_hotel_id);
+                    rate_plan->set_hotel_id(compressed_hotel_id);
+                    
+                    std::string original_code = room_type.code();
+                    std::string compressed_code = microservice::compression::compress_data(original_code);
+                    rate_plan->set_code(compressed_code);
+                    
+                    std::string original_in_date = req.in_date();
+                    std::string compressed_in_date = microservice::compression::compress_data(original_in_date);
+                    rate_plan->set_in_date(compressed_in_date);
+                    
+                    std::string original_out_date = req.out_date();
+                    std::string compressed_out_date = microservice::compression::compress_data(original_out_date);
+                    rate_plan->set_out_date(compressed_out_date);
+                    
+                    // Apply compression to room type data
+                    auto compressed_room_type = room_type;
+                    std::string original_room_code = compressed_room_type.code();
+                    std::string compressed_room_code = microservice::compression::compress_data(original_room_code);
+                    compressed_room_type.set_code(compressed_room_code);
+                    
+                    std::string original_room_description = compressed_room_type.room_description();
+                    std::string compressed_room_description = microservice::compression::compress_data(original_room_description);
+                    compressed_room_type.set_room_description(compressed_room_description);
+                    
+                    *rate_plan->mutable_room_type() = compressed_room_type;
                     *rate_plan->mutable_padding() = microservice::utils::generate_person_padding();
                 }
             }

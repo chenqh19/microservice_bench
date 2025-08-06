@@ -4,6 +4,7 @@
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
 #include "padding_utils.h"
+#include "../compression_utils.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -22,6 +23,8 @@ public:
     ProfileService() {
         // Initialize with some sample data
         InitializeSampleData();
+        // Initialize compression manager
+        microservice::compression::init_compression();
     }
 
     void InitializeSampleData() {
@@ -104,18 +107,18 @@ public:
         // Hotel 5
         hotelreservation::HotelProfile profile5;
         profile5.set_id("5");
-        profile5.set_name("Phoenix Hotel");
-        profile5.set_phone_number("(415) 776-1380");
-        profile5.set_description("This retro-chic hotel in the Tenderloin neighborhood features a heated outdoor pool and a restaurant serving California cuisine.");
+        profile5.set_name("The Ritz-Carlton San Francisco");
+        profile5.set_phone_number("(415) 296-7465");
+        profile5.set_description("Located in Nob Hill, this luxury hotel offers stunning views of the city and bay, with elegant rooms and world-class service.");
         auto* address5 = profile5.mutable_address();
-        address5->set_street_number("601");
-        address5->set_street_name("Eddy St");
+        address5->set_street_number("600");
+        address5->set_street_name("Stockton St");
         address5->set_city("San Francisco");
         address5->set_state("CA");
         address5->set_country("United States");
-        address5->set_postal_code("94109");
-        address5->set_lat(37.7831);
-        address5->set_lon(-122.4181);
+        address5->set_postal_code("94108");
+        address5->set_lat(37.7925);
+        address5->set_lon(-122.4070);
         *address5->mutable_padding() = microservice::utils::generate_person_padding();
         *profile5.mutable_padding() = microservice::utils::generate_person_padding();
         profiles_[profile5.id()] = profile5;
@@ -123,43 +126,59 @@ public:
         // Hotel 6
         hotelreservation::HotelProfile profile6;
         profile6.set_id("6");
-        profile6.set_name("Hotel Nikko San Francisco");
-        profile6.set_phone_number("(415) 394-1111");
-        profile6.set_description("This upscale hotel in Nob Hill features a Japanese restaurant, a fitness center, and a heated indoor pool.");
+        profile6.set_name("The St. Regis San Francisco");
+        profile6.set_phone_number("(415) 284-4000");
+        profile6.set_description("This 5-star hotel in SoMa features a spa, fine dining, and luxurious rooms with modern amenities.");
         auto* address6 = profile6.mutable_address();
-        address6->set_street_number("222");
-        address6->set_street_name("Mason St");
+        address6->set_street_number("125");
+        address6->set_street_name("3rd St");
         address6->set_city("San Francisco");
         address6->set_state("CA");
         address6->set_country("United States");
-        address6->set_postal_code("94102");
-        address6->set_lat(37.7863);
-        address6->set_lon(-122.4015);
+        address6->set_postal_code("94103");
+        address6->set_lat(37.7867);
+        address6->set_lon(-122.4005);
         *address6->mutable_padding() = microservice::utils::generate_person_padding();
         *profile6.mutable_padding() = microservice::utils::generate_person_padding();
         profiles_[profile6.id()] = profile6;
 
-        // Add more hotels 7-80 with generated data
-        for (int i = 7; i <= 80; i++) {
-            hotelreservation::HotelProfile profile;
-            profile.set_id(std::to_string(i));
-            profile.set_name("Hotel " + std::to_string(i));
-            profile.set_phone_number("(415) 555-" + std::to_string(1000 + i));
-            profile.set_description("A comfortable hotel in San Francisco with modern amenities and excellent service.");
-            
-            auto* address = profile.mutable_address();
-            address->set_street_number(std::to_string(100 + i));
-            address->set_street_name("Main St");
-            address->set_city("San Francisco");
-            address->set_state("CA");
-            address->set_country("United States");
-            address->set_postal_code("94102");
-            address->set_lat(37.7835 + static_cast<double>(i)/500.0*3);
-            address->set_lon(-122.41 + static_cast<double>(i)/500.0*4);
-            *address->mutable_padding() = microservice::utils::generate_person_padding();
-            *profile.mutable_padding() = microservice::utils::generate_person_padding();
-            profiles_[profile.id()] = profile;
-        }
+        // Hotel 7
+        hotelreservation::HotelProfile profile7;
+        profile7.set_id("7");
+        profile7.set_name("The Fairmont San Francisco");
+        profile7.set_phone_number("(415) 772-5000");
+        profile7.set_description("A historic luxury hotel atop Nob Hill, featuring classic architecture, elegant rooms, and panoramic city views.");
+        auto* address7 = profile7.mutable_address();
+        address7->set_street_number("950");
+        address7->set_street_name("Mason St");
+        address7->set_city("San Francisco");
+        address7->set_state("CA");
+        address7->set_country("United States");
+        address7->set_postal_code("94108");
+        address7->set_lat(37.7925);
+        address7->set_lon(-122.4098);
+        *address7->mutable_padding() = microservice::utils::generate_person_padding();
+        *profile7.mutable_padding() = microservice::utils::generate_person_padding();
+        profiles_[profile7.id()] = profile7;
+
+        // Hotel 8
+        hotelreservation::HotelProfile profile8;
+        profile8.set_id("8");
+        profile8.set_name("The Palace Hotel");
+        profile8.set_phone_number("(415) 512-1111");
+        profile8.set_description("A historic luxury hotel in the Financial District, featuring the famous Garden Court restaurant and elegant accommodations.");
+        auto* address8 = profile8.mutable_address();
+        address8->set_street_number("2");
+        address8->set_street_name("New Montgomery St");
+        address8->set_city("San Francisco");
+        address8->set_state("CA");
+        address8->set_country("United States");
+        address8->set_postal_code("94105");
+        address8->set_lat(37.7886);
+        address8->set_lon(-122.4005);
+        *address8->mutable_padding() = microservice::utils::generate_person_padding();
+        *profile8.mutable_padding() = microservice::utils::generate_person_padding();
+        profiles_[profile8.id()] = profile8;
     }
 
     hotelreservation::GetProfilesResponse process_request(const hotelreservation::GetProfilesRequest& req) {
@@ -168,7 +187,46 @@ public:
         for (const auto& hotel_id : req.hotel_ids()) {
             auto it = profiles_.find(hotel_id);
             if (it != profiles_.end()) {
-                *response.add_profiles() = it->second;
+                auto profile = it->second;
+                
+                // Apply compression to profile data
+                std::string original_name = profile.name();
+                std::string compressed_name = microservice::compression::compress_data(original_name);
+                profile.set_name(compressed_name);
+                
+                std::string original_description = profile.description();
+                std::string compressed_description = microservice::compression::compress_data(original_description);
+                profile.set_description(compressed_description);
+                
+                std::string original_phone = profile.phone_number();
+                std::string compressed_phone = microservice::compression::compress_data(original_phone);
+                profile.set_phone_number(compressed_phone);
+                
+                // Compress address fields
+                if (profile.has_address()) {
+                    auto* address = profile.mutable_address();
+                    std::string original_street = address->street_name();
+                    std::string compressed_street = microservice::compression::compress_data(original_street);
+                    address->set_street_name(compressed_street);
+                    
+                    std::string original_city = address->city();
+                    std::string compressed_city = microservice::compression::compress_data(original_city);
+                    address->set_city(compressed_city);
+                    
+                    std::string original_state = address->state();
+                    std::string compressed_state = microservice::compression::compress_data(original_state);
+                    address->set_state(compressed_state);
+                    
+                    std::string original_country = address->country();
+                    std::string compressed_country = microservice::compression::compress_data(original_country);
+                    address->set_country(compressed_country);
+                    
+                    std::string original_postal = address->postal_code();
+                    std::string compressed_postal = microservice::compression::compress_data(original_postal);
+                    address->set_postal_code(compressed_postal);
+                }
+                
+                *response.add_profiles() = profile;
             }
         }
         

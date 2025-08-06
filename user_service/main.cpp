@@ -5,6 +5,7 @@
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
 #include "padding_utils.h"
+#include "../compression_utils.h"
 #include <chrono>
 #include <atomic>
 #include <thread>
@@ -27,6 +28,8 @@ private:
 public:
     UserService() {
         InitializeSampleData();
+        // Initialize compression manager
+        microservice::compression::init_compression();
     }
 
     void InitializeSampleData() {
@@ -52,6 +55,12 @@ public:
             hotelreservation::UserResponse response;
             response.set_message("User already exists");
             *response.mutable_padding() = microservice::utils::generate_person_padding();
+            
+            // Apply compression to response
+            std::string original_message = response.message();
+            std::string compressed_message = microservice::compression::compress_data(original_message);
+            response.set_message(compressed_message);
+            
             return response;
         }
 
@@ -59,6 +68,12 @@ public:
         hotelreservation::UserResponse response;
         response.set_message("User registered successfully");
         *response.mutable_padding() = microservice::utils::generate_person_padding();
+        
+        // Apply compression to response
+        std::string original_message = response.message();
+        std::string compressed_message = microservice::compression::compress_data(original_message);
+        response.set_message(compressed_message);
+        
         return response;
     }
 
@@ -75,6 +90,12 @@ public:
         }
         
         *response.mutable_padding() = microservice::utils::generate_person_padding();
+        
+        // Apply compression to response
+        std::string original_exists = response.exists();
+        std::string compressed_exists = microservice::compression::compress_data(original_exists);
+        response.set_exists(compressed_exists);
+        
         return response;
     }
 };

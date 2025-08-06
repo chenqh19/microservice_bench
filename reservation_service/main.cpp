@@ -1,3 +1,4 @@
+#include "../compression_utils.h"
 #include <iostream>
 #include <string>
 #include <unordered_map>
@@ -52,6 +53,8 @@ public:
     
     ReservationService() {
         InitializeSampleData();
+        // Initialize compression manager
+        microservice::compression::init_compression();
     }
 
     void InitializeSampleData() {
@@ -77,7 +80,8 @@ public:
             }
         }
 
-        return reserved_rooms < it->second.total_rooms;
+        // Check if we have enough rooms available (including the requested room_number)
+        return (reserved_rooms + room_number) <= it->second.total_rooms;
     }
 
     hotelreservation::ReservationResponse process_request(const hotelreservation::ReservationRequest& req) {
@@ -94,36 +98,66 @@ public:
         if (!microservice::utils::deserialize_message(ser1de, user_resp_str, user_resp) || user_resp.exists() != "True") {
             response.set_message("Invalid user credentials");
             *response.mutable_padding() = microservice::utils::generate_person_padding();
-            return response;
-        }
-        std::lock_guard<std::mutex> lock(reservations_mutex_);
-        // Check if hotel exists and has availability
-        auto it = hotel_reservations_.find(req.hotel_id());
-        if (it == hotel_reservations_.end()) {
-            response.set_message("Hotel not found");
-            *response.mutable_padding() = microservice::utils::generate_person_padding();
+            
+            // Apply compression to response message
+            std::string original_message = response.message();
+            std::string compressed_message = microservice::compression::compress_data(original_message);
+            response.set_message(compressed_message);
+            
             return response;
         }
 
+        // Check availability
         if (!checkAvailability(req.hotel_id(), req.in_date(), req.out_date(), req.room_number())) {
-            response.set_message("No availability for the requested dates");
+            response.set_message("No rooms available for the specified dates");
             *response.mutable_padding() = microservice::utils::generate_person_padding();
+            
+            // Apply compression to response message
+            std::string original_message = response.message();
+            std::string compressed_message = microservice::compression::compress_data(original_message);
+            response.set_message(compressed_message);
+            
             return response;
         }
 
         // Create reservation
+        std::lock_guard<std::mutex> lock(reservations_mutex_);
+        
         hotelreservation::Reservation reservation;
-        reservation.set_customer_name(req.customer_name());
         reservation.set_hotel_id(req.hotel_id());
+        reservation.set_customer_name(req.username());
         reservation.set_in_date(req.in_date());
         reservation.set_out_date(req.out_date());
         reservation.set_number(req.room_number());
         *reservation.mutable_padding() = microservice::utils::generate_person_padding();
+        
+        // Apply compression to reservation data
+        std::string original_hotel_id = reservation.hotel_id();
+        std::string compressed_hotel_id = microservice::compression::compress_data(original_hotel_id);
+        reservation.set_hotel_id(compressed_hotel_id);
+        
+        std::string original_customer_name = reservation.customer_name();
+        std::string compressed_customer_name = microservice::compression::compress_data(original_customer_name);
+        reservation.set_customer_name(compressed_customer_name);
+        
+        std::string original_in_date = reservation.in_date();
+        std::string compressed_in_date = microservice::compression::compress_data(original_in_date);
+        reservation.set_in_date(compressed_in_date);
+        
+        std::string original_out_date = reservation.out_date();
+        std::string compressed_out_date = microservice::compression::compress_data(original_out_date);
+        reservation.set_out_date(compressed_out_date);
 
-        it->second.reservations.push_back(reservation);
-
-        response.set_message("Reservation successful");
+        hotel_reservations_[req.hotel_id()].reservations.push_back(reservation);
+        
+        response.set_message("Reservation created successfully");
         *response.mutable_padding() = microservice::utils::generate_person_padding();
+        
+        // Apply compression to response message
+        std::string original_message = response.message();
+        std::string compressed_message = microservice::compression::compress_data(original_message);
+        response.set_message(compressed_message);
+        
         return response;
     }
 };

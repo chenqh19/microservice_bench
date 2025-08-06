@@ -1,3 +1,4 @@
+#include "../compression_utils.h"
 #include <iostream>
 #include <string>
 #include <json/json.h>
@@ -66,23 +67,54 @@ public:
         return req;
     }
 
-    // Helper function to convert protobuf messages to JSON
+    // Helper function to convert protobuf messages to JSON with compression
     Json::Value searchResponseToJson(const hotelreservation::SearchResponse& resp) {
         Json::Value json(Json::arrayValue);
         for (const auto& hotel : resp.hotels()) {
             Json::Value hotel_json;
-            hotel_json["id"] = hotel.id();
-            hotel_json["name"] = hotel.name();
-            hotel_json["phoneNumber"] = hotel.phone_number();
-            hotel_json["description"] = hotel.description();
+            
+            // Apply compression to hotel data
+            std::string original_id = hotel.id();
+            std::string compressed_id = microservice::compression::compress_data(original_id);
+            hotel_json["id"] = compressed_id;
+            
+            std::string original_name = hotel.name();
+            std::string compressed_name = microservice::compression::compress_data(original_name);
+            hotel_json["name"] = compressed_name;
+            
+            std::string original_phone = hotel.phone_number();
+            std::string compressed_phone = microservice::compression::compress_data(original_phone);
+            hotel_json["phoneNumber"] = compressed_phone;
+            
+            std::string original_description = hotel.description();
+            std::string compressed_description = microservice::compression::compress_data(original_description);
+            hotel_json["description"] = compressed_description;
             
             Json::Value address;
-            address["streetNumber"] = hotel.address().street_number();
-            address["streetName"] = hotel.address().street_name();
-            address["city"] = hotel.address().city();
-            address["state"] = hotel.address().state();
-            address["country"] = hotel.address().country();
-            address["postalCode"] = hotel.address().postal_code();
+            std::string original_street_number = hotel.address().street_number();
+            std::string compressed_street_number = microservice::compression::compress_data(original_street_number);
+            address["streetNumber"] = compressed_street_number;
+            
+            std::string original_street_name = hotel.address().street_name();
+            std::string compressed_street_name = microservice::compression::compress_data(original_street_name);
+            address["streetName"] = compressed_street_name;
+            
+            std::string original_city = hotel.address().city();
+            std::string compressed_city = microservice::compression::compress_data(original_city);
+            address["city"] = compressed_city;
+            
+            std::string original_state = hotel.address().state();
+            std::string compressed_state = microservice::compression::compress_data(original_state);
+            address["state"] = compressed_state;
+            
+            std::string original_country = hotel.address().country();
+            std::string compressed_country = microservice::compression::compress_data(original_country);
+            address["country"] = compressed_country;
+            
+            std::string original_postal = hotel.address().postal_code();
+            std::string compressed_postal = microservice::compression::compress_data(original_postal);
+            address["postalCode"] = compressed_postal;
+            
             address["latitude"] = hotel.address().lat();
             address["longitude"] = hotel.address().lon();
             
@@ -96,18 +128,49 @@ public:
         Json::Value json(Json::arrayValue);
         for (const auto& hotel : resp.hotels()) {
             Json::Value hotel_json;
-            hotel_json["id"] = hotel.id();
-            hotel_json["name"] = hotel.name();
-            hotel_json["phoneNumber"] = hotel.phone_number();
-            hotel_json["description"] = hotel.description();
+            
+            // Apply compression to hotel data
+            std::string original_id = hotel.id();
+            std::string compressed_id = microservice::compression::compress_data(original_id);
+            hotel_json["id"] = compressed_id;
+            
+            std::string original_name = hotel.name();
+            std::string compressed_name = microservice::compression::compress_data(original_name);
+            hotel_json["name"] = compressed_name;
+            
+            std::string original_phone = hotel.phone_number();
+            std::string compressed_phone = microservice::compression::compress_data(original_phone);
+            hotel_json["phoneNumber"] = compressed_phone;
+            
+            std::string original_description = hotel.description();
+            std::string compressed_description = microservice::compression::compress_data(original_description);
+            hotel_json["description"] = compressed_description;
             
             Json::Value address;
-            address["streetNumber"] = hotel.address().street_number();
-            address["streetName"] = hotel.address().street_name();
-            address["city"] = hotel.address().city();
-            address["state"] = hotel.address().state();
-            address["country"] = hotel.address().country();
-            address["postalCode"] = hotel.address().postal_code();
+            std::string original_street_number = hotel.address().street_number();
+            std::string compressed_street_number = microservice::compression::compress_data(original_street_number);
+            address["streetNumber"] = compressed_street_number;
+            
+            std::string original_street_name = hotel.address().street_name();
+            std::string compressed_street_name = microservice::compression::compress_data(original_street_name);
+            address["streetName"] = compressed_street_name;
+            
+            std::string original_city = hotel.address().city();
+            std::string compressed_city = microservice::compression::compress_data(original_city);
+            address["city"] = compressed_city;
+            
+            std::string original_state = hotel.address().state();
+            std::string compressed_state = microservice::compression::compress_data(original_state);
+            address["state"] = compressed_state;
+            
+            std::string original_country = hotel.address().country();
+            std::string compressed_country = microservice::compression::compress_data(original_country);
+            address["country"] = compressed_country;
+            
+            std::string original_postal = hotel.address().postal_code();
+            std::string compressed_postal = microservice::compression::compress_data(original_postal);
+            address["postalCode"] = compressed_postal;
+            
             address["latitude"] = hotel.address().lat();
             address["longitude"] = hotel.address().lon();
             
@@ -143,6 +206,8 @@ public:
 public:
     FrontEndService() {
         // Remove all initialization of httplib::Client in constructor
+        // Initialize compression manager
+        microservice::compression::init_compression();
     }
 
     ~FrontEndService() {
