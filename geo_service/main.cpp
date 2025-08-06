@@ -5,22 +5,19 @@
 #include <cmath>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
-#include <httplib.h>
-#include <chrono>
-#include <atomic>
+#include "padding_utils.h"
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <thread>
 #include <condition_variable>
+#include <cstring>
+#include "../prefork_utils.h"
 
 class GeoService {
 private:
-    static const int POOL_SIZE = 1024;
-    static const int MAX_CONCURRENT_CONNECTIONS = 512;
-    std::atomic<size_t> active_connections_{0};
-    std::atomic<size_t> successful_requests_{0};
-    std::atomic<size_t> total_requests_{0};
-    std::mutex connection_mutex_;
-    std::condition_variable connection_cv_;
-
     struct HotelLocation {
         std::string id;
         double lat;
@@ -32,22 +29,9 @@ private:
     static constexpr int MAX_SEARCH_RESULTS = 5;
     static constexpr double MAX_SEARCH_RADIUS = 10.0; // kilometers
 
-    void monitorResources() {
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            std::cout << "Resource Usage - Active Connections: " << active_connections_ 
-                      << ", Total Requests: " << total_requests_ 
-                      << ", Successful Requests: " << successful_requests_ << std::endl;
-        }
-    }
-
 public:
     GeoService() {
         InitializeSampleData();
-
-        // Start resource monitoring thread
-        std::thread monitor_thread(&GeoService::monitorResources, this);
-        monitor_thread.detach();
     }
 
     void InitializeSampleData() {
@@ -69,123 +53,65 @@ public:
     }
 
     double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        // Convert to radians
-        lat1 = lat1 * M_PI / 180.0;
-        lon1 = lon1 * M_PI / 180.0;
-        lat2 = lat2 * M_PI / 180.0;
-        lon2 = lon2 * M_PI / 180.0;
-
-        // Haversine formula
-        double dlat = lat2 - lat1;
-        double dlon = lon2 - lon1;
-        double a = std::sin(dlat/2) * std::sin(dlat/2) +
-                   std::cos(lat1) * std::cos(lat2) *
-                   std::sin(dlon/2) * std::sin(dlon/2);
-        double c = 2 * std::atan2(std::sqrt(a), std::sqrt(1-a));
+        double dlat = (lat2 - lat1) * M_PI / 180.0;
+        double dlon = (lon2 - lon1) * M_PI / 180.0;
+        double a = sin(dlat/2) * sin(dlat/2) + cos(lat1 * M_PI / 180.0) * cos(lat2 * M_PI / 180.0) * sin(dlon/2) * sin(dlon/2);
+        double c = 2 * atan2(sqrt(a), sqrt(1-a));
         return EARTH_RADIUS * c;
     }
 
-    hotelreservation::NearbyResponse GetNearbyHotels(const hotelreservation::NearbyRequest& req) {
-        total_requests_++;
+    hotelreservation::NearbyResponse process_request(const hotelreservation::NearbyRequest& req) {
         hotelreservation::NearbyResponse response;
-        std::vector<std::pair<std::string, double>> distances;
-
-        // Calculate distances to all hotels
+        
+        std::vector<std::pair<double, std::string>> distances;
+        
         for (const auto& hotel : hotels_) {
-            double distance = calculateDistance(req.lat(), req.lon(), 
-                                             hotel.lat, hotel.lon);
-            if (distance <= MAX_SEARCH_RADIUS) {  // Only include hotels within radius
-                distances.push_back({hotel.id, distance});
+            double distance = calculateDistance(req.lat(), req.lon(), hotel.lat, hotel.lon);
+            if (distance <= MAX_SEARCH_RADIUS) {
+                distances.push_back({distance, hotel.id});
             }
         }
-
-        // Sort by distance
-        std::sort(distances.begin(), distances.end(),
-                 [](const auto& a, const auto& b) { return a.second < b.second; });
-
-        // Return top MAX_SEARCH_RESULTS closest hotels
-        for (int i = 0; i < std::min(MAX_SEARCH_RESULTS, (int)distances.size()); i++) {
-            response.add_hotel_ids(distances[i].first);
-        }
-
-        successful_requests_++;
-        return response;
-    }
-
-    hotelreservation::Point GetPoint(const std::string& hotel_id) {
-        total_requests_++;
-        hotelreservation::Point point;
-        auto it = std::find_if(hotels_.begin(), hotels_.end(),
-                              [&](const HotelLocation& h) { return h.id == hotel_id; });
         
-        if (it != hotels_.end()) {
-            point.set_pid(it->id);
-            point.set_plat(it->lat);
-            point.set_plon(it->lon);
-            successful_requests_++;
+        // Sort by distance and take top results
+        std::sort(distances.begin(), distances.end());
+        
+        for (int i = 0; i < std::min(static_cast<int>(distances.size()), MAX_SEARCH_RESULTS); ++i) {
+            response.add_hotel_ids(distances[i].second);
         }
-        return point;
+        
+        *response.mutable_padding() = microservice::utils::generate_person_padding();
+        return response;
     }
 };
 
 int main() {
-    httplib::Server svr;
-    GeoService service;
-
-    // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(1024); }; // Match pool size with client pool
-
-    svr.Post("/nearby", [&](const httplib::Request& req, httplib::Response& res) {
-        auto start_time = std::chrono::steady_clock::now();
-
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 100; // 100ms timeout
-        };
-
-        hotelreservation::NearbyRequest request;
-        if (!microservice::utils::deserialize_message(req.body, request)) {
-            res.status = 400;
-            res.set_content("{\"error\": \"Failed to deserialize request\"}", "application/json");
-            return;
-        }
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during deserialization\"}", "application/json");
-            return;
-        }
-
-        auto response = service.GetNearbyHotels(request);
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
-        }
-
-        std::string serialized_response = microservice::utils::serialize_message(response);
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during serialization\"}", "application/json");
-            return;
-        }
-
-        res.set_content(serialized_response, "application/x-protobuf");
-    });
-
-    svr.Get("/point/:hotel_id", [&](const httplib::Request& req, httplib::Response& res) {
-        auto hotel_id = req.path_params.at("hotel_id");
-        auto point = service.GetPoint(hotel_id);
-        std::string serialized_response = microservice::utils::serialize_message(point);
-        res.set_content(serialized_response, "application/x-protobuf");
-    });
-
-    std::cout << "Geo service listening on 0.0.0.0:50056 with 1024 worker threads" << std::endl;
-    svr.listen("0.0.0.0", 50056);
-
-    return 0;
+    const char* socket_path = "/tmp/geo_service.sock";
+    const int NUM_WORKERS = 16;  // Number of worker processes
+    
+    PreforkServer server(NUM_WORKERS);
+    
+    if (!server.setup_socket(socket_path)) {
+        std::cerr << "Failed to setup socket" << std::endl;
+        return 1;
+    }
+    
+    std::cout << "Geo service socket setup complete" << std::endl;
+    
+    // Fork worker processes
+    if (server.fork_workers()) {
+        // This is a worker process
+        GeoService service;
+        Ser1de_re ser1de;
+        
+        // Worker process main loop
+        worker_loop<GeoService, hotelreservation::NearbyRequest, hotelreservation::NearbyResponse>(
+            server.get_server_fd(), service, ser1de);
+        
+        return 0;
+    } else {
+        // This is the master process
+        std::cout << "Geo service master process started with " << NUM_WORKERS << " workers" << std::endl;
+        server.master_loop();
+        return 0;
+    }
 } 

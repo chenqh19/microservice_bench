@@ -4,41 +4,29 @@
 #include <mutex>
 #include "hotel_reservation.pb.h"
 #include "serialization_utils.h"
-#include <httplib.h>
+#include "padding_utils.h"
 #include <chrono>
 #include <atomic>
 #include <thread>
 #include <condition_variable>
+#include <iomanip>
+#include <sstream>
+#include <cstring>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include "../prefork_utils.h"
 
 class UserService {
 private:
-    static const int POOL_SIZE = 1024;
-    static const int MAX_CONCURRENT_CONNECTIONS = 512;
-    std::atomic<size_t> active_connections_{0};
-    std::atomic<size_t> successful_requests_{0};
-    std::atomic<size_t> total_requests_{0};
-    std::mutex connection_mutex_;
-    std::condition_variable connection_cv_;
-
     std::unordered_map<std::string, std::string> users_; // username -> password
     std::mutex users_mutex_;
-
-    void monitorResources() {
-        while (true) {
-            std::this_thread::sleep_for(std::chrono::seconds(5));
-            std::cout << "Resource Usage - Active Connections: " << active_connections_ 
-                      << ", Total Requests: " << total_requests_ 
-                      << ", Successful Requests: " << successful_requests_ << std::endl;
-        }
-    }
 
 public:
     UserService() {
         InitializeSampleData();
-
-        // Start resource monitoring thread
-        std::thread monitor_thread(&UserService::monitorResources, this);
-        monitor_thread.detach();
     }
 
     void InitializeSampleData() {
@@ -57,128 +45,118 @@ public:
         }
     }
 
-    hotelreservation::UserResponse RegisterUser(const hotelreservation::UserRequest& req) {
-        total_requests_++;
-        hotelreservation::UserResponse response;
+    hotelreservation::UserResponse process_request(const hotelreservation::UserRequest& req) {
         std::lock_guard<std::mutex> lock(users_mutex_);
 
         if (users_.find(req.username()) != users_.end()) {
+            hotelreservation::UserResponse response;
             response.set_message("User already exists");
+            *response.mutable_padding() = microservice::utils::generate_person_padding();
             return response;
         }
 
         users_[req.username()] = req.password();
+        hotelreservation::UserResponse response;
         response.set_message("User registered successfully");
-        successful_requests_++;
+        *response.mutable_padding() = microservice::utils::generate_person_padding();
         return response;
     }
 
-    bool CheckUser(const hotelreservation::CheckUserRequest& req) {
-        total_requests_++;
+    hotelreservation::CheckUserResponse process_check_request(const hotelreservation::CheckUserRequest& req) {
         std::lock_guard<std::mutex> lock(users_mutex_);
+
         auto it = users_.find(req.username());
-        bool result = (it != users_.end() && it->second == req.password());
-        if (result) {
-            successful_requests_++;
+        hotelreservation::CheckUserResponse response;
+        
+        if (it != users_.end() && it->second == req.password()) {
+            response.set_exists("True");
+        } else {
+            response.set_exists("False");
         }
-        return result;
+        
+        *response.mutable_padding() = microservice::utils::generate_person_padding();
+        return response;
     }
 };
 
 int main() {
-    httplib::Server svr;
-    UserService service;
+    const char* socket_path = "/tmp/user_service.sock";
+    const int NUM_WORKERS = 16;  // Number of worker processes
+    
+    PreforkServer server(NUM_WORKERS);
+    
+    if (!server.setup_socket(socket_path)) {
+        std::cerr << "Failed to setup socket" << std::endl;
+        return 1;
+    }
+    
+    std::cout << "User service socket setup complete" << std::endl;
+    
+    // Fork worker processes
+    if (server.fork_workers()) {
+        // This is a worker process
+        UserService service;
+        Ser1de_re ser1de;
+        
+        // Worker process main loop - handle both UserRequest and CheckUserRequest
+        std::cout << "Worker " << getpid() << " ready to accept connections" << std::endl;
+        
+        while (true) {
+            int client_fd = accept(server.get_server_fd(), nullptr, nullptr);
+            if (client_fd < 0) {
+                if (errno == EINTR) {
+                    continue;
+                }
+                perror("accept");
+                break;
+            }
 
-    // Set up multi-threading options
-    svr.new_task_queue = [] { return new httplib::ThreadPool(1024); }; // Match pool size with client pool
-
-    svr.Post("/user", [&](const httplib::Request& req, httplib::Response& res) {
-        auto start_time = std::chrono::steady_clock::now();
-
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 100; // 100ms timeout
-        };
-
-        hotelreservation::UserRequest request;
-        if (!microservice::utils::deserialize_message(req.body, request)) {
-            res.status = 400;
-            res.set_content("{\"error\": \"Failed to deserialize request\"}", "application/json");
-            return;
+            // Handle the client
+            char len_buf[4];
+            ssize_t n = read(client_fd, len_buf, 4);
+            if (n != 4) { 
+                close(client_fd); 
+                continue; 
+            }
+            
+            uint32_t msg_len = 0;
+            memcpy(&msg_len, len_buf, 4);
+            std::vector<char> buf(msg_len);
+            n = read(client_fd, buf.data(), msg_len);
+            if (n != (ssize_t)msg_len) { 
+                close(client_fd); 
+                continue; 
+            }
+            
+            // Try to deserialize as UserRequest first
+            hotelreservation::UserRequest user_req;
+            bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), user_req);
+            if (ok) {
+                auto response = service.process_request(user_req);
+                std::string resp_str = microservice::utils::serialize_message(ser1de, response);
+                uint32_t resp_len = resp_str.size();
+                write(client_fd, &resp_len, 4);
+                write(client_fd, resp_str.data(), resp_len);
+            } else {
+                // Try as CheckUserRequest
+                hotelreservation::CheckUserRequest check_req;
+                ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), check_req);
+                if (ok) {
+                    auto response = service.process_check_request(check_req);
+                    std::string resp_str = microservice::utils::serialize_message(ser1de, response);
+                    uint32_t resp_len = resp_str.size();
+                    write(client_fd, &resp_len, 4);
+                    write(client_fd, resp_str.data(), resp_len);
+                }
+            }
+            close(client_fd);
         }
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during deserialization\"}", "application/json");
-            return;
-        }
-
-        auto response = service.RegisterUser(request);
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
-        }
-
-        std::string serialized_response = microservice::utils::serialize_message(response);
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during serialization\"}", "application/json");
-            return;
-        }
-
-        res.set_content(serialized_response, "application/x-protobuf");
-    });
-
-    svr.Post("/check-user", [&](const httplib::Request& req, httplib::Response& res) {
-        auto start_time = std::chrono::steady_clock::now();
-
-        auto check_timeout = [&start_time]() -> bool {
-            auto current_time = std::chrono::steady_clock::now();
-            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                current_time - start_time).count();
-            return elapsed > 100; // 100ms timeout
-        };
-
-        hotelreservation::CheckUserRequest request;
-        if (!microservice::utils::deserialize_message(req.body, request)) {
-            res.status = 400;
-            res.set_content("{\"error\": \"Failed to deserialize request\"}", "application/json");
-            return;
-        }
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during deserialization\"}", "application/json");
-            return;
-        }
-
-        hotelreservation::CheckUserResponse response;
-        response.set_exists(service.CheckUser(request));
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during processing\"}", "application/json");
-            return;
-        }
-
-        std::string serialized_response = microservice::utils::serialize_message(response);
-
-        if (check_timeout()) {
-            res.status = 408;
-            res.set_content("{\"error\": \"Request timeout during serialization\"}", "application/json");
-            return;
-        }
-
-        res.set_content(serialized_response, "application/x-protobuf");
-    });
-
-    std::cout << "User service listening on 0.0.0.0:50054 with 1024 worker threads" << std::endl;
-    svr.listen("0.0.0.0", 50054);
-
-    return 0;
+        
+        return 0;
+    } else {
+        // This is the master process
+        std::cout << "User service master process started with " << NUM_WORKERS << " workers" << std::endl;
+        server.master_loop();
+        return 0;
+    }
 }

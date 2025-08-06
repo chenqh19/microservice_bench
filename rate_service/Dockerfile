@@ -1,22 +1,12 @@
-FROM ubuntu:22.04
+FROM hotel-reservation-base:latest
 
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    cmake \
-    pkg-config \
-    libprotobuf-dev \
-    protobuf-compiler \
-    git \
-    libssl-dev
-
-WORKDIR /app
+# Copy service-specific source code
 COPY rate_service .
-COPY protos/*.proto /app/protos/
-COPY *.h /app/
 
+# Build the service
 RUN mkdir build && cd build && \
-    protoc -I ../protos --cpp_out=. ../protos/hotel_reservation.proto && \
+    /app/ser1de/protobuf/protoc -I ../protos --cpp_out=. ../protos/hotel_reservation.proto && \
     cmake .. && \
-    make
+    make -j 8
 
 CMD ["./build/rate_service"] 

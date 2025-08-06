@@ -1,0 +1,240 @@
+syntax = "proto3";
+
+package hotelreservation;
+
+// Begin inlined message M from person.proto
+message M {
+  optional int32 f1 = 1;
+  optional int32 f2 = 2;
+  optional int32 f3 = 3;
+  optional int32 f4 = 4;
+  optional int32 f5 = 5;
+  optional int32 f6 = 6;
+  optional int32 f7 = 7;
+  optional int32 f8 = 8;
+  optional int32 f9 = 9;
+  optional int32 f10 = 10;
+  optional string f11 = 11;
+  optional string f12 = 12;
+  optional string f13 = 13;
+  optional string f14 = 14;
+  optional string f15 = 15;
+  optional string f16 = 16;
+  message M10 {
+    optional int32 f1 = 1;
+    optional int32 f2 = 2;
+    optional int32 f3 = 3;
+    optional int32 f4 = 4;
+    optional int32 f5 = 5;
+    optional int32 f6 = 6;
+    optional int32 f7 = 7;
+    optional int32 f8 = 8;
+    optional int32 f9 = 9;
+    optional int32 f10 = 10;
+    optional string f11 = 11;
+    optional string f12 = 12;
+    optional string f13 = 13;
+    optional string f14 = 14;
+    optional string f15 = 15;
+    optional string f16 = 16;
+  }
+  optional M10 f17 = 17;
+  message M11 {
+    optional int32 f1 = 1;
+    optional int32 f2 = 2;
+    optional int32 f3 = 3;
+    optional int32 f4 = 4;
+    optional int32 f5 = 5;
+    optional int32 f6 = 6;
+    optional int32 f7 = 7;
+    optional int32 f8 = 8;
+    optional int32 f9 = 9;
+    optional int32 f10 = 10;
+    optional string f11 = 11;
+    optional string f12 = 12;
+    optional string f13 = 13;
+    optional string f14 = 14;
+    optional string f15 = 15;
+    optional string f16 = 16;
+  }
+  optional M11 f18 = 18;
+}
+
+
+message Point {
+  string pid = 1;
+  double plat = 2;
+  double plon = 3;
+  M padding = 4;  // padding message from person.proto
+}
+
+message User {
+  string username = 1;
+  string password = 2;
+  M padding = 3;  // padding message from person.proto
+}
+
+message RoomType {
+  double bookable_rate = 1;
+  string code = 2;
+  string room_description = 3;
+  double total_rate = 4;
+  double total_rate_inclusive = 5;
+  M padding = 6;  // padding message from person.proto
+}
+
+message RatePlan {
+  string hotel_id = 1;
+  string code = 2;
+  string in_date = 3;
+  string out_date = 4;
+  RoomType room_type = 5;
+  M padding = 6;  // padding message from person.proto
+}
+
+message Reservation {
+  string hotel_id = 1;
+  string customer_name = 2;
+  string in_date = 3;
+  string out_date = 4;
+  int64 number = 5;
+  M padding = 6;  // padding message from person.proto
+}
+
+message HotelNumber {
+  string hotel_id = 1;
+  int64 number = 2;
+  M padding = 3;  // padding message from person.proto
+}
+
+message Hotel {
+  string h_id = 1;
+  double h_lat = 2;
+  double h_lon = 3;
+  double h_rate = 4;
+  double h_price = 5;
+  M padding = 6;  // padding message from person.proto
+}
+
+message Address {
+  string street_number = 1;
+  string street_name = 2;
+  string city = 3;
+  string state = 4;
+  string country = 5;
+  string postal_code = 6;
+  double lat = 7;
+  double lon = 8;
+  M padding = 9;  // padding message from person.proto
+}
+
+message HotelProfile {
+  string id = 1;
+  string name = 2;
+  string phone_number = 3;
+  string description = 4;
+  Address address = 5;
+  M padding = 6;  // padding message from person.proto
+}
+
+// Service Requests/Responses
+
+message SearchRequest {
+  string customer_name = 1;
+  string in_date = 2;
+  string out_date = 3;
+  double lat = 4;
+  double lon = 5;
+  string locale = 6;
+  M padding = 7;  // padding message from person.proto
+}
+
+message SearchResponse {
+  repeated HotelProfile hotels = 1;
+  M padding = 2;  // padding message from person.proto
+}
+
+message RecommendRequest {
+  double lat = 1;
+  double lon = 2;
+  string require = 3;
+  string locale = 4;
+  M padding = 5;  // padding message from person.proto
+}
+
+message RecommendResponse {
+  repeated HotelProfile hotels = 1;
+  M padding = 2;  // padding message from person.proto
+}
+
+message UserRequest {
+  string username = 1;
+  string password = 2;
+  M padding = 3;  // padding message from person.proto
+}
+
+message UserResponse {
+  string message = 1;
+  M padding = 2;  // padding message from person.proto
+}
+
+message ReservationRequest {
+  string in_date = 1;
+  string out_date = 2;
+  string hotel_id = 3;
+  string customer_name = 4;
+  string username = 5;
+  string password = 6;
+  int64 room_number = 7;
+  M padding = 8;  // padding message from person.proto
+}
+
+message ReservationResponse {
+  string message = 1;
+  M padding = 2;  // padding message from person.proto
+}
+
+message NearbyRequest {
+  double lat = 1;
+  double lon = 2;
+  M padding = 3;  // padding message from person.proto
+}
+
+message NearbyResponse {
+  repeated string hotel_ids = 1;
+  M padding = 2;  // padding message from person.proto
+}
+
+message GetProfilesRequest {
+  repeated string hotel_ids = 1;
+  string locale = 2;
+  M padding = 3;  // padding message from person.proto
+}
+
+message GetProfilesResponse {
+  repeated HotelProfile profiles = 1;
+  M padding = 2;  // padding message from person.proto
+}
+
+message GetRatesRequest {
+  repeated string hotel_ids = 1;
+  string in_date = 2;
+  string out_date = 3;
+  M padding = 4;  // padding message from person.proto
+}
+
+message GetRatesResponse {
+  repeated RatePlan rate_plans = 1;
+  M padding = 2;  // padding message from person.proto
+}
+
+message CheckUserRequest {
+  string username = 1;
+  string password = 2;
+  M padding = 3;  // padding message from person.proto
+}
+
+message CheckUserResponse {
+  string exists = 1;
+  M padding = 2;  // padding message from person.proto
+} 

@@ -2,15 +2,20 @@ syntax = "proto3";
 
 package hotelreservation;
 
+message M {
+}
+
 message Point {
   string pid = 1;
   double plat = 2;
   double plon = 3;
+  M padding = 4;  // padding message from person.proto
 }
 
 message User {
   string username = 1;
   string password = 2;
+  M padding = 3;  // padding message from person.proto
 }
 
 message RoomType {
@@ -19,6 +24,7 @@ message RoomType {
   string room_description = 3;
   double total_rate = 4;
   double total_rate_inclusive = 5;
+  M padding = 6;  // padding message from person.proto
 }
 
 message RatePlan {
@@ -27,6 +33,7 @@ message RatePlan {
   string in_date = 3;
   string out_date = 4;
   RoomType room_type = 5;
+  M padding = 6;  // padding message from person.proto
 }
 
 message Reservation {
@@ -35,11 +42,13 @@ message Reservation {
   string in_date = 3;
   string out_date = 4;
   int64 number = 5;
+  M padding = 6;  // padding message from person.proto
 }
 
 message HotelNumber {
   string hotel_id = 1;
   int64 number = 2;
+  M padding = 3;  // padding message from person.proto
 }
 
 message Hotel {
@@ -48,6 +57,7 @@ message Hotel {
   double h_lon = 3;
   double h_rate = 4;
   double h_price = 5;
+  M padding = 6;  // padding message from person.proto
 }
 
 message Address {
@@ -59,6 +69,7 @@ message Address {
   string postal_code = 6;
   double lat = 7;
   double lon = 8;
+  M padding = 9;  // padding message from person.proto
 }
 
 message HotelProfile {
@@ -67,6 +78,7 @@ message HotelProfile {
   string phone_number = 3;
   string description = 4;
   Address address = 5;
+  M padding = 6;  // padding message from person.proto
 }
 
 // Service Requests/Responses
@@ -78,10 +90,12 @@ message SearchRequest {
   double lat = 4;
   double lon = 5;
   string locale = 6;
+  M padding = 7;  // padding message from person.proto
 }
 
 message SearchResponse {
   repeated HotelProfile hotels = 1;
+  M padding = 2;  // padding message from person.proto
 }
 
 message RecommendRequest {
@@ -89,19 +103,23 @@ message RecommendRequest {
   double lon = 2;
   string require = 3;
   string locale = 4;
+  M padding = 5;  // padding message from person.proto
 }
 
 message RecommendResponse {
   repeated HotelProfile hotels = 1;
+  M padding = 2;  // padding message from person.proto
 }
 
 message UserRequest {
   string username = 1;
   string password = 2;
+  M padding = 3;  // padding message from person.proto
 }
 
 message UserResponse {
   string message = 1;
+  M padding = 2;  // padding message from person.proto
 }
 
 message ReservationRequest {
@@ -112,45 +130,55 @@ message ReservationRequest {
   string username = 5;
   string password = 6;
   int64 room_number = 7;
+  M padding = 8;  // padding message from person.proto
 }
 
 message ReservationResponse {
   string message = 1;
+  M padding = 2;  // padding message from person.proto
 }
 
 message NearbyRequest {
   double lat = 1;
   double lon = 2;
+  M padding = 3;  // padding message from person.proto
 }
 
 message NearbyResponse {
   repeated string hotel_ids = 1;
+  M padding = 2;  // padding message from person.proto
 }
 
 message GetProfilesRequest {
   repeated string hotel_ids = 1;
   string locale = 2;
+  M padding = 3;  // padding message from person.proto
 }
 
 message GetProfilesResponse {
   repeated HotelProfile profiles = 1;
+  M padding = 2;  // padding message from person.proto
 }
 
 message GetRatesRequest {
   repeated string hotel_ids = 1;
   string in_date = 2;
   string out_date = 3;
+  M padding = 4;  // padding message from person.proto
 }
 
 message GetRatesResponse {
   repeated RatePlan rate_plans = 1;
+  M padding = 2;  // padding message from person.proto
 }
 
 message CheckUserRequest {
   string username = 1;
   string password = 2;
+  M padding = 3;  // padding message from person.proto
 }
 
 message CheckUserResponse {
-  bool exists = 1;
+  string exists = 1; // changed from int32 to string ("True" or "False")
+  M padding = 2;  // padding message from person.proto
 } 

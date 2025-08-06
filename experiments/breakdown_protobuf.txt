@@ -1,0 +1,21 @@
+Request breakdown analysis:
+
+SEARCH request:
+  Request avg: 614176.74 ns (0.61 ms)
+  Serialization sum: 33755.14 ns (0.03 ms)
+  Deserialization sum: 142796.96 ns (0.14 ms)
+
+RECOMMEND request:
+  Request avg: 770612.29 ns (0.77 ms)
+  Serialization sum: 38274.03 ns (0.04 ms)
+  Deserialization sum: 157151.33 ns (0.16 ms)
+
+USER request:
+  Request avg: 143387.28 ns (0.14 ms)
+  Serialization sum: 8540.85 ns (0.01 ms)
+  Deserialization sum: 18190.32 ns (0.02 ms)
+
+RESERVATION request:
+  Request avg: 281936.20 ns (0.28 ms)
+  Serialization sum: 10645.17 ns (0.01 ms)
+  Deserialization sum: 31486.36 ns (0.03 ms)
