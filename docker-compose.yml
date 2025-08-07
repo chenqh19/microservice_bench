@@ -13,7 +13,7 @@ services:
   frontend:
     build: 
       context: .
-      dockerfile: frontend_service/Dockerfile
+      dockerfile: services/frontend_service/Dockerfile
     ports:
       - "50050:50050"
     networks:
@@ -29,7 +29,7 @@ services:
   search:
     build: 
       context: .
-      dockerfile: search_service/Dockerfile
+      dockerfile: services/search_service/Dockerfile
     networks:
       - hotel_network
     depends_on:
@@ -43,7 +43,7 @@ services:
   profile:
     build: 
       context: .
-      dockerfile: profile_service/Dockerfile
+      dockerfile: services/profile_service/Dockerfile
     networks:
       - hotel_network
     depends_on:
@@ -57,7 +57,7 @@ services:
   recommendation:
     build: 
       context: .
-      dockerfile: recommendation_service/Dockerfile
+      dockerfile: services/recommendation_service/Dockerfile
     networks:
       - hotel_network
     depends_on:
@@ -71,7 +71,7 @@ services:
   user:
     build: 
       context: .
-      dockerfile: user_service/Dockerfile
+      dockerfile: services/user_service/Dockerfile
     networks:
       - hotel_network
     depends_on:
@@ -85,7 +85,7 @@ services:
   reservation:
     build: 
       context: .
-      dockerfile: reservation_service/Dockerfile
+      dockerfile: services/reservation_service/Dockerfile
     networks:
       - hotel_network
     depends_on:
@@ -99,7 +99,7 @@ services:
   rate:
     build: 
       context: .
-      dockerfile: rate_service/Dockerfile
+      dockerfile: services/rate_service/Dockerfile
     networks:
       - hotel_network
     depends_on:
@@ -113,7 +113,7 @@ services:
   geo:
     build: 
       context: .
-      dockerfile: geo_service/Dockerfile
+      dockerfile: services/geo_service/Dockerfile
     networks:
       - hotel_network
     depends_on:

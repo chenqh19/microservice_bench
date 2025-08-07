@@ -5,7 +5,12 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <thread>
 #include "qpl/qpl.h"
+#include "../config.h"
+
+// Compression path configuration is now defined in config.h
+// USE_HARDWARE_COMPRESSION and COMPRESSION_PATH are defined there
 
 namespace microservice {
 namespace compression {
@@ -18,7 +23,7 @@ private:
     std::vector<uint8_t> decompressed_buffer_;
 
 public:
-    CompressionManager(qpl_path_t path = qpl_path_software) : execution_path_(path) {
+    CompressionManager(qpl_path_t path = COMPRESSION_PATH) : execution_path_(path) {
         // Initialize QPL job
         job_ptr_ = nullptr;
         uint32_t size = 0;
@@ -108,7 +113,7 @@ public:
     std::string compress_to_string(const std::string& data) {
         auto compressed = compress(data);
         if (compressed.empty()) {
-            return data;  // Return original if compression failed
+            return "";  // Return empty string if compression failed
         }
         
         // Simple encoding: convert to hex string
@@ -145,7 +150,7 @@ public:
 
     // Check if compression is beneficial
     bool should_compress(const std::string& data) {
-        return data.size() > 64;  // Only compress if data is larger than 64 bytes
+        return true;  // Always compress
     }
 
     // Get compression statistics
@@ -174,36 +179,34 @@ public:
     }
 };
 
-// Global compression manager instance (inline to avoid multiple definition issues)
-inline std::unique_ptr<CompressionManager> g_compression_manager = nullptr;
+// Thread-local compression manager instance for thread safety
+thread_local std::unique_ptr<CompressionManager> g_compression_manager = nullptr;
 
-// Initialize compression manager
-inline void init_compression(qpl_path_t path = qpl_path_software) {
-    g_compression_manager = std::make_unique<CompressionManager>(path);
+// Initialize compression manager (thread-safe)
+inline void init_compression(qpl_path_t path = COMPRESSION_PATH) {
+    if (!g_compression_manager) {
+        g_compression_manager = std::make_unique<CompressionManager>(path);
+    }
 }
 
-// Compress data with fallback
+// Compress data with fallback (thread-safe)
 inline std::string compress_data(const std::string& data) {
     if (!g_compression_manager) {
         init_compression();
     }
     
-    if (!g_compression_manager->should_compress(data)) {
-        return data;  // Return original if too small
-    }
-    
     auto compressed = g_compression_manager->compress_to_string(data);
     auto stats = g_compression_manager->get_compression_stats(data);
     
-    // Only use compressed data if it's actually smaller
-    if (stats.success && stats.compression_ratio > 1.1) {
+    // Always use compressed data if compression succeeded and we got a result
+    if (stats.success && !compressed.empty()) {
         return "COMPRESSED:" + compressed;
     }
     
-    return data;  // Return original if compression didn't help
+    return data;  // Return original if compression failed
 }
 
-// Decompress data with fallback
+// Decompress data with fallback (thread-safe)
 inline std::string decompress_data(const std::string& data) {
     if (!g_compression_manager) {
         init_compression();

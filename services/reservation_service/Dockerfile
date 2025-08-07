@@ -1,7 +1,11 @@
 FROM hotel-reservation-base:latest
 
 # Copy service-specific source code
-COPY reservation_service .
+COPY services/reservation_service .
+# Copy shared directories needed for build
+COPY protos ./protos
+COPY utils ./utils
+COPY config.h ./
 
 # Build the service
 RUN mkdir build && cd build && \

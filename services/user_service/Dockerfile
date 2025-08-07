@@ -1,7 +1,11 @@
 FROM hotel-reservation-base:latest
 
 # Copy service-specific source code
-COPY geo_service .
+COPY services/user_service .
+# Copy shared directories needed for build
+COPY protos ./protos
+COPY utils ./utils
+COPY config.h ./
 
 # Build the service
 RUN mkdir build && cd build && \
@@ -9,4 +13,4 @@ RUN mkdir build && cd build && \
     cmake .. && \
     make -j 8
 
-CMD ["./build/geo_service"] 
+CMD ["./build/user_service"] 

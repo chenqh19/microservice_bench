@@ -7,9 +7,10 @@
 #include <mutex>
 #include <sys/stat.h>
 #include <typeinfo>
+#include "../config.h"
 
-#define USE_SER1DE 0
-#define ENABLE_TIMING 0
+// Configuration options are now defined in config.h
+// USE_SER1DE and ENABLE_TIMING are defined there
 
 #if USE_SER1DE
 #include <ser1de/ser1de_re.h>

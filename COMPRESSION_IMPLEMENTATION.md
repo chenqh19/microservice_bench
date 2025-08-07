@@ -1,217 +1,167 @@
 # QPL Compression Implementation in Microservice Bench
 
-## Overview
-
 This document describes the implementation of Intel QPL (Query Processing Library) compression across all microservices in the microservice_bench project.
 
-## Files Created
+## Directory Structure
 
-### Core Compression Utilities
-- `compression_utils.h` - Header file with compression manager, utility functions, and global instance
-- `update_compression.sh` - Automated script to add compression to all services
+The project has been reorganized for better organization:
 
-## Services Updated
-
-### ✅ **All Services Now Have Full Compression Implementation**
-
-1. **user_service** - Full compression implementation
-   - Compresses response messages and user existence status
-   - Applied to: `process_request()` and `process_check_request()`
-
-2. **profile_service** - Full compression implementation
-   - Compresses hotel names, descriptions, phone numbers, and address fields
-   - Applied to: `process_request()` for all hotel profile data
-
-3. **search_service** - Full compression implementation
-   - Compresses hotel data in search results
-   - Applied to: `process_request()` for all hotel fields
-
-4. **recommendation_service** - Full compression implementation
-   - Compresses hotel data in recommendations
-   - Applied to: `process_request()` for all hotel fields
-
-5. **reservation_service** - Full compression implementation
-   - Compresses reservation data and response messages
-   - Applied to: `process_request()` for all reservation fields
-
-6. **geo_service** - Full compression implementation
-   - Compresses hotel IDs in nearby search results
-   - Applied to: `process_request()` for hotel ID responses
-
-7. **rate_service** - Full compression implementation
-   - Compresses rate plan data and room descriptions
-   - Applied to: `process_request()` for all rate plan fields
-
-8. **frontend_service** - Full compression implementation
-   - Compresses hotel data in JSON responses
-   - Applied to: `searchResponseToJson()` and `recommendResponseToJson()`
+```
+microservice_bench/
+├── services/                    # All microservices
+│   ├── user_service/
+│   ├── profile_service/
+│   ├── search_service/
+│   ├── recommendation_service/
+│   ├── reservation_service/
+│   ├── geo_service/
+│   ├── frontend_service/
+│   └── rate_service/
+├── utils/                       # Shared utilities
+│   ├── compression_utils.h      # QPL compression utilities
+│   ├── serialization_utils.h    # Protobuf serialization
+│   ├── padding_utils.h          # Data padding utilities
+│   └── prefork_utils.h          # Process management
+├── protos/                      # Protocol buffer definitions
+└── ... (other files)
+```
 
 ## Compression Features
 
-### Compression Manager
-- **Automatic initialization** in each service constructor
-- **Smart compression** - only compresses data larger than 64 bytes
-- **Fallback mechanism** - returns original data if compression fails
-- **Performance optimization** - only uses compressed data if compression ratio > 1.1x
+- **Universal compression**: All data is compressed regardless of size
+- **Unconditional compression**: No compression ratio thresholds
+- **Hardware acceleration**: Intel IAX support when available
+- **Software fallback**: Automatic fallback to software compression
+- **Network transmission**: Hex-encoded compressed data for network transfer
+- **Complete cycle**: Full compression/decompression across all inter-service communication
 
-### Compression Methods
-- **QPL Software Path** - Default compression using CPU
-- **QPL Hardware Path** - Available for systems with Intel IAX support
-- **Dynamic Huffman coding** - Optimal compression algorithm
-- **Hex encoding** - For network transmission compatibility
+## Compression Path Configuration
 
-### Data Types Compressed
-- Hotel names and descriptions
-- Phone numbers and addresses
-- User messages and status responses
-- Reservation data and hotel IDs
-- Rate plan information and room descriptions
-- All string fields in protobuf messages
-- JSON response data in frontend service
+The compression path (hardware vs software) is explicitly defined in `config.h`:
 
-## Build Configuration
-
-### CMakeLists.txt Updates
-All services now include:
-```cmake
-add_executable(service_name 
-    main.cpp 
-    ${CMAKE_CURRENT_BINARY_DIR}/hotel_reservation.pb.cc
-)
+```cpp
+// Set USE_HARDWARE_COMPRESSION to 1 to use Intel IAX hardware acceleration
+// Set USE_HARDWARE_COMPRESSION to 0 to use software compression (default)
+#define USE_HARDWARE_COMPRESSION 1
+#define COMPRESSION_PATH (USE_HARDWARE_COMPRESSION ? qpl_path_hardware : qpl_path_software)
 ```
 
-**Note:** No separate `compression_utils.cpp` file is needed - everything is contained in the header file.
+## Centralized Configuration
 
-### Dependencies
-- **QPL Library** - Intel Query Processing Library
-- **Protobuf** - For message serialization
-- **Standard C++** - For data structures and algorithms
+All build-time options are now centralized in `config.h`:
 
-## Usage Examples
+```cpp
+// Serialization Configuration
+#define USE_SER1DE 1              // Use ser1de library for serialization
 
-### Basic Compression
+// Timing Configuration  
+#define ENABLE_TIMING 1            // Enable timing measurements
+
+// Compression Configuration
+#define USE_HARDWARE_COMPRESSION 1 // Use Intel IAX hardware acceleration
+```
+
+This centralized approach makes it easy to:
+- **Configure all options in one place**
+- **Maintain consistent settings across all services**
+- **Quickly switch between different configurations**
+- **Document all available options**
+
+## Services with Compression
+
+All 8 microservices now have full compression implementation:
+
+1. **user_service** - Compresses user registration responses and user verification responses
+2. **profile_service** - Compresses hotel profile data (name, description, phone, address)
+3. **search_service** - Compresses search results and decompresses incoming data
+4. **recommendation_service** - Compresses recommendation results and decompresses incoming data
+5. **reservation_service** - Compresses reservation data and decompresses user verification responses
+6. **geo_service** - Compresses hotel ID lists
+7. **frontend_service** - Compresses JSON responses and decompresses incoming data
+8. **rate_service** - Compresses rate plan and room type data
+
+## Complete Compression/Decompression Cycle
+
+The implementation ensures data flows correctly through the compression pipeline:
+
+1. **Service A** compresses data before sending to **Service B**
+2. **Service B** decompresses incoming data from **Service A**
+3. **Service B** processes the decompressed data
+4. **Service B** re-compresses data before sending to **Service C**
+5. **Service C** decompresses and processes the data
+
+This cycle prevents data corruption and ensures all services can handle compressed data properly.
+
+## Implementation Details
+
+### Compression Manager
+
+The `CompressionManager` class in `utils/compression_utils.h` provides:
+
+- **QPL Integration**: Direct integration with Intel QPL library
+- **Path Selection**: Hardware or software compression paths
+- **Buffer Management**: Automatic buffer sizing for compression/decompression
+- **Error Handling**: Graceful fallback to original data on failure
+- **String Encoding**: Hex encoding for network transmission
+
+### Global Instance
+
+A global compression manager instance is available:
+
+```cpp
+// Global compression manager instance (inline to avoid multiple definition issues)
+inline std::unique_ptr<CompressionManager> g_compression_manager = nullptr;
+```
+
+### Utility Functions
+
+Simple interface functions for compression:
+
 ```cpp
 // Initialize compression manager
-microservice::compression::init_compression();
+inline void init_compression(qpl_path_t path = COMPRESSION_PATH);
 
-// Compress data
-std::string original = "Some long text data";
-std::string compressed = microservice::compression::compress_data(original);
+// Compress data with fallback
+inline std::string compress_data(const std::string& data);
 
-// Decompress data
-std::string decompressed = microservice::compression::decompress_data(compressed);
-```
-
-### Service Integration
-```cpp
-// In service response processing
-hotelreservation::HotelProfile profile;
-std::string original_name = "Hotel Name";
-std::string compressed_name = microservice::compression::compress_data(original_name);
-profile.set_name(compressed_name);
-```
-
-## Performance Benefits
-
-### Compression Ratios
-- **Text data**: 2-5x compression ratio
-- **Hotel descriptions**: 3-8x compression ratio
-- **Address data**: 2-4x compression ratio
-- **Overall**: 2-6x average compression ratio
-
-### Network Benefits
-- **Reduced bandwidth usage** - Smaller message sizes
-- **Faster transmission** - Less data to transfer
-- **Lower latency** - Quicker response times
-
-### Memory Benefits
-- **Reduced memory usage** - Compressed data storage
-- **Better cache utilization** - More data fits in cache
-- **Lower memory pressure** - Less RAM required
-
-## Configuration Options
-
-### Compression Settings
-```cpp
-// Software path (default)
-microservice::compression::init_compression(qpl_path_software);
-
-// Hardware path (if available)
-microservice::compression::init_compression(qpl_path_hardware);
-
-// Auto path (let library choose)
-microservice::compression::init_compression(qpl_path_auto);
-```
-
-### Threshold Settings
-```cpp
-// Minimum size for compression (default: 64 bytes)
-bool should_compress(const std::string& data) {
-    return data.size() > 64;
-}
-
-// Minimum compression ratio (default: 1.1x)
-if (stats.compression_ratio > 1.1) {
-    return compressed_data;
-}
+// Decompress data with fallback
+inline std::string decompress_data(const std::string& data);
 ```
 
 ## Monitoring and Statistics
 
-### Compression Statistics
-```cpp
-auto stats = g_compression_manager->get_compression_stats(data);
-std::cout << "Original size: " << stats.original_size << std::endl;
-std::cout << "Compressed size: " << stats.compressed_size << std::endl;
-std::cout << "Compression ratio: " << stats.compression_ratio << std::endl;
-```
+The compression system provides detailed statistics:
 
-### Performance Monitoring
-- Compression success rate
-- Average compression ratios
-- Compression/decompression latency
-- Memory usage patterns
+- **Original size**: Size of uncompressed data
+- **Compressed size**: Size of compressed data
+- **Compression ratio**: Ratio of original to compressed size
+- **Success status**: Whether compression/decompression succeeded
 
 ## Future Enhancements
 
-### Planned Features
-1. **Adaptive compression** - Dynamic threshold adjustment
-2. **Compression caching** - Cache frequently compressed data
-3. **Parallel compression** - Multi-threaded compression
-4. **Compression metrics** - Detailed performance monitoring
-5. **Hardware acceleration** - Better IAX device integration
-
-### Potential Optimizations
-1. **Pre-compressed data** - Cache common responses
-2. **Selective compression** - Only compress large fields
-3. **Compression levels** - Different compression intensities
-4. **Streaming compression** - Real-time compression
+- **Compression metrics**: Real-time monitoring of compression ratios
+- **Adaptive compression**: Dynamic path selection based on data characteristics
+- **Compression profiles**: Different compression levels for different data types
+- **Performance optimization**: Further tuning of buffer sizes and compression parameters
 
 ## Troubleshooting
 
 ### Common Issues
-1. **Compression fails** - Check QPL library installation
-2. **Hardware path errors** - Verify IAX device availability
-3. **Build errors** - Ensure compression_utils.cpp is included
-4. **Performance issues** - Monitor compression ratios
+
+1. **Hardware path failures**: Check Intel IAX device availability
+2. **Compression failures**: Verify QPL library installation
+3. **Data corruption**: Ensure proper compression/decompression cycle
+4. **Performance issues**: Monitor compression ratios and adjust thresholds
 
 ### Debug Information
-```cpp
-// Enable debug output
-#define QPL_DEBUG 1
 
-// Check compression status
-if (!g_compression_manager) {
-    std::cerr << "Compression manager not initialized" << std::endl;
-}
-```
+The system includes debug output for troubleshooting compression issues. Debug statements can be enabled in `utils/compression_utils.h` to trace data flow through the compression pipeline.
 
-## Conclusion
+## Dependencies
 
-The QPL compression implementation provides significant benefits:
-- **2-6x average compression ratio**
-- **Reduced network bandwidth usage**
-- **Improved response times**
-- **Better resource utilization**
+- **Intel QPL**: Query Processing Library for compression
+- **Intel IAX**: Hardware acceleration (optional)
+- **Protocol Buffers**: For serialization
+- **C++ Standard Library**: For data structures and utilities
 
-**All 8 microservices now have full compression capabilities** with automatic fallback mechanisms for reliability. 
+The compression implementation is now complete across all microservices with proper error handling, hardware acceleration support, and comprehensive data flow management.

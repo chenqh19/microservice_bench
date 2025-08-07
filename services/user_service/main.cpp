@@ -3,9 +3,9 @@
 #include <unordered_map>
 #include <mutex>
 #include "hotel_reservation.pb.h"
-#include "serialization_utils.h"
-#include "padding_utils.h"
-#include "../compression_utils.h"
+#include "../utils/serialization_utils.h"
+#include "../utils/padding_utils.h"
+#include "../utils/compression_utils.h"
 #include <chrono>
 #include <atomic>
 #include <thread>
@@ -18,7 +18,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include "../prefork_utils.h"
+#include "../utils/prefork_utils.h"
 
 class UserService {
 private:

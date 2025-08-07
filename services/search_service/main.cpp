@@ -1,9 +1,9 @@
-#include "../compression_utils.h"
+#include "../utils/compression_utils.h"
 #include <iostream>
 #include <string>
 #include "hotel_reservation.pb.h"
-#include "serialization_utils.h"
-#include "padding_utils.h"
+#include "../utils/serialization_utils.h"
+#include "../utils/padding_utils.h"
 #include <vector>
 #include <atomic>
 #include <thread>
@@ -15,7 +15,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include "../prefork_utils.h"
+#include "../utils/prefork_utils.h"
 
 class SearchService {
 private:
@@ -65,9 +65,17 @@ public:
         if (!microservice::utils::deserialize_message(ser1de, geo_resp_str, geo_resp)) {
             return hotelreservation::SearchResponse();
         }
+        
+        // Decompress hotel IDs received from geo service
+        std::vector<std::string> decompressed_hotel_ids;
+        for (const auto& hotel_id : geo_resp.hotel_ids()) {
+            std::string decompressed_id = microservice::compression::decompress_data(hotel_id);
+            decompressed_hotel_ids.push_back(decompressed_id);
+        }
+        
         // Get rates for these hotels
         hotelreservation::GetRatesRequest rate_req;
-        for (const auto& hotel_id : geo_resp.hotel_ids()) {
+        for (const auto& hotel_id : decompressed_hotel_ids) {
             rate_req.add_hotel_ids(hotel_id);
         }
         rate_req.set_in_date(req.in_date());
@@ -78,9 +86,10 @@ public:
         if (!microservice::utils::deserialize_message(ser1de, rate_resp_str, rate_resp)) {
             return hotelreservation::SearchResponse();
         }
+        
         // Get hotel profiles
         hotelreservation::GetProfilesRequest profile_req;
-        for (const auto& hotel_id : geo_resp.hotel_ids()) {
+        for (const auto& hotel_id : decompressed_hotel_ids) {
             profile_req.add_hotel_ids(hotel_id);
         }
         profile_req.set_locale(req.locale());
@@ -90,44 +99,57 @@ public:
         if (!microservice::utils::deserialize_message(ser1de, profile_resp_str, profile_resp)) {
             return hotelreservation::SearchResponse();
         }
+        
         // Combine results
         hotelreservation::SearchResponse response;
         for (const auto& profile : profile_resp.profiles()) {
             auto hotel = profile;
             
-            // Apply compression to hotel data
-            std::string original_name = hotel.name();
+            // Decompress hotel data received from profile service
+            std::string decompressed_name = microservice::compression::decompress_data(hotel.name());
+            std::string decompressed_description = microservice::compression::decompress_data(hotel.description());
+            std::string decompressed_phone = microservice::compression::decompress_data(hotel.phone_number());
+            
+            // Apply compression to hotel data for our response
+            std::string original_name = decompressed_name;
             std::string compressed_name = microservice::compression::compress_data(original_name);
             hotel.set_name(compressed_name);
             
-            std::string original_description = hotel.description();
+            std::string original_description = decompressed_description;
             std::string compressed_description = microservice::compression::compress_data(original_description);
             hotel.set_description(compressed_description);
             
-            std::string original_phone = hotel.phone_number();
+            std::string original_phone = decompressed_phone;
             std::string compressed_phone = microservice::compression::compress_data(original_phone);
             hotel.set_phone_number(compressed_phone);
             
-            // Compress address fields if present
+            // Decompress and re-compress address fields if present
             if (hotel.has_address()) {
                 auto* address = hotel.mutable_address();
-                std::string original_street = address->street_name();
+                
+                std::string decompressed_street = microservice::compression::decompress_data(address->street_name());
+                std::string decompressed_city = microservice::compression::decompress_data(address->city());
+                std::string decompressed_state = microservice::compression::decompress_data(address->state());
+                std::string decompressed_country = microservice::compression::decompress_data(address->country());
+                std::string decompressed_postal = microservice::compression::decompress_data(address->postal_code());
+                
+                std::string original_street = decompressed_street;
                 std::string compressed_street = microservice::compression::compress_data(original_street);
                 address->set_street_name(compressed_street);
                 
-                std::string original_city = address->city();
+                std::string original_city = decompressed_city;
                 std::string compressed_city = microservice::compression::compress_data(original_city);
                 address->set_city(compressed_city);
                 
-                std::string original_state = address->state();
+                std::string original_state = decompressed_state;
                 std::string compressed_state = microservice::compression::compress_data(original_state);
                 address->set_state(compressed_state);
                 
-                std::string original_country = address->country();
+                std::string original_country = decompressed_country;
                 std::string compressed_country = microservice::compression::compress_data(original_country);
                 address->set_country(compressed_country);
                 
-                std::string original_postal = address->postal_code();
+                std::string original_postal = decompressed_postal;
                 std::string compressed_postal = microservice::compression::compress_data(original_postal);
                 address->set_postal_code(compressed_postal);
             }

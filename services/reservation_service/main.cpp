@@ -1,19 +1,19 @@
-#include "../compression_utils.h"
+#include "../utils/compression_utils.h"
 #include <iostream>
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <mutex>
 #include "hotel_reservation.pb.h"
-#include "serialization_utils.h"
-#include "padding_utils.h"
+#include "../utils/serialization_utils.h"
+#include "../utils/padding_utils.h"
 #include <cstring>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include "../prefork_utils.h"
+#include "../utils/prefork_utils.h"
 
 class ReservationService {
 private:
@@ -95,7 +95,23 @@ public:
         *user_req.mutable_padding() = microservice::utils::generate_person_padding();
         std::string user_resp_str = sendProtobufOverUDS("/tmp/user_service.sock", microservice::utils::serialize_message(ser1de, user_req));
         hotelreservation::CheckUserResponse user_resp;
-        if (!microservice::utils::deserialize_message(ser1de, user_resp_str, user_resp) || user_resp.exists() != "True") {
+        if (!microservice::utils::deserialize_message(ser1de, user_resp_str, user_resp)) {
+            response.set_message("Failed to deserialize user response");
+            *response.mutable_padding() = microservice::utils::generate_person_padding();
+            
+            // Apply compression to response message
+            std::string original_message = response.message();
+            std::string compressed_message = microservice::compression::compress_data(original_message);
+            response.set_message(compressed_message);
+            
+            return response;
+        }
+        
+        // Decompress user response data
+        std::string decompressed_exists = microservice::compression::decompress_data(user_resp.exists());
+        
+        // Treat "User already exists" as valid user (True)
+        if (decompressed_exists != "True" && decompressed_exists != "User already exists") {
             response.set_message("Invalid user credentials");
             *response.mutable_padding() = microservice::utils::generate_person_padding();
             

@@ -1,12 +1,12 @@
-#include "../compression_utils.h"
+#include "../utils/compression_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
 #include <algorithm>
 #include <cmath>
 #include "hotel_reservation.pb.h"
-#include "serialization_utils.h"
-#include "padding_utils.h"
+#include "../utils/serialization_utils.h"
+#include "../utils/padding_utils.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -15,7 +15,7 @@
 #include <thread>
 #include <condition_variable>
 #include <cstring>
-#include "../prefork_utils.h"
+#include "../utils/prefork_utils.h"
 
 class GeoService {
 private:
