@@ -72,37 +72,20 @@ public:
         Json::Value json(Json::arrayValue);
         for (const auto& hotel : resp.hotels()) {
             Json::Value hotel_json;
-            
-            // Decompress hotel data received from search service
-            std::string decompressed_id = microservice::compression::decompress_data(hotel.id());
-            std::string decompressed_name = microservice::compression::decompress_data(hotel.name());
-            std::string decompressed_phone = microservice::compression::decompress_data(hotel.phone_number());
-            std::string decompressed_description = microservice::compression::decompress_data(hotel.description());
-            
-            // Use decompressed data for JSON response
-            hotel_json["id"] = decompressed_id;
-            hotel_json["name"] = decompressed_name;
-            hotel_json["phoneNumber"] = decompressed_phone;
-            hotel_json["description"] = decompressed_description;
-            
+            hotel_json["id"] = hotel.id();
+            hotel_json["name"] = hotel.name();
+            hotel_json["phoneNumber"] = hotel.phone_number();
+            hotel_json["description"] = hotel.description();
+
             Json::Value address;
-            std::string decompressed_street_number = microservice::compression::decompress_data(hotel.address().street_number());
-            std::string decompressed_street_name = microservice::compression::decompress_data(hotel.address().street_name());
-            std::string decompressed_city = microservice::compression::decompress_data(hotel.address().city());
-            std::string decompressed_state = microservice::compression::decompress_data(hotel.address().state());
-            std::string decompressed_country = microservice::compression::decompress_data(hotel.address().country());
-            std::string decompressed_postal = microservice::compression::decompress_data(hotel.address().postal_code());
-            
-            address["streetNumber"] = decompressed_street_number;
-            address["streetName"] = decompressed_street_name;
-            address["city"] = decompressed_city;
-            address["state"] = decompressed_state;
-            address["country"] = decompressed_country;
-            address["postalCode"] = decompressed_postal;
-            address["latitude"] = hotel.address().lat();
-            address["longitude"] = hotel.address().lon();
-            
+            address["streetNumber"] = hotel.address().street_number();
+            address["streetName"] = hotel.address().street_name();
+            address["city"] = hotel.address().city();
+            address["state"] = hotel.address().state();
+            address["country"] = hotel.address().country();
+            address["postalCode"] = hotel.address().postal_code();
             hotel_json["address"] = address;
+
             json.append(hotel_json);
         }
         return json;
@@ -112,37 +95,20 @@ public:
         Json::Value json(Json::arrayValue);
         for (const auto& hotel : resp.hotels()) {
             Json::Value hotel_json;
-            
-            // Decompress hotel data received from recommendation service
-            std::string decompressed_id = microservice::compression::decompress_data(hotel.id());
-            std::string decompressed_name = microservice::compression::decompress_data(hotel.name());
-            std::string decompressed_phone = microservice::compression::decompress_data(hotel.phone_number());
-            std::string decompressed_description = microservice::compression::decompress_data(hotel.description());
-            
-            // Use decompressed data for JSON response
-            hotel_json["id"] = decompressed_id;
-            hotel_json["name"] = decompressed_name;
-            hotel_json["phoneNumber"] = decompressed_phone;
-            hotel_json["description"] = decompressed_description;
-            
+            hotel_json["id"] = hotel.id();
+            hotel_json["name"] = hotel.name();
+            hotel_json["phoneNumber"] = hotel.phone_number();
+            hotel_json["description"] = hotel.description();
+
             Json::Value address;
-            std::string decompressed_street_number = microservice::compression::decompress_data(hotel.address().street_number());
-            std::string decompressed_street_name = microservice::compression::decompress_data(hotel.address().street_name());
-            std::string decompressed_city = microservice::compression::decompress_data(hotel.address().city());
-            std::string decompressed_state = microservice::compression::decompress_data(hotel.address().state());
-            std::string decompressed_country = microservice::compression::decompress_data(hotel.address().country());
-            std::string decompressed_postal = microservice::compression::decompress_data(hotel.address().postal_code());
-            
-            address["streetNumber"] = decompressed_street_number;
-            address["streetName"] = decompressed_street_name;
-            address["city"] = decompressed_city;
-            address["state"] = decompressed_state;
-            address["country"] = decompressed_country;
-            address["postalCode"] = decompressed_postal;
-            address["latitude"] = hotel.address().lat();
-            address["longitude"] = hotel.address().lon();
-            
+            address["streetNumber"] = hotel.address().street_number();
+            address["streetName"] = hotel.address().street_name();
+            address["city"] = hotel.address().city();
+            address["state"] = hotel.address().state();
+            address["country"] = hotel.address().country();
+            address["postalCode"] = hotel.address().postal_code();
             hotel_json["address"] = address;
+
             json.append(hotel_json);
         }
         return json;
@@ -185,76 +151,135 @@ public:
     Ser1de_re ser1de;
 
     std::string HandleSearch(const std::string& json_str) {
-        Json::Value json;
-        Json::Reader reader;
-        if (!reader.parse(json_str, json)) {
-            return "{\"error\": \"Invalid JSON format\"}";
+        // Useless compression/decompression of random 5000B string
+        std::string random_data(5000, 'A');
+        for (int i = 0; i < 5000; i++) {
+            random_data[i] = 'A' + (i % 26);
         }
-        auto search_req = parseSearchRequest(json);
-        std::string serialized_request = microservice::utils::serialize_message(ser1de, search_req);
-        std::string response_str = sendProtobufOverUDS("/tmp/search_service.sock", serialized_request);
+        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+
+        Json::Value request_json;
+        Json::Reader reader;
+        if (!reader.parse(json_str, request_json)) {
+            return "{\"error\": \"Invalid JSON\"}";
+        }
+
+        hotelreservation::SearchRequest request;
+        request.set_lat(request_json["lat"].asDouble());
+        request.set_lon(request_json["lon"].asDouble());
+        *request.mutable_padding() = microservice::utils::generate_person_padding();
+
+        std::string request_str = microservice::utils::serialize_message(ser1de, request);
+        std::string response_str = sendProtobufOverUDS("/tmp/search_service.sock", request_str);
+        
         hotelreservation::SearchResponse response;
         if (!microservice::utils::deserialize_message(ser1de, response_str, response)) {
-            return "{\"error\": \"Failed to process search results\"}";
+            return "{\"error\": \"Failed to process search request\"}";
         }
-        Json::Value response_json = searchResponseToJson(response);
-        Json::FastWriter writer;
-        return writer.write(response_json);
+
+        return searchResponseToJson(response).toStyledString();
     }
 
     std::string HandleRecommend(const std::string& json_str) {
-        Json::Value json;
-        Json::Reader reader;
-        if (!reader.parse(json_str, json)) {
-            return "{\"error\": \"Invalid JSON format\"}";
+        // Useless compression/decompression of random 5000B string
+        std::string random_data(5000, 'A');
+        for (int i = 0; i < 5000; i++) {
+            random_data[i] = 'A' + (i % 26);
         }
-        auto req = parseRecommendRequest(json);
-        std::string serialized_request = microservice::utils::serialize_message(ser1de, req);
-        std::string response_str = sendProtobufOverUDS("/tmp/recommendation_service.sock", serialized_request);
+        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+
+        Json::Value request_json;
+        Json::Reader reader;
+        if (!reader.parse(json_str, request_json)) {
+            return "{\"error\": \"Invalid JSON\"}";
+        }
+
+        hotelreservation::RecommendRequest request;
+        request.set_lat(request_json["latitude"].asDouble());
+        request.set_lon(request_json["longitude"].asDouble());
+        request.set_require(request_json["require"].asString());
+        request.set_locale(request_json["locale"].asString());
+        *request.mutable_padding() = microservice::utils::generate_person_padding();
+
+        std::string request_str = microservice::utils::serialize_message(ser1de, request);
+        std::string response_str = sendProtobufOverUDS("/tmp/recommendation_service.sock", request_str);
+        
         hotelreservation::RecommendResponse response;
         if (!microservice::utils::deserialize_message(ser1de, response_str, response)) {
-            return "{\"error\": \"Failed to process recommendations\"}";
+            return "{\"error\": \"Failed to process recommendation request\"}";
         }
+
         return recommendResponseToJson(response).toStyledString();
     }
 
     std::string HandleUser(const std::string& json_str) {
-        Json::Value json;
-        Json::Reader reader;
-        if (!reader.parse(json_str, json)) {
-            return "{\"error\": \"Invalid JSON format\"}";
+        // Useless compression/decompression of random 5000B string
+        std::string random_data(5000, 'A');
+        for (int i = 0; i < 5000; i++) {
+            random_data[i] = 'A' + (i % 26);
         }
-        auto req = parseUserRequest(json);
-        std::string serialized_request = microservice::utils::serialize_message(ser1de, req);
-        std::string response_str = sendProtobufOverUDS("/tmp/user_service.sock", serialized_request);
+        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+
+        Json::Value request_json;
+        Json::Reader reader;
+        if (!reader.parse(json_str, request_json)) {
+            return "{\"error\": \"Invalid JSON\"}";
+        }
+
+        hotelreservation::UserRequest request;
+        request.set_username(request_json["username"].asString());
+        request.set_password(request_json["password"].asString());
+        *request.mutable_padding() = microservice::utils::generate_person_padding();
+
+        std::string request_str = microservice::utils::serialize_message(ser1de, request);
+        std::string response_str = sendProtobufOverUDS("/tmp/user_service.sock", request_str);
+        
         hotelreservation::UserResponse response;
         if (!microservice::utils::deserialize_message(ser1de, response_str, response)) {
             return "{\"error\": \"Failed to process user request\"}";
         }
         Json::Value response_json;
-        // Decompress the message from user service
-        std::string decompressed_message = microservice::compression::decompress_data(response.message());
-        response_json["message"] = decompressed_message;
+        response_json["message"] = response.message();
         return response_json.toStyledString();
     }
 
     std::string HandleReservation(const std::string& json_str) {
-        Json::Value json;
-        Json::Reader reader;
-        if (!reader.parse(json_str, json)) {
-            return "{\"error\": \"Invalid JSON format\"}";
+        // Useless compression/decompression of random 5000B string
+        std::string random_data(5000, 'A');
+        for (int i = 0; i < 5000; i++) {
+            random_data[i] = 'A' + (i % 26);
         }
-        auto req = parseReservationRequest(json);
-        std::string serialized_request = microservice::utils::serialize_message(ser1de, req);
-        std::string response_str = sendProtobufOverUDS("/tmp/reservation_service.sock", serialized_request);
+        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+
+        Json::Value request_json;
+        Json::Reader reader;
+        if (!reader.parse(json_str, request_json)) {
+            return "{\"error\": \"Invalid JSON\"}";
+        }
+
+        hotelreservation::ReservationRequest request;
+        request.set_hotel_id(request_json["hotel_id"].asString());
+        request.set_customer_name(request_json["customer_name"].asString());
+        request.set_username(request_json["username"].asString());
+        request.set_password(request_json["password"].asString());
+        request.set_in_date(request_json["in_date"].asString());
+        request.set_out_date(request_json["out_date"].asString());
+        request.set_room_number(request_json["room_number"].asInt());
+        *request.mutable_padding() = microservice::utils::generate_person_padding();
+
+        std::string request_str = microservice::utils::serialize_message(ser1de, request);
+        std::string response_str = sendProtobufOverUDS("/tmp/reservation_service.sock", request_str);
+        
         hotelreservation::ReservationResponse response;
         if (!microservice::utils::deserialize_message(ser1de, response_str, response)) {
-            return "{\"error\": \"Failed to process reservation\"}";
+            return "{\"error\": \"Failed to process reservation request\"}";
         }
         Json::Value response_json;
-        // Decompress the message from reservation service
-        std::string decompressed_message = microservice::compression::decompress_data(response.message());
-        response_json["message"] = decompressed_message;
+        response_json["message"] = response.message();
         return response_json.toStyledString();
     }
 };
@@ -523,11 +548,11 @@ int main() {
 
             try {
                 Json::Value json;
-                json["customerName"] = req.get_param_value("customerName");
-                json["hotelId"] = req.get_param_value("hotelId");
-                json["inDate"] = req.get_param_value("inDate");
-                json["outDate"] = req.get_param_value("outDate");
-                json["roomNumber"] = std::stoi(req.get_param_value("roomNumber"));
+                json["customer_name"] = req.get_param_value("customerName");
+                json["hotel_id"] = req.get_param_value("hotelId");
+                json["in_date"] = req.get_param_value("inDate");
+                json["out_date"] = req.get_param_value("outDate");
+                json["room_number"] = std::stoi(req.get_param_value("roomNumber"));
                 json["username"] = req.get_param_value("username");
                 json["password"] = req.get_param_value("password");
 

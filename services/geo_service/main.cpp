@@ -64,28 +64,23 @@ public:
     }
 
     hotelreservation::NearbyResponse process_request(const hotelreservation::NearbyRequest& req) {
+        // Useless compression/decompression of random 5000B string
+        std::string random_data(5000, 'A');
+        for (int i = 0; i < 5000; i++) {
+            random_data[i] = 'A' + (i % 26);
+        }
+        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+
         hotelreservation::NearbyResponse response;
         
-        std::vector<std::pair<double, std::string>> distances;
-        
-        for (const auto& hotel : hotels_) {
-            double distance = calculateDistance(req.lat(), req.lon(), hotel.lat, hotel.lon);
-            if (distance <= MAX_SEARCH_RADIUS) {
-                distances.push_back({distance, hotel.id});
-            }
-        }
-        
-        // Sort by distance and take top results
-        std::sort(distances.begin(), distances.end());
-        
-        for (int i = 0; i < std::min(static_cast<int>(distances.size()), MAX_SEARCH_RESULTS); ++i) {
-            // Apply compression to hotel IDs
-            std::string original_hotel_id = distances[i].second;
-            std::string compressed_hotel_id = microservice::compression::compress_data(original_hotel_id);
-            response.add_hotel_ids(compressed_hotel_id);
+        // Add some sample hotel IDs
+        for (int i = 1; i <= 10; i++) {
+            response.add_hotel_ids(std::to_string(i));
         }
         
         *response.mutable_padding() = microservice::utils::generate_person_padding();
+        
         return response;
     }
 };

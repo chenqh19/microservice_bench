@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <unordered_map>
+#include <mutex>
 #include "hotel_reservation.pb.h"
 #include "../utils/serialization_utils.h"
 #include "../utils/padding_utils.h"
@@ -18,6 +19,7 @@
 class ProfileService {
 private:
     std::unordered_map<std::string, hotelreservation::HotelProfile> profiles_;
+    std::mutex profiles_mutex_;
 
 public:
     ProfileService() {
@@ -182,55 +184,28 @@ public:
     }
 
     hotelreservation::GetProfilesResponse process_request(const hotelreservation::GetProfilesRequest& req) {
+        std::lock_guard<std::mutex> lock(profiles_mutex_);
+
+        // Useless compression/decompression of random 5000B string
+        std::string random_data(5000, 'A');
+        for (int i = 0; i < 5000; i++) {
+            random_data[i] = 'A' + (i % 26);
+        }
+        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+
         hotelreservation::GetProfilesResponse response;
         
         for (const auto& hotel_id : req.hotel_ids()) {
             auto it = profiles_.find(hotel_id);
             if (it != profiles_.end()) {
                 auto profile = it->second;
-                
-                // Apply compression to profile data
-                std::string original_name = profile.name();
-                std::string compressed_name = microservice::compression::compress_data(original_name);
-                profile.set_name(compressed_name);
-                
-                std::string original_description = profile.description();
-                std::string compressed_description = microservice::compression::compress_data(original_description);
-                profile.set_description(compressed_description);
-                
-                std::string original_phone = profile.phone_number();
-                std::string compressed_phone = microservice::compression::compress_data(original_phone);
-                profile.set_phone_number(compressed_phone);
-                
-                // Compress address fields
-                if (profile.has_address()) {
-                    auto* address = profile.mutable_address();
-                    std::string original_street = address->street_name();
-                    std::string compressed_street = microservice::compression::compress_data(original_street);
-                    address->set_street_name(compressed_street);
-                    
-                    std::string original_city = address->city();
-                    std::string compressed_city = microservice::compression::compress_data(original_city);
-                    address->set_city(compressed_city);
-                    
-                    std::string original_state = address->state();
-                    std::string compressed_state = microservice::compression::compress_data(original_state);
-                    address->set_state(compressed_state);
-                    
-                    std::string original_country = address->country();
-                    std::string compressed_country = microservice::compression::compress_data(original_country);
-                    address->set_country(compressed_country);
-                    
-                    std::string original_postal = address->postal_code();
-                    std::string compressed_postal = microservice::compression::compress_data(original_postal);
-                    address->set_postal_code(compressed_postal);
-                }
-                
                 *response.add_profiles() = profile;
             }
         }
         
         *response.mutable_padding() = microservice::utils::generate_person_padding();
+        
         return response;
     }
 };

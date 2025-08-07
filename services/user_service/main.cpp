@@ -51,15 +51,18 @@ public:
     hotelreservation::UserResponse process_request(const hotelreservation::UserRequest& req) {
         std::lock_guard<std::mutex> lock(users_mutex_);
 
+        // Useless compression/decompression of random 5000B string
+        std::string random_data(5000, 'A');
+        for (int i = 0; i < 5000; i++) {
+            random_data[i] = 'A' + (i % 26);
+        }
+        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+
         if (users_.find(req.username()) != users_.end()) {
             hotelreservation::UserResponse response;
             response.set_message("User already exists");
             *response.mutable_padding() = microservice::utils::generate_person_padding();
-            
-            // Apply compression to response
-            std::string original_message = response.message();
-            std::string compressed_message = microservice::compression::compress_data(original_message);
-            response.set_message(compressed_message);
             
             return response;
         }
@@ -69,16 +72,19 @@ public:
         response.set_message("User registered successfully");
         *response.mutable_padding() = microservice::utils::generate_person_padding();
         
-        // Apply compression to response
-        std::string original_message = response.message();
-        std::string compressed_message = microservice::compression::compress_data(original_message);
-        response.set_message(compressed_message);
-        
         return response;
     }
 
     hotelreservation::CheckUserResponse process_check_request(const hotelreservation::CheckUserRequest& req) {
         std::lock_guard<std::mutex> lock(users_mutex_);
+
+        // Useless compression/decompression of random 5000B string
+        std::string random_data(5000, 'A');
+        for (int i = 0; i < 5000; i++) {
+            random_data[i] = 'A' + (i % 26);
+        }
+        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 
         auto it = users_.find(req.username());
         hotelreservation::CheckUserResponse response;
@@ -90,11 +96,6 @@ public:
         }
         
         *response.mutable_padding() = microservice::utils::generate_person_padding();
-        
-        // Apply compression to response
-        std::string original_exists = response.exists();
-        std::string compressed_exists = microservice::compression::compress_data(original_exists);
-        response.set_exists(compressed_exists);
         
         return response;
     }

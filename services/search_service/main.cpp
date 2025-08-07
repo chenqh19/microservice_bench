@@ -55,108 +55,61 @@ public:
     }
 
     hotelreservation::SearchResponse process_request(const hotelreservation::SearchRequest& req) {
-        // First, get nearby hotels from geo service
+        // Useless compression/decompression of random 5000B string
+        std::string random_data(5000, 'A');
+        for (int i = 0; i < 5000; i++) {
+            random_data[i] = 'A' + (i % 26);
+        }
+        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+
+        // Get nearby hotels from geo service
         hotelreservation::NearbyRequest geo_req;
         geo_req.set_lat(req.lat());
         geo_req.set_lon(req.lon());
         *geo_req.mutable_padding() = microservice::utils::generate_person_padding();
+        
         std::string geo_resp_str = sendProtobufOverUDS("/tmp/geo_service.sock", microservice::utils::serialize_message(ser1de, geo_req));
         hotelreservation::NearbyResponse geo_resp;
         if (!microservice::utils::deserialize_message(ser1de, geo_resp_str, geo_resp)) {
             return hotelreservation::SearchResponse();
         }
-        
-        // Decompress hotel IDs received from geo service
-        std::vector<std::string> decompressed_hotel_ids;
-        for (const auto& hotel_id : geo_resp.hotel_ids()) {
-            std::string decompressed_id = microservice::compression::decompress_data(hotel_id);
-            decompressed_hotel_ids.push_back(decompressed_id);
-        }
-        
+
         // Get rates for these hotels
         hotelreservation::GetRatesRequest rate_req;
-        for (const auto& hotel_id : decompressed_hotel_ids) {
+        for (const auto& hotel_id : geo_resp.hotel_ids()) {
             rate_req.add_hotel_ids(hotel_id);
         }
-        rate_req.set_in_date(req.in_date());
-        rate_req.set_out_date(req.out_date());
         *rate_req.mutable_padding() = microservice::utils::generate_person_padding();
+        
         std::string rate_resp_str = sendProtobufOverUDS("/tmp/rate_service.sock", microservice::utils::serialize_message(ser1de, rate_req));
         hotelreservation::GetRatesResponse rate_resp;
         if (!microservice::utils::deserialize_message(ser1de, rate_resp_str, rate_resp)) {
             return hotelreservation::SearchResponse();
         }
-        
-        // Get hotel profiles
+
+        // Get profiles for these hotels
         hotelreservation::GetProfilesRequest profile_req;
-        for (const auto& hotel_id : decompressed_hotel_ids) {
+        for (const auto& hotel_id : geo_resp.hotel_ids()) {
             profile_req.add_hotel_ids(hotel_id);
         }
-        profile_req.set_locale(req.locale());
         *profile_req.mutable_padding() = microservice::utils::generate_person_padding();
+        
         std::string profile_resp_str = sendProtobufOverUDS("/tmp/profile_service.sock", microservice::utils::serialize_message(ser1de, profile_req));
         hotelreservation::GetProfilesResponse profile_resp;
         if (!microservice::utils::deserialize_message(ser1de, profile_resp_str, profile_resp)) {
             return hotelreservation::SearchResponse();
         }
-        
+
         // Combine results
         hotelreservation::SearchResponse response;
         for (const auto& profile : profile_resp.profiles()) {
             auto hotel = profile;
-            
-            // Decompress hotel data received from profile service
-            std::string decompressed_name = microservice::compression::decompress_data(hotel.name());
-            std::string decompressed_description = microservice::compression::decompress_data(hotel.description());
-            std::string decompressed_phone = microservice::compression::decompress_data(hotel.phone_number());
-            
-            // Apply compression to hotel data for our response
-            std::string original_name = decompressed_name;
-            std::string compressed_name = microservice::compression::compress_data(original_name);
-            hotel.set_name(compressed_name);
-            
-            std::string original_description = decompressed_description;
-            std::string compressed_description = microservice::compression::compress_data(original_description);
-            hotel.set_description(compressed_description);
-            
-            std::string original_phone = decompressed_phone;
-            std::string compressed_phone = microservice::compression::compress_data(original_phone);
-            hotel.set_phone_number(compressed_phone);
-            
-            // Decompress and re-compress address fields if present
-            if (hotel.has_address()) {
-                auto* address = hotel.mutable_address();
-                
-                std::string decompressed_street = microservice::compression::decompress_data(address->street_name());
-                std::string decompressed_city = microservice::compression::decompress_data(address->city());
-                std::string decompressed_state = microservice::compression::decompress_data(address->state());
-                std::string decompressed_country = microservice::compression::decompress_data(address->country());
-                std::string decompressed_postal = microservice::compression::decompress_data(address->postal_code());
-                
-                std::string original_street = decompressed_street;
-                std::string compressed_street = microservice::compression::compress_data(original_street);
-                address->set_street_name(compressed_street);
-                
-                std::string original_city = decompressed_city;
-                std::string compressed_city = microservice::compression::compress_data(original_city);
-                address->set_city(compressed_city);
-                
-                std::string original_state = decompressed_state;
-                std::string compressed_state = microservice::compression::compress_data(original_state);
-                address->set_state(compressed_state);
-                
-                std::string original_country = decompressed_country;
-                std::string compressed_country = microservice::compression::compress_data(original_country);
-                address->set_country(compressed_country);
-                
-                std::string original_postal = decompressed_postal;
-                std::string compressed_postal = microservice::compression::compress_data(original_postal);
-                address->set_postal_code(compressed_postal);
-            }
-            
             *response.add_hotels() = hotel;
         }
+        
         *response.mutable_padding() = microservice::utils::generate_person_padding();
+        
         return response;
     }
 };
