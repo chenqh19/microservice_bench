@@ -20,9 +20,15 @@
 class RateService {
 private:
     std::unordered_map<std::string, std::vector<hotelreservation::RoomType>> hotel_rates_;
+    std::string pre_generated_random_data_;
 
 public:
     RateService() {
+        // Pre-generate random data once during initialization
+        pre_generated_random_data_.resize(20000);
+        for (int i = 0; i < 20000; i++) {
+            pre_generated_random_data_[i] = 'A' + (i % 26);
+        }
         InitializeSampleRates();
         // Initialize compression manager
         microservice::compression::init_compression();
@@ -60,11 +66,7 @@ public:
 
     hotelreservation::GetRatesResponse process_request(const hotelreservation::GetRatesRequest& req) {
         // Useless compression/decompression of random 5000B string
-        std::string random_data(5000, 'A');
-        for (int i = 0; i < 5000; i++) {
-            random_data[i] = 'A' + (i % 26);
-        }
-        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 
         hotelreservation::GetRatesResponse response;
@@ -90,7 +92,7 @@ public:
 
 int main() {
     const char* socket_path = "/tmp/rate_service.sock";
-    const int NUM_WORKERS = 16;  // Number of worker processes
+    const int NUM_WORKERS = 32;  // Number of worker processes
     
     PreforkServer server(NUM_WORKERS);
     

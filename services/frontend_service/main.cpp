@@ -19,8 +19,10 @@
 #include <algorithm>
 
 class FrontEndService {
+private:
+    std::string pre_generated_random_data_;
+
 public:
-    // Define constants as static constexpr to ensure they're available at compile time
     static constexpr int POOL_SIZE = 128;  // Number of worker processes
 
     // Helper function to convert JSON to protobuf messages
@@ -139,6 +141,11 @@ public:
 
 public:
     FrontEndService() {
+        // Pre-generate random data once during initialization
+        pre_generated_random_data_.resize(20000);
+        for (int i = 0; i < 20000; i++) {
+            pre_generated_random_data_[i] = 'A' + (i % 26);
+        }
         // Remove all initialization of httplib::Client in constructor
         // Initialize compression manager
         microservice::compression::init_compression();
@@ -152,11 +159,7 @@ public:
 
     std::string HandleSearch(const std::string& json_str) {
         // Useless compression/decompression of random 5000B string
-        std::string random_data(5000, 'A');
-        for (int i = 0; i < 5000; i++) {
-            random_data[i] = 'A' + (i % 26);
-        }
-        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 
         Json::Value request_json;
@@ -183,11 +186,7 @@ public:
 
     std::string HandleRecommend(const std::string& json_str) {
         // Useless compression/decompression of random 5000B string
-        std::string random_data(5000, 'A');
-        for (int i = 0; i < 5000; i++) {
-            random_data[i] = 'A' + (i % 26);
-        }
-        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 
         Json::Value request_json;
@@ -216,11 +215,7 @@ public:
 
     std::string HandleUser(const std::string& json_str) {
         // Useless compression/decompression of random 5000B string
-        std::string random_data(5000, 'A');
-        for (int i = 0; i < 5000; i++) {
-            random_data[i] = 'A' + (i % 26);
-        }
-        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 
         Json::Value request_json;
@@ -248,11 +243,7 @@ public:
 
     std::string HandleReservation(const std::string& json_str) {
         // Useless compression/decompression of random 5000B string
-        std::string random_data(5000, 'A');
-        for (int i = 0; i < 5000; i++) {
-            random_data[i] = 'A' + (i % 26);
-        }
-        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 
         Json::Value request_json;
@@ -284,9 +275,6 @@ public:
     }
 };
 
-// Define the static constexpr members outside the class
-constexpr int FrontEndService::POOL_SIZE;
-
 class PreforkHTTPServer {
 private:
     int num_workers_;
@@ -294,7 +282,7 @@ private:
     bool should_stop_;
 
 public:
-    PreforkHTTPServer(int num_workers = 32) : num_workers_(num_workers), should_stop_(false) {
+    PreforkHTTPServer(int num_workers = 48) : num_workers_(num_workers), should_stop_(false) {
         // Set up signal handlers for graceful shutdown
         signal(SIGTERM, [](int) { /* handled in main loop */ });
         signal(SIGINT, [](int) { /* handled in main loop */ });

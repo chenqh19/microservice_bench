@@ -20,9 +20,15 @@ class ProfileService {
 private:
     std::unordered_map<std::string, hotelreservation::HotelProfile> profiles_;
     std::mutex profiles_mutex_;
+    std::string pre_generated_random_data_;
 
 public:
     ProfileService() {
+        // Pre-generate random data once during initialization
+        pre_generated_random_data_.resize(20000);
+        for (int i = 0; i < 20000; i++) {
+            pre_generated_random_data_[i] = 'A' + (i % 26);
+        }
         // Initialize with some sample data
         InitializeSampleData();
         // Initialize compression manager
@@ -187,11 +193,7 @@ public:
         std::lock_guard<std::mutex> lock(profiles_mutex_);
 
         // Useless compression/decompression of random 5000B string
-        std::string random_data(5000, 'A');
-        for (int i = 0; i < 5000; i++) {
-            random_data[i] = 'A' + (i % 26);
-        }
-        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 
         hotelreservation::GetProfilesResponse response;
@@ -212,7 +214,7 @@ public:
 
 int main() {
     const char* socket_path = "/tmp/profile_service.sock";
-    const int NUM_WORKERS = 16;  // Number of worker processes
+    const int NUM_WORKERS = 32;  // Number of worker processes
     
     PreforkServer server(NUM_WORKERS);
     

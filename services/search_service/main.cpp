@@ -19,6 +19,7 @@
 
 class SearchService {
 private:
+    std::string pre_generated_random_data_;
     // No unused members
     
     std::string sendProtobufOverUDS(const std::string& path, const std::string& data) {
@@ -48,6 +49,11 @@ public:
     Ser1de_re ser1de;
     
     SearchService() {
+        // Pre-generate random data once during initialization
+        pre_generated_random_data_.resize(20000);
+        for (int i = 0; i < 20000; i++) {
+            pre_generated_random_data_[i] = 'A' + (i % 26);
+        }
         // Initialize client pools
         // This class is now purely UDS+Protobuf, so no client pools are needed.
         // Initialize compression manager
@@ -56,11 +62,7 @@ public:
 
     hotelreservation::SearchResponse process_request(const hotelreservation::SearchRequest& req) {
         // Useless compression/decompression of random 5000B string
-        std::string random_data(5000, 'A');
-        for (int i = 0; i < 5000; i++) {
-            random_data[i] = 'A' + (i % 26);
-        }
-        std::string compressed_random = microservice::compression::compress_data(random_data);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 
         // Get nearby hotels from geo service
@@ -116,7 +118,7 @@ public:
 
 int main() {
     const char* socket_path = "/tmp/search_service.sock";
-    const int NUM_WORKERS = 16;  // Number of worker processes
+    const int NUM_WORKERS = 32;  // Number of worker processes
     
     PreforkServer server(NUM_WORKERS);
     

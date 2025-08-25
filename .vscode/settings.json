@@ -76,6 +76,12 @@
         "locale": "cpp",
         "print": "cpp",
         "queue": "cpp",
-        "stack": "cpp"
+        "stack": "cpp",
+        "condition_variable": "cpp",
+        "netfwd": "cpp",
+        "numeric": "cpp",
+        "fstream": "cpp",
+        "future": "cpp",
+        "cinttypes": "cpp"
     }
 }

@@ -8,7 +8,7 @@
 // Compression Configuration
 // Set to 1 to use Intel IAX hardware acceleration for compression
 // Set to 0 to use software compression (default)
-#define USE_HARDWARE_COMPRESSION 1
+#define USE_HARDWARE_COMPRESSION 0
 
 // Serialization Configuration
 // Set to 1 to use ser1de library for serialization
