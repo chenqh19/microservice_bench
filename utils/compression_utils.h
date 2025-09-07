@@ -220,6 +220,254 @@ inline std::string decompress_data(const std::string& data) {
     return data;  // Return as-is if not compressed
 }
 
+// ============================================================================
+// Non-blocking (asynchronous) helpers using QPL submit/wait APIs
+// Submit a job with qpl_submit_job and allow waiting later with qpl_wait_job.
+// ============================================================================
+
+class AsyncQplJob {
+private:
+    void cleanup() {
+        if (job_ptr_) {
+            qpl_fini_job(job_ptr_);
+            std::free(job_ptr_);
+            job_ptr_ = nullptr;
+        }
+    }
+
+public:
+    qpl_job* job_ptr_;
+    std::vector<uint8_t> input_buffer_;
+    std::vector<uint8_t> output_buffer_;
+    bool is_decompress_;
+    bool is_passthrough_;
+    std::string passthrough_value_;
+    bool submitted_;
+    qpl_status submit_status_;
+
+    AsyncQplJob()
+        : job_ptr_(nullptr), is_decompress_(false), is_passthrough_(false),
+          submitted_(false), submit_status_(QPL_STS_OK) {}
+
+    ~AsyncQplJob() { cleanup(); }
+
+    AsyncQplJob(const AsyncQplJob&) = delete;
+    AsyncQplJob& operator=(const AsyncQplJob&) = delete;
+
+    AsyncQplJob(AsyncQplJob&& other) noexcept {
+        job_ptr_ = other.job_ptr_;
+        input_buffer_ = std::move(other.input_buffer_);
+        output_buffer_ = std::move(other.output_buffer_);
+        is_decompress_ = other.is_decompress_;
+        is_passthrough_ = other.is_passthrough_;
+        passthrough_value_ = std::move(other.passthrough_value_);
+        submitted_ = other.submitted_;
+        submit_status_ = other.submit_status_;
+        other.job_ptr_ = nullptr;
+    }
+
+    AsyncQplJob& operator=(AsyncQplJob&& other) noexcept {
+        if (this != &other) {
+            cleanup();
+            job_ptr_ = other.job_ptr_;
+            input_buffer_ = std::move(other.input_buffer_);
+            output_buffer_ = std::move(other.output_buffer_);
+            is_decompress_ = other.is_decompress_;
+            is_passthrough_ = other.is_passthrough_;
+            passthrough_value_ = std::move(other.passthrough_value_);
+            submitted_ = other.submitted_;
+            submit_status_ = other.submit_status_;
+            other.job_ptr_ = nullptr;
+        }
+        return *this;
+    }
+
+    qpl_status wait() {
+        if (is_passthrough_) {
+            return QPL_STS_OK;
+        }
+        if (!submitted_ || !job_ptr_) {
+            return submit_status_;
+        }
+        // Block until job completes
+        qpl_status st = qpl_wait_job(job_ptr_);
+        submit_status_ = st;
+        return st;
+    }
+
+    std::string get_result() {
+        if (is_passthrough_) {
+            return passthrough_value_;
+        }
+        qpl_status st = wait();
+        if (st != QPL_STS_OK) {
+            std::cerr << "QPL async job failed with status: " << st << std::endl;
+            return std::string();
+        }
+        size_t produced = job_ptr_ ? job_ptr_->total_out : 0u;
+        if (is_decompress_) {
+            return std::string((char*)output_buffer_.data(), produced);
+        }
+        // Encode compressed bytes to hex and add prefix
+        std::string result;
+        result.reserve(11 + produced * 2);
+        result += "COMPRESSED:";
+        for (size_t i = 0; i < produced; ++i) {
+            char hex[3];
+            std::snprintf(hex, sizeof(hex), "%02x", output_buffer_[i]);
+            result += hex;
+        }
+        return result;
+    }
+};
+
+inline AsyncQplJob submit_compress_job(const std::string& data) {
+    AsyncQplJob handle;
+    if (data.empty()) {
+        handle.is_passthrough_ = true;
+        handle.passthrough_value_.clear();
+        return handle;
+    }
+
+    // Prepare buffers
+    handle.input_buffer_.assign(data.begin(), data.end());
+    size_t max_compressed_size = data.size() + 1024;  // heuristic overhead
+    handle.output_buffer_.resize(max_compressed_size);
+    handle.is_decompress_ = false;
+
+    // Allocate and initialize job
+    uint32_t size = 0;
+    qpl_get_job_size(COMPRESSION_PATH, &size);
+    handle.job_ptr_ = (qpl_job*)std::malloc(size);
+    qpl_init_job(COMPRESSION_PATH, handle.job_ptr_);
+
+    // Setup job
+    handle.job_ptr_->op = qpl_op_compress;
+    handle.job_ptr_->level = qpl_default_level;
+    handle.job_ptr_->next_in_ptr = handle.input_buffer_.data();
+    handle.job_ptr_->available_in = (uint32_t)handle.input_buffer_.size();
+    handle.job_ptr_->next_out_ptr = handle.output_buffer_.data();
+    handle.job_ptr_->available_out = (uint32_t)handle.output_buffer_.size();
+    handle.job_ptr_->flags = QPL_FLAG_FIRST | QPL_FLAG_LAST | QPL_FLAG_DYNAMIC_HUFFMAN;
+
+    // Submit non-blocking
+    handle.submit_status_ = qpl_submit_job(handle.job_ptr_);
+    handle.submitted_ = (handle.submit_status_ == QPL_STS_OK);
+    if (!handle.submitted_) {
+        std::cerr << "qpl_submit_job (compress) failed with status: " << handle.submit_status_ << std::endl;
+    }
+    return handle;
+}
+
+inline AsyncQplJob submit_decompress_job(const std::string& data) {
+    AsyncQplJob handle;
+    if (data.empty()) {
+        handle.is_passthrough_ = true;
+        handle.passthrough_value_.clear();
+        return handle;
+    }
+
+    if (!(data.size() >= 11 && data.substr(0, 11) == "COMPRESSED:")) {
+        // Not a compressed payload, passthrough
+        handle.is_passthrough_ = true;
+        handle.passthrough_value_ = data;
+        return handle;
+    }
+
+    // Decode hex to input buffer
+    const std::string encoded = data.substr(11);
+    handle.input_buffer_.reserve(encoded.size() / 2);
+    for (size_t i = 0; i + 1 < encoded.size(); i += 2) {
+        std::string hex_byte = encoded.substr(i, 2);
+        uint8_t byte = (uint8_t)std::stoi(hex_byte, nullptr, 16);
+        handle.input_buffer_.push_back(byte);
+    }
+
+    // Estimate output size (2x as heuristic)
+    size_t estimated_size = handle.input_buffer_.size() * 2;
+    if (estimated_size == 0) {
+        estimated_size = 8192;
+    }
+    handle.output_buffer_.resize(estimated_size);
+    handle.is_decompress_ = true;
+
+    // Allocate and initialize job
+    uint32_t size = 0;
+    qpl_get_job_size(COMPRESSION_PATH, &size);
+    handle.job_ptr_ = (qpl_job*)std::malloc(size);
+    qpl_init_job(COMPRESSION_PATH, handle.job_ptr_);
+
+    // Setup job
+    handle.job_ptr_->op = qpl_op_decompress;
+    handle.job_ptr_->next_in_ptr = handle.input_buffer_.data();
+    handle.job_ptr_->available_in = (uint32_t)handle.input_buffer_.size();
+    handle.job_ptr_->next_out_ptr = handle.output_buffer_.data();
+    handle.job_ptr_->available_out = (uint32_t)handle.output_buffer_.size();
+    handle.job_ptr_->flags = QPL_FLAG_FIRST | QPL_FLAG_LAST;
+
+    // Submit non-blocking
+    handle.submit_status_ = qpl_submit_job(handle.job_ptr_);
+    handle.submitted_ = (handle.submit_status_ == QPL_STS_OK);
+    if (!handle.submitted_) {
+        std::cerr << "qpl_submit_job (decompress) failed with status: " << handle.submit_status_ << std::endl;
+    }
+    return handle;
+}
+
+// ----------------------------------------------------------------------------
+// Config-selected API
+// If COMPRESSION_NONBLOCKING==1, return AsyncQplJob handles (submit now, wait later)
+// Otherwise, return blocking string results immediately.
+// ----------------------------------------------------------------------------
+#if COMPRESSION_NONBLOCKING
+using compression_result_t = AsyncQplJob;
+
+inline compression_result_t compress_data_configured(const std::string& data) {
+    return submit_compress_job(data);
+}
+
+inline compression_result_t decompress_data_configured(const std::string& data) {
+    return submit_decompress_job(data);
+}
+#else
+using compression_result_t = std::string;
+
+inline compression_result_t compress_data_configured(const std::string& data) {
+    return compress_data(data);
+}
+
+inline compression_result_t decompress_data_configured(const std::string& data) {
+    return decompress_data(data);
+}
+#endif
+
+// ----------------------------------------------------------------------------
+// Unified submission API (mode-agnostic)
+// Always returns an AsyncQplJob. In blocking mode, we precompute and store the
+// result in passthrough_value_ and mark is_passthrough_.
+// ----------------------------------------------------------------------------
+inline AsyncQplJob submit_compress(const std::string& data) {
+#if COMPRESSION_NONBLOCKING
+    return submit_compress_job(data);
+#else
+    AsyncQplJob handle;
+    handle.is_passthrough_ = true;
+    handle.passthrough_value_ = compress_data(data);
+    return handle;
+#endif
+}
+
+inline AsyncQplJob submit_decompress(const std::string& data) {
+#if COMPRESSION_NONBLOCKING
+    return submit_decompress_job(data);
+#else
+    AsyncQplJob handle;
+    handle.is_passthrough_ = true;
+    handle.passthrough_value_ = decompress_data(data);
+    return handle;
+#endif
+}
+
 } // namespace compression
 } // namespace microservice
 

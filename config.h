@@ -8,7 +8,11 @@
 // Compression Configuration
 // Set to 1 to use Intel IAX hardware acceleration for compression
 // Set to 0 to use software compression (default)
-#define USE_HARDWARE_COMPRESSION 0
+#define USE_HARDWARE_COMPRESSION 1
+
+// Set to 1 to use non-blocking (asynchronous) compression APIs
+// Set to 0 to use blocking (synchronous) compression APIs (default)
+#define USE_NONBLOCKING_COMPRESSION 1
 
 // Serialization Configuration
 // Set to 1 to use ser1de library for serialization
@@ -29,6 +33,13 @@
     #define COMPRESSION_PATH qpl_path_hardware
 #else
     #define COMPRESSION_PATH qpl_path_software
+#endif
+
+// Compression mode selection
+#if USE_NONBLOCKING_COMPRESSION
+    #define COMPRESSION_NONBLOCKING 1
+#else
+    #define COMPRESSION_NONBLOCKING 0
 #endif
 
 // ============================================================================
