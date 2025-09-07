@@ -29,8 +29,8 @@ private:
 public:
     UserService() {
         // Pre-generate random data once during initialization
-        pre_generated_random_data_.resize(20000);
-        for (int i = 0; i < 20000; i++) {
+        pre_generated_random_data_.resize(10000);
+        for (int i = 0; i < 10000; i++) {
             pre_generated_random_data_[i] = 'A' + (i % 26);
         }
         InitializeSampleData();
