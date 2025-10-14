@@ -106,5 +106,7 @@ ENV LD_LIBRARY_PATH="/usr/lib64:${LD_LIBRARY_PATH}"
 WORKDIR /app
 
 # Copy common files that all services need
-COPY protos/*.proto /app/protos/
-COPY *.h /app/ 
+# Hotel app protos and headers now live under /hotel
+COPY hotel/protos/*.proto /app/protos/
+# Also copy any shared headers remaining at repo root for compatibility
+COPY *.h /app/

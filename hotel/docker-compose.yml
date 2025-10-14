@@ -4,7 +4,7 @@ services:
   # Base image for all microservices
   base:
     build:
-      context: .
+      context: ..
       dockerfile: Dockerfile.base
     image: hotel-reservation-base:latest
     privileged: true
