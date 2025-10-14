@@ -119,12 +119,27 @@ int main() {
             res.set_content(resp, "application/octet-stream");
         });
 
+        http.Get("/compose", [&](const httplib::Request& req, httplib::Response& res) {
+            std::string username = req.get_param_value("username");
+            std::string text = req.get_param_value("text");
+            auto resp = svc.handle_compose(username, text);
+            res.set_content(resp, "application/octet-stream");
+        });
+
         http.Post("/follow", [&](const httplib::Request& req, httplib::Response& res) {
             Json::Value json; Json::Reader reader;
             if (!reader.parse(req.body, json)) { res.status = 400; res.set_content("{\"error\":\"bad json\"}", "application/json"); return; }
             long long user_id = json.get("userId", 0).asInt64();
             long long target_user_id = json.get("targetUserId", 0).asInt64();
             std::string action = json.get("action", "follow").asString();
+            auto resp = svc.handle_follow(user_id, target_user_id, action);
+            res.set_content(resp, "application/octet-stream");
+        });
+
+        http.Get("/follow", [&](const httplib::Request& req, httplib::Response& res) {
+            long long user_id = std::stoll(req.get_param_value("userId"));
+            long long target_user_id = std::stoll(req.get_param_value("targetUserId"));
+            std::string action = req.get_param_value("action");
             auto resp = svc.handle_follow(user_id, target_user_id, action);
             res.set_content(resp, "application/octet-stream");
         });
@@ -148,6 +163,12 @@ int main() {
         http.Post("/register", [&](const httplib::Request& req, httplib::Response& res) {
             Json::Value json; Json::Reader reader; if (!reader.parse(req.body, json)) { res.status = 400; res.set_content("{\"error\":\"bad json\"}", "application/json"); return; }
             std::string username = json.get("username", "").asString();
+            auto resp = svc.handle_register(username);
+            res.set_content(resp, "application/octet-stream");
+        });
+
+        http.Get("/register", [&](const httplib::Request& req, httplib::Response& res) {
+            std::string username = req.get_param_value("username");
             auto resp = svc.handle_register(username);
             res.set_content(resp, "application/octet-stream");
         });

@@ -1,22 +1,17 @@
-local json = require("cjson")
 local socket = require("socket")
 math.randomseed(socket.gettime()*1000); math.random(); math.random(); math.random()
 
 local function compose()
   local usernames = {"alice","bob","carol","dave","erin","frank","grace"}
   local u = usernames[math.random(#usernames)]
-  local body = json.encode({ username = u, text = "hi" })
-  local headers = { ["Content-Type"] = "application/json" }
-  return wrk.format("POST", "/compose", headers, body)
+  return wrk.format("GET", string.format("/compose?username=%s&text=%s", u, "hi"))
 end
 
 local function follow()
   local uid = math.random(1, 1000)
   local tid = math.random(1, 1000)
   while tid == uid do tid = math.random(1, 1000) end
-  local body = json.encode({ userId = uid, targetUserId = tid, action = "follow" })
-  local headers = { ["Content-Type"] = "application/json" }
-  return wrk.format("POST", "/follow", headers, body)
+  return wrk.format("GET", string.format("/follow?userId=%d&targetUserId=%d&action=follow", uid, tid))
 end
 
 local function user_timeline()
@@ -33,9 +28,9 @@ request = function()
   local coin = math.random()
   if coin < 0.4 then
     return compose()
-  elseif coin < 0.6 then
-    return follow()
-  elseif coin < 0.8 then
+  -- elseif coin < 0.6 then
+  --   return follow()
+  elseif coin < 0.7 then
     return user_timeline()
   else
     return home_timeline()

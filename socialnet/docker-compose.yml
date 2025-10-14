@@ -109,6 +109,48 @@ services:
       - sockets:/tmp
       - logs:/logs
 
+  user_mention:
+    build:
+      context: .
+      dockerfile: user_mention_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
+  text:
+    build:
+      context: .
+      dockerfile: text_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
+  url_shorten:
+    build:
+      context: .
+      dockerfile: url_shorten_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
   compose_post:
     build:
       context: .

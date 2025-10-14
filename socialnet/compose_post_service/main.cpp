@@ -34,6 +34,20 @@ public:
 
     socialnetwork::ComposePostResponse process_request(const socialnetwork::ComposePostRequest& req) {
         socialnetwork::ComposePostResponse out;
+
+        // 0) text processing
+        socialnetwork::TextProcessRequest tpreq; tpreq.set_text(req.text()); *tpreq.mutable_padding() = microservice::utils::generate_person_padding();
+        socialnetwork::TextProcessResponse tpresp; microservice::utils::deserialize_message(ser1de, uds_call("/tmp/text_service.sock", microservice::utils::serialize_message(ser1de, tpreq)), tpresp);
+
+        // shorten any URLs found
+        for (int i = 0; i < tpresp.urls_size(); ++i) {
+            socialnetwork::UrlShortenRequest ureq; ureq.set_url(tpresp.urls(i)); *ureq.mutable_padding() = microservice::utils::generate_person_padding();
+            socialnetwork::UrlShortenResponse uresp; microservice::utils::deserialize_message(ser1de, uds_call("/tmp/url_shorten_service.sock", microservice::utils::serialize_message(ser1de, ureq)), uresp);
+            // naive replace: replace first occurrence
+            size_t pos = tpresp.mutable_text()->find(tpresp.urls(i));
+            if (pos != std::string::npos) tpresp.mutable_text()->replace(pos, tpresp.urls(i).size(), uresp.short_url());
+        }
+
         // 1) get or register user id
         socialnetwork::GetUserRequest get_user; get_user.set_username(req.username()); *get_user.mutable_padding() = microservice::utils::generate_person_padding();
         std::string get_user_req = microservice::utils::serialize_message(ser1de, get_user);
@@ -59,7 +73,7 @@ public:
         socialnetwork::UniqueIdResponse uid_resp; microservice::utils::deserialize_message(ser1de, uid_resp_str, uid_resp);
 
         // 3) store post
-        socialnetwork::Post post; post.set_post_id(uid_resp.id()); post.set_user_id(user_id); post.set_username(req.username()); post.set_text(req.text()); post.set_timestamp((long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()); *post.mutable_padding() = microservice::utils::generate_person_padding();
+        socialnetwork::Post post; post.set_post_id(uid_resp.id()); post.set_user_id(user_id); post.set_username(req.username()); post.set_text(tpresp.text()); post.set_timestamp((long long)std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()); *post.mutable_padding() = microservice::utils::generate_person_padding();
         socialnetwork::StorePostRequest store_req; *store_req.mutable_padding() = microservice::utils::generate_person_padding(); *store_req.mutable_post() = post;
         std::string store_req_str = microservice::utils::serialize_message(ser1de, store_req);
         uds_call("/tmp/post_storage_service.sock", store_req_str);
@@ -75,6 +89,16 @@ public:
 
         socialnetwork::WriteHomeTimelineRequest wht; wht.set_user_id(user_id); wht.set_post_id(post.post_id()); for (auto fid : gf_resp.follower_ids()) wht.add_follower_ids(fid); *wht.mutable_padding() = microservice::utils::generate_person_padding();
         uds_call("/tmp/home_timeline_service.sock", microservice::utils::serialize_message(ser1de, wht));
+
+        // 6) write mentions to mention timelines
+        for (int i = 0; i < tpresp.mentions_size(); ++i) {
+            socialnetwork::GetUserRequest gu; gu.set_username(tpresp.mentions(i)); *gu.mutable_padding() = microservice::utils::generate_person_padding();
+            socialnetwork::GetUserResponse gur; microservice::utils::deserialize_message(ser1de, uds_call("/tmp/user_service.sock", microservice::utils::serialize_message(ser1de, gu)), gur);
+            if (gur.found() == "True") {
+                socialnetwork::WriteUserMentionRequest wm; wm.set_user_id(gur.user_id()); wm.set_post_id(post.post_id()); *wm.mutable_padding() = microservice::utils::generate_person_padding();
+                uds_call("/tmp/user_mention_service.sock", microservice::utils::serialize_message(ser1de, wm));
+            }
+        }
 
         out.set_post_id(post.post_id());
         out.set_message("ok");
