@@ -1,0 +1,137 @@
+version: '3'
+
+services:
+  base:
+    build:
+      context: ..
+      dockerfile: Dockerfile.base
+    image: hotel-reservation-base:latest
+    privileged: true
+    user: "0"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend_service/Dockerfile
+    ports:
+      - "50060:50060"
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
+  unique_id:
+    build:
+      context: .
+      dockerfile: unique_id_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
+  user:
+    build:
+      context: .
+      dockerfile: user_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
+  social_graph:
+    build:
+      context: .
+      dockerfile: social_graph_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
+  post_storage:
+    build:
+      context: .
+      dockerfile: post_storage_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
+  user_timeline:
+    build:
+      context: .
+      dockerfile: user_timeline_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
+  home_timeline:
+    build:
+      context: .
+      dockerfile: home_timeline_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
+  compose_post:
+    build:
+      context: .
+      dockerfile: compose_post_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
+networks:
+  socialnet_network:
+    driver: bridge
+
+volumes:
+  sockets:
+  logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./logs

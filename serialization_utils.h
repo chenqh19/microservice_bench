@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include "hotel_reservation.pb.h"
 #include <chrono>
 #include <fstream>
 #include <mutex>
@@ -9,7 +8,7 @@
 #include <typeinfo>
 
 #define USE_SER1DE 1
-#define ENABLE_TIMING 0
+#define ENABLE_TIMING 1
 
 #if USE_SER1DE
 #include <ser1de/ser1de_re.h>

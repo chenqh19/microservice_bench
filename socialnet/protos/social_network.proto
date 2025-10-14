@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package socialnetwork;
+
+// Minimal padding message for sizing consistency
+message M {}
+
+message User {
+  int64 user_id = 1;
+  string username = 2;
+  M padding = 3;
+}
+
+message Post {
+  int64 post_id = 1;
+  int64 user_id = 2;
+  string username = 3;
+  string text = 4;
+  int64 timestamp = 5; // epoch millis
+  M padding = 6;
+}
+
+// Unique ID service
+message UniqueIdRequest { M padding = 1; }
+message UniqueIdResponse { int64 id = 1; M padding = 2; }
+
+// User service
+message RegisterUserRequest { string username = 1; M padding = 2; }
+message RegisterUserResponse { int64 user_id = 1; string message = 2; M padding = 3; }
+message GetUserRequest { string username = 1; M padding = 2; }
+message GetUserResponse { int64 user_id = 1; string found = 2; M padding = 3; }
+
+// Social graph
+message FollowRequest { int64 user_id = 1; int64 target_user_id = 2; string action = 3; M padding = 4; }
+message FollowResponse { string message = 1; M padding = 2; }
+message GetFollowersRequest { int64 user_id = 1; M padding = 2; }
+message GetFollowersResponse { repeated int64 follower_ids = 1; M padding = 2; }
+
+// Post storage
+message StorePostRequest { Post post = 1; M padding = 2; }
+message StorePostResponse { string message = 1; M padding = 2; }
+message ReadPostsByIdsRequest { repeated int64 post_ids = 1; M padding = 2; }
+message ReadPostsByIdsResponse { repeated Post posts = 1; M padding = 2; }
+
+// User timeline
+message WriteUserTimelineRequest { int64 user_id = 1; int64 post_id = 2; M padding = 3; }
+message WriteUserTimelineResponse { string message = 1; M padding = 2; }
+message ReadUserTimelineRequest { int64 user_id = 1; int64 start = 2; int64 limit = 3; M padding = 4; }
+message ReadUserTimelineResponse { repeated int64 post_ids = 1; M padding = 2; }
+
+// Home timeline
+message WriteHomeTimelineRequest { int64 user_id = 1; int64 post_id = 2; repeated int64 follower_ids = 3; M padding = 4; }
+message WriteHomeTimelineResponse { string message = 1; M padding = 2; }
+message ReadHomeTimelineRequest { int64 user_id = 1; int64 start = 2; int64 limit = 3; M padding = 4; }
+message ReadHomeTimelineResponse { repeated int64 post_ids = 1; M padding = 2; }
+
+// Compose post orchestrator
+message ComposePostRequest { string username = 1; string text = 2; M padding = 3; }
+message ComposePostResponse { int64 post_id = 1; string message = 2; M padding = 3; }

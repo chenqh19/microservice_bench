@@ -108,5 +108,9 @@ WORKDIR /app
 # Copy common files that all services need
 # Hotel app protos and headers now live under /hotel
 COPY hotel/protos/*.proto /app/protos/
+# Social network app protos
+COPY socialnet/protos/*.proto /app/protos/
 # Also copy any shared headers remaining at repo root for compatibility
 COPY *.h /app/
+COPY socialnet/padding_utils.h /app/socialnet_padding_utils.h
+COPY hotel/padding_utils.h /app/hotel_padding_utils.h
