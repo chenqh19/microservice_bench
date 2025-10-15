@@ -27,7 +27,7 @@ public:
 
 int main() {
     const char* socket_path = "/tmp/unique_id_service.sock";
-    const int NUM_WORKERS = 8;
+    const int NUM_WORKERS = 16;
 
     PreforkServer server(NUM_WORKERS);
     if (!server.setup_socket(socket_path)) {

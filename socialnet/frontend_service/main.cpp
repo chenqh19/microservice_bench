@@ -15,7 +15,7 @@
 
 class FrontEndService {
 public:
-    static constexpr int POOL_SIZE = 64;
+    static constexpr int POOL_SIZE = 128;
 
     Ser1de_re ser1de;
 
@@ -104,7 +104,7 @@ int main() {
     if (server.fork_workers()) {
         FrontEndService svc;
         httplib::Server http;
-        http.set_keep_alive_max_count(1000);
+        http.set_keep_alive_max_count(50000);
         http.set_read_timeout(5);
         http.set_write_timeout(5);
         http.set_idle_interval(0, 100000);

@@ -9,6 +9,36 @@
 #include <cstring>
 #include <vector>
 #include <algorithm>
+#include <errno.h>
+
+static inline bool read_exact_fd(int fd, void* buf, size_t nbytes) {
+    char* p = static_cast<char*>(buf);
+    size_t total = 0;
+    while (total < nbytes) {
+        ssize_t r = read(fd, p + total, nbytes - total);
+        if (r == 0) return false; // EOF
+        if (r < 0) {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        total += static_cast<size_t>(r);
+    }
+    return true;
+}
+
+static inline bool write_exact_fd(int fd, const void* buf, size_t nbytes) {
+    const char* p = static_cast<const char*>(buf);
+    size_t total = 0;
+    while (total < nbytes) {
+        ssize_t w = write(fd, p + total, nbytes - total);
+        if (w < 0) {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        total += static_cast<size_t>(w);
+    }
+    return true;
+}
 
 class PreforkServer {
 private:
@@ -157,21 +187,10 @@ void worker_loop(int server_fd, ServiceType& service, Ser1de_re& ser1de) {
         }
 
         // Handle the client
-        char len_buf[4];
-        ssize_t n = read(client_fd, len_buf, 4);
-        if (n != 4) { 
-            close(client_fd); 
-            continue; 
-        }
-        
         uint32_t msg_len = 0;
-        memcpy(&msg_len, len_buf, 4);
+        if (!read_exact_fd(client_fd, &msg_len, 4)) { close(client_fd); continue; }
         std::vector<char> buf(msg_len);
-        n = read(client_fd, buf.data(), msg_len);
-        if (n != (ssize_t)msg_len) { 
-            close(client_fd); 
-            continue; 
-        }
+        if (msg_len > 0 && !read_exact_fd(client_fd, buf.data(), msg_len)) { close(client_fd); continue; }
         
         RequestType request;
         bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), request);
@@ -179,10 +198,8 @@ void worker_loop(int server_fd, ServiceType& service, Ser1de_re& ser1de) {
             auto response = service.process_request(request);
             std::string resp_str = microservice::utils::serialize_message(ser1de, response);
             uint32_t resp_len = resp_str.size();
-            ssize_t written = write(client_fd, &resp_len, 4);
-            if (written == 4) {
-                write(client_fd, resp_str.data(), resp_len);
-            }
+            if (!write_exact_fd(client_fd, &resp_len, 4)) { close(client_fd); continue; }
+            (void)write_exact_fd(client_fd, resp_str.data(), resp_len);
         }
         close(client_fd);
     }

@@ -39,11 +39,6 @@ public:
         socialnetwork::TextProcessRequest tpreq; tpreq.set_text(req.text()); *tpreq.mutable_padding() = microservice::utils::generate_person_padding();
         socialnetwork::TextProcessResponse tpresp; microservice::utils::deserialize_message(ser1de, uds_call("/tmp/text_service.sock", microservice::utils::serialize_message(ser1de, tpreq)), tpresp);
 
-        // simulate media compose (3MB)
-        socialnetwork::MediaComposeRequest mreq; mreq.set_size_bytes(8 * 1024); mreq.set_mime_type("application/octet-stream"); *mreq.mutable_padding() = microservice::utils::generate_person_padding();
-        auto mresp_str = uds_call("/tmp/media_service.sock", microservice::utils::serialize_message(ser1de, mreq));
-        socialnetwork::MediaComposeResponse mresp; microservice::utils::deserialize_message(ser1de, mresp_str, mresp);
-
         // shorten any URLs found
         for (int i = 0; i < tpresp.urls_size(); ++i) {
             socialnetwork::UrlShortenRequest ureq; ureq.set_url(tpresp.urls(i)); *ureq.mutable_padding() = microservice::utils::generate_person_padding();
@@ -115,7 +110,7 @@ public:
 
 int main() {
     const char* socket_path = "/tmp/compose_post_service.sock";
-    const int NUM_WORKERS = 32;
+    const int NUM_WORKERS = 64;
 
     PreforkServer server(NUM_WORKERS);
     if (!server.setup_socket(socket_path)) { std::cerr << "Failed to setup socket" << std::endl; return 1; }
