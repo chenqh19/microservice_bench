@@ -80,7 +80,7 @@ private:
     std::vector<pid_t> worker_pids_;
     bool should_stop_;
 public:
-    PreforkHTTPServer(int num_workers = 32) : num_workers_(num_workers), should_stop_(false) {}
+    PreforkHTTPServer(int num_workers = 128) : num_workers_(num_workers), should_stop_(false) {}
 
     bool fork_workers() {
         for (int i = 0; i < num_workers_; ++i) {
@@ -104,7 +104,7 @@ int main() {
     if (server.fork_workers()) {
         FrontEndService svc;
         httplib::Server http;
-        http.set_keep_alive_max_count(50000);
+        http.set_keep_alive_max_count(1000);
         http.set_read_timeout(5);
         http.set_write_timeout(5);
         http.set_idle_interval(0, 100000);

@@ -15,9 +15,13 @@ class SocialUserService {
 private:
     std::unordered_map<std::string, long long> username_to_id_;
     std::mutex mu_;
-    long long next_user_id_ = 1;
+    long long next_user_id_ = 201; // reserved 1..200
 public:
-    SocialUserService() {}
+    SocialUserService() {
+        for (int i = 1; i <= 200; ++i) {
+            username_to_id_[std::string("seeduser") + std::to_string(i)] = i;
+        }
+    }
 
     socialnetwork::RegisterUserResponse process_request(const socialnetwork::RegisterUserRequest& req) {
         std::lock_guard<std::mutex> lg(mu_);

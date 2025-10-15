@@ -68,6 +68,10 @@ message TextProcessResponse { string text = 1; repeated string mentions = 2; rep
 message UrlShortenRequest { string url = 1; M padding = 2; }
 message UrlShortenResponse { string short_url = 1; M padding = 2; }
 
+// Media compose
+message MediaComposeRequest { int64 size_bytes = 1; string mime_type = 2; M padding = 3; }
+message MediaComposeResponse { bytes media_blob = 1; string mime_type = 2; M padding = 3; }
+
 // Compose post orchestrator
 message ComposePostRequest { string username = 1; string text = 2; M padding = 3; }
 message ComposePostResponse { int64 post_id = 1; string message = 2; M padding = 3; }

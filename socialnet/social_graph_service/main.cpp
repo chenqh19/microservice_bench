@@ -17,7 +17,23 @@ private:
     std::unordered_map<long long, std::unordered_set<long long>> followers_of_user_;
     std::mutex mu_;
 public:
-    SocialGraphService() {}
+    SocialGraphService() {
+        // Base ring: each user i (1..200) is followed by i-1
+        for (int i = 1; i <= 200; ++i) {
+            int follower = (i == 1) ? 200 : (i - 1);
+            followers_of_user_[i].insert(follower);
+        }
+        // Add more deterministic follows to reach ~2000 edges
+        int added = 200; // ring provided 200
+        for (int i = 1; i <= 200 && added < 2000; ++i) {
+            for (int step = 2; step <= 11 && added < 2000; ++step) {
+                int follower = ((i - step - 1) % 200 + 200) % 200 + 1;
+                if (follower != i && followers_of_user_[i].insert(follower).second) {
+                    ++added;
+                }
+            }
+        }
+    }
 
     socialnetwork::FollowResponse process_request(const socialnetwork::FollowRequest& req) {
         std::lock_guard<std::mutex> lg(mu_);
@@ -26,10 +42,7 @@ public:
             followers_of_user_[req.target_user_id()].insert(req.user_id());
             resp.set_message("followed");
         } else if (req.action() == "unfollow") {
-            auto it = followers_of_user_.find(req.target_user_id());
-            if (it != followers_of_user_.end()) {
-                it->second.erase(req.user_id());
-            }
+            followers_of_user_[req.target_user_id()].erase(req.user_id());
             resp.set_message("unfollowed");
         } else {
             resp.set_message("noop");
@@ -55,14 +68,10 @@ int main() {
     const int NUM_WORKERS = 16;
 
     PreforkServer server(NUM_WORKERS);
-    if (!server.setup_socket(socket_path)) {
-        std::cerr << "Failed to setup socket" << std::endl;
-        return 1;
-    }
+    if (!server.setup_socket(socket_path)) { std::cerr << "Failed to setup socket" << std::endl; return 1; }
 
     if (server.fork_workers()) {
-        SocialGraphService service;
-        Ser1de_re ser1de;
+        SocialGraphService service; Ser1de_re ser1de;
 
         while (true) {
             int client_fd = accept(server.get_server_fd(), nullptr, nullptr);
@@ -101,7 +110,6 @@ int main() {
         }
         return 0;
     } else {
-        server.master_loop();
-        return 0;
+        server.master_loop(); return 0;
     }
 }

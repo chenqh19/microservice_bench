@@ -151,6 +151,20 @@ services:
       - sockets:/tmp
       - logs:/logs
 
+  media:
+    build:
+      context: .
+      dockerfile: media_service/Dockerfile
+    networks:
+      - socialnet_network
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+    volumes:
+      - sockets:/tmp
+      - logs:/logs
+
   compose_post:
     build:
       context: .

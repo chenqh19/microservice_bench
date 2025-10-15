@@ -16,7 +16,21 @@ private:
     std::unordered_map<long long, socialnetwork::Post> posts_by_id_;
     std::mutex mu_;
 public:
-    PostStorageService() {}
+    PostStorageService() {
+        // Hardcode 1000 posts with IDs 1..1000, users rotating 1..200
+        long long post_id = 1;
+        for (; post_id <= 1000; ++post_id) {
+            long long user_id = ((post_id - 1) % 200) + 1;
+            socialnetwork::Post p;
+            p.set_post_id(post_id);
+            p.set_user_id(user_id);
+            p.set_username(std::string("seeduser") + std::to_string(user_id));
+            p.set_text(std::string("post ") + std::to_string(post_id));
+            p.set_timestamp(1700000000000LL + post_id);
+            *p.mutable_padding() = microservice::utils::generate_person_padding();
+            posts_by_id_[post_id] = p;
+        }
+    }
 
     socialnetwork::StorePostResponse process_request(const socialnetwork::StorePostRequest& req) {
         std::lock_guard<std::mutex> lg(mu_);

@@ -2,7 +2,7 @@ local socket = require("socket")
 math.randomseed(socket.gettime()*1000); math.random(); math.random(); math.random()
 
 local function compose()
-  local usernames = {"alice","bob","carol","dave","erin","frank","grace"}
+  local usernames = {"seeduser1", "seeduser2", "seeduser3", "seeduser4", "seeduser5", "seeduser6", "seeduser7"}
   local u = usernames[math.random(#usernames)]
   return wrk.format("GET", string.format("/compose?username=%s&text=%s", u, "hi"))
 end
@@ -26,12 +26,10 @@ end
 
 request = function()
   local coin = math.random()
-  if coin < 0.4 then
-    return compose()
-  -- elseif coin < 0.6 then
-  --   return follow()
-  elseif coin < 0.7 then
+  if coin < 0.05 then
     return user_timeline()
+  elseif coin < 0.95 then
+    return compose()
   else
     return home_timeline()
   end
