@@ -58,7 +58,7 @@ public:
 
 int main() {
     const char* socket_path = "/tmp/user_service.sock";
-    const int NUM_WORKERS = 16;
+    const int NUM_WORKERS = 32;
 
     PreforkServer server(NUM_WORKERS);
     if (!server.setup_socket(socket_path)) {

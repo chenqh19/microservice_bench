@@ -39,6 +39,13 @@ public:
         socialnetwork::TextProcessRequest tpreq; tpreq.set_text(req.text()); *tpreq.mutable_padding() = microservice::utils::generate_person_padding();
         socialnetwork::TextProcessResponse tpresp; microservice::utils::deserialize_message(ser1de, uds_call("/tmp/text_service.sock", microservice::utils::serialize_message(ser1de, tpreq)), tpresp);
 
+        // call media compose (30KB)
+        {
+            socialnetwork::MediaComposeRequest mreq; mreq.set_size_bytes(30 * 1024); mreq.set_mime_type("application/octet-stream"); *mreq.mutable_padding() = microservice::utils::generate_person_padding();
+            auto mresp_str = uds_call("/tmp/media_service.sock", microservice::utils::serialize_message(ser1de, mreq));
+            socialnetwork::MediaComposeResponse mresp; (void)microservice::utils::deserialize_message(ser1de, mresp_str, mresp);
+        }
+
         // shorten any URLs found
         for (int i = 0; i < tpresp.urls_size(); ++i) {
             socialnetwork::UrlShortenRequest ureq; ureq.set_url(tpresp.urls(i)); *ureq.mutable_padding() = microservice::utils::generate_person_padding();
@@ -61,14 +68,13 @@ public:
             auto busy_start = std::chrono::steady_clock::now();
             volatile uint64_t acc = 0;
             do {
-                // simple arithmetic in a tight loop to burn CPU cycles
                 for (int i = 0; i < 2048; ++i) {
                     acc += static_cast<uint64_t>(i) * 2654435761u;
                 }
             } while (std::chrono::duration_cast<std::chrono::microseconds>(
                          std::chrono::steady_clock::now() - busy_start)
                          .count() < 1000);
-            (void)acc; // suppress unused warnings
+            (void)acc;
         }
 
         // 1) get or register user id
@@ -110,7 +116,7 @@ public:
 
 int main() {
     const char* socket_path = "/tmp/compose_post_service.sock";
-    const int NUM_WORKERS = 64;
+    const int NUM_WORKERS = 32;
 
     PreforkServer server(NUM_WORKERS);
     if (!server.setup_socket(socket_path)) { std::cerr << "Failed to setup socket" << std::endl; return 1; }
