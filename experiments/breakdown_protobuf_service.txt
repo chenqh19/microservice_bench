@@ -1,0 +1,36 @@
+Service breakdown analysis:
+
+SEARCH service:
+  Service avg: 727370.32 ns (0.73 ms)
+  Serialization sum: 26178.61 ns (0.03 ms)
+  Deserialization sum: 151631.63 ns (0.15 ms)
+
+RECOMMENDATION service:
+  Service avg: 728435.22 ns (0.73 ms)
+  Serialization sum: 34848.30 ns (0.03 ms)
+  Deserialization sum: 140201.52 ns (0.14 ms)
+
+USER service:
+  Service avg: 26761.41 ns (0.03 ms)
+  Serialization sum: 4085.28 ns (0.00 ms)
+  Deserialization sum: 15091.06 ns (0.02 ms)
+
+RESERVATION service:
+  Service avg: 253387.26 ns (0.25 ms)
+  Serialization sum: 16257.22 ns (0.02 ms)
+  Deserialization sum: 40494.92 ns (0.04 ms)
+
+PROFILE service:
+  Service avg: 55356.51 ns (0.06 ms)
+  Serialization sum: 14131.68 ns (0.01 ms)
+  Deserialization sum: 17216.72 ns (0.02 ms)
+
+RATE service:
+  Service avg: 59273.16 ns (0.06 ms)
+  Serialization sum: 13586.39 ns (0.01 ms)
+  Deserialization sum: 17548.38 ns (0.02 ms)
+
+GEO service:
+  Service avg: 38525.82 ns (0.04 ms)
+  Serialization sum: 3994.15 ns (0.00 ms)
+  Deserialization sum: 7434.17 ns (0.01 ms)

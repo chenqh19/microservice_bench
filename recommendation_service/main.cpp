@@ -113,7 +113,7 @@ int main() {
         
         // Worker process main loop
         worker_loop<RecommendationService, hotelreservation::RecommendRequest, hotelreservation::RecommendResponse>(
-            server.get_server_fd(), service, ser1de);
+            server.get_server_fd(), service, ser1de, "recommendation", "recommend");
         
         return 0;
     } else {

@@ -131,5 +131,23 @@ inline void log_request_timing(const std::string& endpoint,
 #endif
 }
 
+// Function to log per-service processing timing
+inline void log_service_request_timing(const std::string& service,
+                                       const std::string& endpoint,
+                                       const std::chrono::steady_clock::time_point& start_time,
+                                       const std::chrono::steady_clock::time_point& end_time) {
+#if ENABLE_TIMING
+    using namespace std::chrono;
+    auto duration = duration_cast<nanoseconds>(end_time - start_time).count();
+    std::string log_file = "/logs/service_" + service + "_request.txt";
+    {
+        std::lock_guard<std::mutex> lock(detail::log_mutex);
+        detail::ensure_logs_dir();
+        std::ofstream ofs(log_file, std::ios::app);
+        ofs << duration << std::endl;
+    }
+#endif
+}
+
 } // namespace utils
 } // namespace microservice 

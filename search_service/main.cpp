@@ -118,7 +118,7 @@ int main() {
         
         // Worker process main loop
         worker_loop<SearchService, hotelreservation::SearchRequest, hotelreservation::SearchResponse>(
-            server.get_server_fd(), service, ser1de);
+            server.get_server_fd(), service, ser1de, "search", "search");
         
         return 0;
     } else {

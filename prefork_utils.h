@@ -142,7 +142,8 @@ public:
 
 // Worker process main loop template
 template<typename ServiceType, typename RequestType, typename ResponseType>
-void worker_loop(int server_fd, ServiceType& service, Ser1de_re& ser1de) {
+void worker_loop(int server_fd, ServiceType& service, Ser1de_re& ser1de,
+                 const char* service_name, const char* endpoint_name) {
     std::cout << "Worker " << getpid() << " ready to accept connections" << std::endl;
     
     while (true) {
@@ -176,6 +177,7 @@ void worker_loop(int server_fd, ServiceType& service, Ser1de_re& ser1de) {
         RequestType request;
         bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), request);
         if (ok) {
+            auto start_time = std::chrono::steady_clock::now();
             auto response = service.process_request(request);
             std::string resp_str = microservice::utils::serialize_message(ser1de, response);
             uint32_t resp_len = resp_str.size();
@@ -183,6 +185,8 @@ void worker_loop(int server_fd, ServiceType& service, Ser1de_re& ser1de) {
             if (written == 4) {
                 write(client_fd, resp_str.data(), resp_len);
             }
+            auto end_time = std::chrono::steady_clock::now();
+            microservice::utils::log_service_request_timing(service_name, endpoint_name, start_time, end_time);
         }
         close(client_fd);
     }

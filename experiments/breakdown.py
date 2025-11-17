@@ -44,6 +44,53 @@ REQUEST_TO_MESSAGE_MAPPING = {
     ]
 }
 
+SERVICE_TO_MESSAGE_MAPPING = {
+    'search': [
+        'SearchRequestEDe',
+        'SearchResponseESe',
+        'NearbyRequestESe',
+        'NearbyResponseEDe',
+        'GetRatesRequestESe',
+        'GetRatesResponseEDe',
+        'GetProfilesRequestESe',
+        'GetProfilesResponseEDe',
+    ],
+    'recommendation': [
+        'RecommendRequestEDe',
+        'RecommendResponseESe',
+        'GetRatesRequestESe',
+        'GetRatesResponseEDe',
+        'GetProfilesRequestESe',
+        'GetProfilesResponseEDe',
+    ],
+    'user': [
+        'UserRequestEDe',
+        'UserResponseESe',
+        'CheckUserRequestEDe',
+        'CheckUserResponseESe',
+    ],
+    'reservation': [
+        'ReservationRequestEDe',
+        'ReservationResponseESe',
+        'CheckUserRequestESe',
+        'CheckUserResponseEDe',
+        'UserRequestESe',
+        'UserResponseEDe',
+    ],
+    'profile': [
+        'GetProfilesRequestEDe',
+        'GetProfilesResponseESe',
+    ],
+    'rate': [
+        'GetRatesRequestEDe',
+        'GetRatesResponseESe',
+    ],
+    'geo': [
+        'NearbyRequestEDe',
+        'NearbyResponseESe',
+    ],
+}
+
 def analyze_timing_logs(logs_dir="../logs"):
     """
     Analyze timing data from log files in the specified directory.
@@ -150,6 +197,39 @@ def analyze_request_breakdown(logs_dir="../logs"):
     
     return breakdown
 
+def analyze_service_breakdown(logs_dir="../logs"):
+    """
+    Analyze timing data according to SERVICE_TO_MESSAGE_MAPPING.
+    For each service, return 3 numbers:
+    - request avg: average of request log file (frontend_X_request.txt)
+    - serialization sum: sum of all serialization averages (service_X_Se.txt files)
+    - deserialization sum: sum of all deserialization averages (service_X_De.txt files)
+    """
+    results = analyze_timing_logs(logs_dir)
+    breakdown = {}
+    
+    for service_type, messages in SERVICE_TO_MESSAGE_MAPPING.items():
+        # Get request timing (frontend_X_request.txt)
+        service_file = f"service_{service_type}_request.txt"
+        service_avg = results.get(service_file, 0)
+        
+        # Get serialization and deserialization sums
+        ser_sum = 0
+        de_sum = 0
+        
+        for message_type in messages:
+            # Find files that contain the message type string
+            for filename, avg_time in results.items():
+                if message_type in filename:
+                    if filename.endswith('Se.txt'):
+                        ser_sum += avg_time
+                    elif filename.endswith('De.txt'):
+                        de_sum += avg_time
+        
+        breakdown[service_type] = (service_avg, ser_sum, de_sum)
+    
+    return breakdown
+
 if __name__ == "__main__":
     # Example usage
     results = analyze_timing_logs()
@@ -159,17 +239,26 @@ if __name__ == "__main__":
         for filename, avg in results.items():
             print(f"{filename}: {avg:.2f} ns ({avg/1000000:.2f} ms)")
         
-        print("\n" + "="*50)
-        print("Messages by request type:")
-        for request_type, messages in REQUEST_TO_MESSAGE_MAPPING.items():
-            print(f"{request_type}: {messages}")
+        # print("\n" + "="*50)
+        # print("Messages by request type:")
+        # for request_type, messages in REQUEST_TO_MESSAGE_MAPPING.items():
+        #     print(f"{request_type}: {messages}")
         
+        # print("\n" + "="*50)
+        # print("Request breakdown analysis:")
+        # breakdown = analyze_request_breakdown()
+        # for request_type, data in breakdown.items():
+        #     print(f"\n{request_type.upper()} request:")
+        #     print(f"  Request avg: {data[0]:.2f} ns ({data[0]/1000000:.2f} ms)")
+        #     print(f"  Serialization sum: {data[1]:.2f} ns ({data[1]/1000000:.2f} ms)")
+        #     print(f"  Deserialization sum: {data[2]:.2f} ns ({data[2]/1000000:.2f} ms)")
+
         print("\n" + "="*50)
-        print("Request breakdown analysis:")
-        breakdown = analyze_request_breakdown()
-        for request_type, data in breakdown.items():
-            print(f"\n{request_type.upper()} request:")
-            print(f"  Request avg: {data[0]:.2f} ns ({data[0]/1000000:.2f} ms)")
+        print("Service breakdown analysis:")
+        breakdown = analyze_service_breakdown()
+        for service_type, data in breakdown.items():
+            print(f"\n{service_type.upper()} service:")
+            print(f"  Service avg: {data[0]:.2f} ns ({data[0]/1000000:.2f} ms)")
             print(f"  Serialization sum: {data[1]:.2f} ns ({data[1]/1000000:.2f} ms)")
             print(f"  Deserialization sum: {data[2]:.2f} ns ({data[2]/1000000:.2f} ms)")
     else:

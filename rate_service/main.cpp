@@ -100,7 +100,7 @@ int main() {
         
         // Worker process main loop
         worker_loop<RateService, hotelreservation::GetRatesRequest, hotelreservation::GetRatesResponse>(
-            server.get_server_fd(), service, ser1de);
+            server.get_server_fd(), service, ser1de, "rate", "rates");
         
         return 0;
     } else {

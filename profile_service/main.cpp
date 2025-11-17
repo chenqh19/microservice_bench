@@ -198,7 +198,7 @@ int main() {
         
         // Worker process main loop
         worker_loop<ProfileService, hotelreservation::GetProfilesRequest, hotelreservation::GetProfilesResponse>(
-            server.get_server_fd(), service, ser1de);
+            server.get_server_fd(), service, ser1de, "profile", "profiles");
         
         return 0;
     } else {

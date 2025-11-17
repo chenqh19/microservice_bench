@@ -132,21 +132,27 @@ int main() {
             hotelreservation::UserRequest user_req;
             bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), user_req);
             if (ok) {
+                auto start_time = std::chrono::steady_clock::now();
                 auto response = service.process_request(user_req);
                 std::string resp_str = microservice::utils::serialize_message(ser1de, response);
                 uint32_t resp_len = resp_str.size();
                 write(client_fd, &resp_len, 4);
                 write(client_fd, resp_str.data(), resp_len);
+                auto end_time = std::chrono::steady_clock::now();
+                microservice::utils::log_service_request_timing("user", "user", start_time, end_time);
             } else {
                 // Try as CheckUserRequest
                 hotelreservation::CheckUserRequest check_req;
                 ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), check_req);
                 if (ok) {
+                    auto start_time = std::chrono::steady_clock::now();
                     auto response = service.process_check_request(check_req);
                     std::string resp_str = microservice::utils::serialize_message(ser1de, response);
                     uint32_t resp_len = resp_str.size();
                     write(client_fd, &resp_len, 4);
                     write(client_fd, resp_str.data(), resp_len);
+                    auto end_time = std::chrono::steady_clock::now();
+                    microservice::utils::log_service_request_timing("user", "check_user", start_time, end_time);
                 }
             }
             close(client_fd);

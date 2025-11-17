@@ -105,7 +105,7 @@ int main() {
         
         // Worker process main loop
         worker_loop<GeoService, hotelreservation::NearbyRequest, hotelreservation::NearbyResponse>(
-            server.get_server_fd(), service, ser1de);
+            server.get_server_fd(), service, ser1de, "geo", "nearby");
         
         return 0;
     } else {
