@@ -1,9 +1,8 @@
-#include "../utils/compression_utils.h"
 #include <iostream>
 #include <string>
 #include "hotel_reservation.pb.h"
-#include "../utils/serialization_utils.h"
-#include "../utils/padding_utils.h"
+#include "serialization_utils.h"
+#include "hotel_padding_utils.h"
 #include <vector>
 #include <atomic>
 #include <thread>
@@ -15,11 +14,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include "../utils/prefork_utils.h"
+#include "../prefork_utils.h"
 
 class RecommendationService {
 private:
-    std::string pre_generated_random_data_;
     // No unused members
     
     std::string sendProtobufOverUDS(const std::string& path, const std::string& data) {
@@ -49,46 +47,43 @@ public:
     Ser1de_re ser1de;
     
     RecommendationService() {
-        // Pre-generate random data once during initialization
-        pre_generated_random_data_.resize(2000);
-        for (int i = 0; i < 2000; i++) {
-            pre_generated_random_data_[i] = 'A' + (i % 26);
-        }
         // Initialize client pools
         // This class is now purely UDS+Protobuf, so no client pools are needed.
-        // Initialize compression manager
-        microservice::compression::init_compression();
     }
 
     hotelreservation::RecommendResponse process_request(const hotelreservation::RecommendRequest& req) {
-        // Useless compression/decompression of random 5000B string
-        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
-
-        // Generate hotel IDs based on location (similar to geo service)
-        std::vector<std::string> hotel_ids;
-        for (int i = 1; i <= 10; i++) {
-            hotel_ids.push_back(std::to_string(i));
-        }
-
-        // Get hotel profiles
-        hotelreservation::GetProfilesRequest profile_req;
-        for (const auto& hotel_id : hotel_ids) {
-            profile_req.add_hotel_ids(hotel_id);
-        }
-        *profile_req.mutable_padding() = microservice::utils::generate_person_padding();
         
+        // Get hotel profiles first
+        hotelreservation::GetProfilesRequest profile_req;
+        for (int i = 1; i <= 10; i++) {
+            profile_req.add_hotel_ids(std::to_string(i));
+        }
+        profile_req.set_locale(req.locale());
+        *profile_req.mutable_padding() = microservice::utils::generate_person_padding();
         std::string profile_resp_str = sendProtobufOverUDS("/tmp/profile_service.sock", microservice::utils::serialize_message(ser1de, profile_req));
         hotelreservation::GetProfilesResponse profile_resp;
         if (!microservice::utils::deserialize_message(ser1de, profile_resp_str, profile_resp)) {
             return hotelreservation::RecommendResponse();
         }
 
+        // Get rates for these hotels
+        hotelreservation::GetRatesRequest rate_req;
+        for (const auto& profile : profile_resp.profiles()) {
+            rate_req.add_hotel_ids(profile.id());
+        }
+        rate_req.set_in_date("2023-12-01");
+        rate_req.set_out_date("2023-12-02");
+        *rate_req.mutable_padding() = microservice::utils::generate_person_padding();
+        std::string rate_resp_str = sendProtobufOverUDS("/tmp/rate_service.sock", microservice::utils::serialize_message(ser1de, rate_req));
+        hotelreservation::GetRatesResponse rate_resp;
+        if (!microservice::utils::deserialize_message(ser1de, rate_resp_str, rate_resp)) {
+            return hotelreservation::RecommendResponse();
+        }
+
         // Combine results
         hotelreservation::RecommendResponse response;
         for (const auto& profile : profile_resp.profiles()) {
-            auto hotel = profile;
-            *response.add_hotels() = hotel;
+            *response.add_hotels() = profile;
         }
         
         *response.mutable_padding() = microservice::utils::generate_person_padding();

@@ -34,8 +34,8 @@ private:
 public:
     GeoService() {
         // Pre-generate random data once during initialization
-        pre_generated_random_data_.resize(10000);
-        for (int i = 0; i < 10000; i++) {
+        pre_generated_random_data_.resize(2000);
+        for (int i = 0; i < 2000; i++) {
             pre_generated_random_data_[i] = 'A' + (i % 26);
         }
         InitializeSampleData();
@@ -89,7 +89,7 @@ public:
 
 int main() {
     const char* socket_path = "/tmp/geo_service.sock";
-    const int NUM_WORKERS = 32;  // Number of worker processes
+    const int NUM_WORKERS = 64;  // Number of worker processes
     
     PreforkServer server(NUM_WORKERS);
     

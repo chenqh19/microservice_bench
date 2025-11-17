@@ -3,7 +3,7 @@ import time
 
 
 def run_one_rps(RPS, duration=30, file_name="tail.txt"):
-    cmd = f"taskset -c 32-63 ../wrk2/wrk -D fixed -t 100 -c 100 -d {duration} -L -s ../wrk_scripts/scripts/hotel-reservation/mixed-workload_type_1.lua http://localhost:50050 -R {RPS}"
+    cmd = f"taskset -c 32-63 ../wrk2/wrk -D fixed -t 200 -c 200 -d {duration} -L -s ../wrk_scripts/scripts/hotel-reservation/mixed-workload_type_1.lua http://localhost:50050 -R {RPS}"
      
     # Create subprocesses to execute each command using subprocess.Popen
     process = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -33,10 +33,16 @@ def run_one_rps(RPS, duration=30, file_name="tail.txt"):
 
 def main():
     time.sleep(5)
-    file_name = "tail_c1s0.txt"
+    file_name = "tail_c0s1.txt"
     with open(file_name, "a") as f:
         f.write("start experiment\n")
-    for rps in range(28600, 31600, 200):
+    for rps in range(60000, 40000, -10000): # warm up
+        run_one_rps(rps, 30)
+        time.sleep(5)
+    time.sleep(10)
+    for rps in range(40000, 63000, 500): # collect latency
+        if rps < 55000 and rps % 2000 != 0:
+            continue
         run_one_rps(rps, 30, file_name)
         time.sleep(5)
     with open(file_name, "a") as f:

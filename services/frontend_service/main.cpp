@@ -23,7 +23,7 @@ private:
     std::string pre_generated_random_data_;
 
 public:
-    static constexpr int POOL_SIZE = 128;  // Number of worker processes
+    static constexpr int POOL_SIZE = 256;  // Number of worker processes
 
     // Helper function to convert JSON to protobuf messages
     hotelreservation::SearchRequest parseSearchRequest(const Json::Value& json) {
@@ -142,8 +142,8 @@ public:
 public:
     FrontEndService() {
         // Pre-generate random data once during initialization
-        pre_generated_random_data_.resize(10000);
-        for (int i = 0; i < 10000; i++) {
+        pre_generated_random_data_.resize(2000);
+        for (int i = 0; i < 2000; i++) {
             pre_generated_random_data_[i] = 'A' + (i % 26);
         }
         // Remove all initialization of httplib::Client in constructor
