@@ -70,14 +70,16 @@ public:
     }
 
     hotelreservation::NearbyResponse process_request(const hotelreservation::NearbyRequest& req) {
-        // Useless compression/decompression of random 5000B string
-        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+		// Optional dummy compression
+#if ENABLE_DUMMY_SERVICE_COMPRESSION
+		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+#endif
 
         hotelreservation::NearbyResponse response;
         
         // Add some sample hotel IDs
-        for (int i = 1; i <= 10; i++) {
+        for (int i = 1; i <= 20; i++) {
             response.add_hotel_ids(std::to_string(i));
         }
         

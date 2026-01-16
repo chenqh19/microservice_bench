@@ -61,13 +61,15 @@ public:
     }
 
     hotelreservation::RecommendResponse process_request(const hotelreservation::RecommendRequest& req) {
-        // Useless compression/decompression of random 5000B string
-        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+		// Optional dummy compression
+#if ENABLE_DUMMY_SERVICE_COMPRESSION
+		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+#endif
 
         // Generate hotel IDs based on location (similar to geo service)
         std::vector<std::string> hotel_ids;
-        for (int i = 1; i <= 10; i++) {
+        for (int i = 1; i <= 20; i++) {
             hotel_ids.push_back(std::to_string(i));
         }
 

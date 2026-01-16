@@ -57,9 +57,11 @@ public:
     hotelreservation::UserResponse process_request(const hotelreservation::UserRequest& req) {
         std::lock_guard<std::mutex> lock(users_mutex_);
 
-        // Useless compression/decompression of random 5000B string
-        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+		// Optional dummy compression
+#if ENABLE_DUMMY_SERVICE_COMPRESSION
+		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+#endif
 
         if (users_.find(req.username()) != users_.end()) {
             hotelreservation::UserResponse response;
@@ -80,9 +82,11 @@ public:
     hotelreservation::CheckUserResponse process_check_request(const hotelreservation::CheckUserRequest& req) {
         std::lock_guard<std::mutex> lock(users_mutex_);
 
-        // Useless compression/decompression of random 5000B string
-        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+		// Optional dummy compression
+#if ENABLE_DUMMY_SERVICE_COMPRESSION
+		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+#endif
 
         auto it = users_.find(req.username());
         hotelreservation::CheckUserResponse response;

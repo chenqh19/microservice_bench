@@ -18,7 +18,7 @@ private:
     bool should_stop_;
 
 public:
-    PreforkServer(int NUM_WORKERS = 32) : num_workers_(NUM_WORKERS), should_stop_(false) {
+    PreforkServer(int NUM_WORKERS = 64) : num_workers_(NUM_WORKERS), should_stop_(false) {
         // Set up signal handlers for graceful shutdown
         signal(SIGTERM, [](int) { /* handled in main loop */ });
         signal(SIGINT, [](int) { /* handled in main loop */ });
