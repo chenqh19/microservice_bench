@@ -45,7 +45,7 @@ public:
                                 double base) {
                 hotelreservation::RoomType rt;
                 rt.set_code(code);
-                rt.set_room_description(desc);
+                rt.set_room_description(microservice::utils::maybe_compress_field(desc));
                 rt.set_bookable_rate(base);
                 rt.set_total_rate(rt.bookable_rate() * 1.1);
                 rt.set_total_rate_inclusive(rt.total_rate() * 1.2);

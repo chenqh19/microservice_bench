@@ -59,8 +59,8 @@ public:
 
 		// Optional dummy compression
 #if ENABLE_DUMMY_SERVICE_COMPRESSION
-		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
 
         if (users_.find(req.username()) != users_.end()) {
@@ -84,8 +84,8 @@ public:
 
 		// Optional dummy compression
 #if ENABLE_DUMMY_SERVICE_COMPRESSION
-		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
 
         auto it = users_.find(req.username());

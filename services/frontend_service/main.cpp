@@ -75,17 +75,17 @@ public:
         for (const auto& hotel : resp.hotels()) {
             Json::Value hotel_json;
             hotel_json["id"] = hotel.id();
-            hotel_json["name"] = hotel.name();
+            hotel_json["name"] = microservice::utils::maybe_decompress_field(hotel.name());
             hotel_json["phoneNumber"] = hotel.phone_number();
-            hotel_json["description"] = hotel.description();
+            hotel_json["description"] = microservice::utils::maybe_decompress_field(hotel.description());
 
             Json::Value address;
-            address["streetNumber"] = hotel.address().street_number();
-            address["streetName"] = hotel.address().street_name();
-            address["city"] = hotel.address().city();
-            address["state"] = hotel.address().state();
-            address["country"] = hotel.address().country();
-            address["postalCode"] = hotel.address().postal_code();
+            address["streetNumber"] = microservice::utils::maybe_decompress_field(hotel.address().street_number());
+            address["streetName"] = microservice::utils::maybe_decompress_field(hotel.address().street_name());
+            address["city"] = microservice::utils::maybe_decompress_field(hotel.address().city());
+            address["state"] = microservice::utils::maybe_decompress_field(hotel.address().state());
+            address["country"] = microservice::utils::maybe_decompress_field(hotel.address().country());
+            address["postalCode"] = microservice::utils::maybe_decompress_field(hotel.address().postal_code());
             hotel_json["address"] = address;
 
             json.append(hotel_json);
@@ -98,17 +98,17 @@ public:
         for (const auto& hotel : resp.hotels()) {
             Json::Value hotel_json;
             hotel_json["id"] = hotel.id();
-            hotel_json["name"] = hotel.name();
+            hotel_json["name"] = microservice::utils::maybe_decompress_field(hotel.name());
             hotel_json["phoneNumber"] = hotel.phone_number();
-            hotel_json["description"] = hotel.description();
+            hotel_json["description"] = microservice::utils::maybe_decompress_field(hotel.description());
 
             Json::Value address;
-            address["streetNumber"] = hotel.address().street_number();
-            address["streetName"] = hotel.address().street_name();
-            address["city"] = hotel.address().city();
-            address["state"] = hotel.address().state();
-            address["country"] = hotel.address().country();
-            address["postalCode"] = hotel.address().postal_code();
+            address["streetNumber"] = microservice::utils::maybe_decompress_field(hotel.address().street_number());
+            address["streetName"] = microservice::utils::maybe_decompress_field(hotel.address().street_name());
+            address["city"] = microservice::utils::maybe_decompress_field(hotel.address().city());
+            address["state"] = microservice::utils::maybe_decompress_field(hotel.address().state());
+            address["country"] = microservice::utils::maybe_decompress_field(hotel.address().country());
+            address["postalCode"] = microservice::utils::maybe_decompress_field(hotel.address().postal_code());
             hotel_json["address"] = address;
 
             json.append(hotel_json);
