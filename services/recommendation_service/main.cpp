@@ -4,6 +4,7 @@
 #include "hotel_reservation.pb.h"
 #include "../utils/serialization_utils.h"
 #include "../utils/padding_utils.h"
+#include "../utils/data_models.h"
 #include <vector>
 #include <atomic>
 #include <thread>
@@ -60,12 +61,15 @@ public:
         microservice::compression::init_compression();
     }
 
-    hotelreservation::RecommendResponse process_request(const hotelreservation::RecommendRequest& req) {
+	hotelreservation::RecommendResponse process_request(const hotelreservation::RecommendRequest& req) {
 		// Optional dummy compression
 #if ENABLE_DUMMY_SERVICE_COMPRESSION
         std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
+		// Convert incoming protobuf to domain model
+		microservice::models::RecommendRequestData reqd;
+		microservice::models::fromProto(req, reqd);
 
         // Generate hotel IDs based on location (similar to geo service)
         std::vector<std::string> hotel_ids;
@@ -73,8 +77,8 @@ public:
             hotel_ids.push_back(std::to_string(i));
         }
 
-        // Get hotel profiles
-        hotelreservation::GetProfilesRequest profile_req;
+		// Build profiles request (transport uses protobuf)
+		hotelreservation::GetProfilesRequest profile_req;
         for (const auto& hotel_id : hotel_ids) {
             profile_req.add_hotel_ids(hotel_id);
         }
@@ -86,16 +90,16 @@ public:
             return hotelreservation::RecommendResponse();
         }
 
-        // Combine results
-        hotelreservation::RecommendResponse response;
-        for (const auto& profile : profile_resp.profiles()) {
-            auto hotel = profile;
-            *response.add_hotels() = hotel;
-        }
-        
-        *response.mutable_padding() = microservice::utils::generate_person_padding();
-        
-        return response;
+		// Convert to domain and then back to protobuf response
+		microservice::models::RecommendResponseData respd;
+		for (const auto& p : profile_resp.profiles()) {
+			microservice::models::HotelProfileData hp;
+			microservice::models::fromProto(p, hp);
+			respd.hotels.push_back(std::move(hp));
+		}
+		hotelreservation::RecommendResponse out;
+		microservice::models::toProto(respd, out);
+		return out;
     }
 };
 

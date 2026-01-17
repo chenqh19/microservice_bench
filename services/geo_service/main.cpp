@@ -7,6 +7,7 @@
 #include "hotel_reservation.pb.h"
 #include "../utils/serialization_utils.h"
 #include "../utils/padding_utils.h"
+#include "../utils/data_models.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -69,23 +70,23 @@ public:
         return EARTH_RADIUS * c;
     }
 
-    hotelreservation::NearbyResponse process_request(const hotelreservation::NearbyRequest& req) {
+	hotelreservation::NearbyResponse process_request(const hotelreservation::NearbyRequest& req) {
 		// Optional dummy compression
 #if ENABLE_DUMMY_SERVICE_COMPRESSION
         std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
+		// Convert incoming protobuf to domain model
+		microservice::models::NearbyRequestData reqd;
+		microservice::models::fromProto(req, reqd);
 
-        hotelreservation::NearbyResponse response;
-        
-        // Add some sample hotel IDs
-        for (int i = 1; i <= 20; i++) {
-            response.add_hotel_ids(std::to_string(i));
-        }
-        
-        *response.mutable_padding() = microservice::utils::generate_person_padding();
-        
-        return response;
+		microservice::models::NearbyResponseData respd;
+		for (int i = 1; i <= 20; i++) {
+			respd.hotel_ids.push_back(std::to_string(i));
+		}
+		hotelreservation::NearbyResponse out;
+		microservice::models::toProto(respd, out);
+		return out;
     }
 };
 

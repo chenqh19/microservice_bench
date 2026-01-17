@@ -8,7 +8,6 @@
 #include <sys/stat.h>
 #include <typeinfo>
 #include "../config.h"
-#include "compression_utils.h"
 
 // Configuration options are now defined in config.h
 // USE_SER1DE and ENABLE_TIMING are defined there
@@ -42,27 +41,6 @@ namespace detail {
     std::string get_type_name() {
         return typeid(T).name();
     }
-}
-
-// Per-field compression helpers (pre-serialization)
-inline std::string maybe_compress_field(const std::string& value) {
-#if ENABLE_ARG_COMPRESSION
-    if (value.size() >= ARG_COMPRESSION_MIN_SIZE) {
-        std::string compressed = microservice::compression::compress_data(value);
-        if (!compressed.empty()) return compressed;
-    }
-#endif
-    return value;
-}
-
-inline std::string maybe_decompress_field(const std::string& value) {
-#if ENABLE_ARG_COMPRESSION
-    if (value.size() >= 11 && value.substr(0, 11) == "COMPRESSED:") {
-        std::string inflated = microservice::compression::decompress_data(value);
-        if (!inflated.empty()) return inflated;
-    }
-#endif
-    return value;
 }
 
 template<typename T>

@@ -6,6 +6,7 @@
 #include "../utils/serialization_utils.h"
 #include "../utils/padding_utils.h"
 #include "../utils/compression_utils.h"
+#include "../utils/data_models.h"
 #include <chrono>
 #include <atomic>
 #include <thread>
@@ -62,8 +63,10 @@ public:
         std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
+        microservice::models::UserRequestData reqd;
+        microservice::models::fromProto(req, reqd);
 
-        if (users_.find(req.username()) != users_.end()) {
+        if (users_.find(reqd.username) != users_.end()) {
             hotelreservation::UserResponse response;
             response.set_message("User already exists");
             *response.mutable_padding() = microservice::utils::generate_person_padding();
@@ -71,7 +74,7 @@ public:
             return response;
         }
 
-        users_[req.username()] = req.password();
+        users_[reqd.username] = reqd.password;
         hotelreservation::UserResponse response;
         response.set_message("User registered successfully");
         *response.mutable_padding() = microservice::utils::generate_person_padding();
@@ -87,11 +90,13 @@ public:
         std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
         std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
+        microservice::models::CheckUserRequestData reqd;
+        microservice::models::fromProto(req, reqd);
 
-        auto it = users_.find(req.username());
+        auto it = users_.find(reqd.username);
         hotelreservation::CheckUserResponse response;
         
-        if (it != users_.end() && it->second == req.password()) {
+        if (it != users_.end() && it->second == reqd.password) {
             response.set_exists("True");
         } else {
             response.set_exists("False");

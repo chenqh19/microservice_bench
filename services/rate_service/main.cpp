@@ -5,6 +5,7 @@
 #include "hotel_reservation.pb.h"
 #include "../utils/serialization_utils.h"
 #include "../utils/padding_utils.h"
+#include "../utils/data_models.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -19,7 +20,7 @@
 
 class RateService {
 private:
-    std::unordered_map<std::string, std::vector<hotelreservation::RoomType>> hotel_rates_;
+    std::unordered_map<std::string, std::vector<microservice::models::RoomTypeData>> hotel_rates_;
     std::string pre_generated_random_data_;
 
 public:
@@ -38,18 +39,17 @@ public:
         // Add multiple room types with richer, longer descriptions for each hotel
         for (int i = 1; i <= 20; i++) {
             std::string hotel_id = std::to_string(i);
-            std::vector<hotelreservation::RoomType> room_types;
+            std::vector<microservice::models::RoomTypeData> room_types;
 
             auto make_rate = [](const std::string& code,
                                 const std::string& desc,
                                 double base) {
-                hotelreservation::RoomType rt;
-                rt.set_code(code);
-                rt.set_room_description(microservice::utils::maybe_compress_field(desc));
-                rt.set_bookable_rate(base);
-                rt.set_total_rate(rt.bookable_rate() * 1.1);
-                rt.set_total_rate_inclusive(rt.total_rate() * 1.2);
-                *rt.mutable_padding() = microservice::utils::generate_person_padding();
+                microservice::models::RoomTypeData rt;
+                rt.code = code;
+                rt.room_description = desc;
+                rt.bookable_rate = base;
+                rt.total_rate = rt.bookable_rate * 1.1;
+                rt.total_rate_inclusive = rt.total_rate * 1.2;
                 return rt;
             };
 
@@ -95,24 +95,26 @@ public:
     hotelreservation::GetRatesResponse process_request(const hotelreservation::GetRatesRequest& req) {
 		// Optional dummy compression
 #if ENABLE_DUMMY_SERVICE_COMPRESSION
-		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
 
         hotelreservation::GetRatesResponse response;
         
-        for (const auto& hotel_id : req.hotel_ids()) {
+        microservice::models::GetRatesRequestData reqd;
+        microservice::models::fromProto(req, reqd);
+        for (const auto& hotel_id : reqd.hotel_ids) {
             auto it = hotel_rates_.find(hotel_id);
             if (it == hotel_rates_.end()) {
                 continue;
             }
             for (const auto& rt : it->second) {
-                auto* rate_plan = response.add_rate_plans();
-                rate_plan->set_hotel_id(hotel_id);
-                rate_plan->set_code(rt.code());
-                rate_plan->set_in_date("2023-12-01");
-                rate_plan->set_out_date("2023-12-02");
-                *rate_plan->mutable_room_type() = rt;
+            auto* rate_plan = response.add_rate_plans();
+            rate_plan->set_hotel_id(hotel_id);
+                rate_plan->set_code(rt.code);
+            rate_plan->set_in_date("2023-12-01");
+            rate_plan->set_out_date("2023-12-02");
+                microservice::models::toProto(rt, *rate_plan->mutable_room_type());
             }
         }
         

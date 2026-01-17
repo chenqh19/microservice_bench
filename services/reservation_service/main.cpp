@@ -7,6 +7,7 @@
 #include "hotel_reservation.pb.h"
 #include "../utils/serialization_utils.h"
 #include "../utils/padding_utils.h"
+#include "../utils/data_models.h"
 #include <cstring>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -18,7 +19,7 @@
 class ReservationService {
 private:
     struct HotelReservations {
-        std::vector<hotelreservation::Reservation> reservations;
+        std::vector<microservice::models::ReservationData> reservations;
         int total_rooms;
     };
 
@@ -81,7 +82,7 @@ public:
         // Count existing reservations for the date range
         int reserved_rooms = 0;
         for (const auto& reservation : it->second.reservations) {
-            if (reservation.in_date() <= out_date && reservation.out_date() >= in_date) {
+            if (reservation.in_date <= out_date && reservation.out_date >= in_date) {
                 reserved_rooms++;
             }
         }
@@ -100,10 +101,14 @@ public:
 
         hotelreservation::ReservationResponse response;
 
+        // Convert incoming protobuf to domain model
+        microservice::models::ReservationRequestData reqd;
+        microservice::models::fromProto(req, reqd);
+
         // First, verify user credentials using UDS
         hotelreservation::CheckUserRequest user_req;
-        user_req.set_username(req.username());
-        user_req.set_password(req.password());
+        user_req.set_username(reqd.username);
+        user_req.set_password(reqd.password);
         *user_req.mutable_padding() = microservice::utils::generate_person_padding();
         std::string user_resp_str = sendProtobufOverUDS("/tmp/user_service.sock", microservice::utils::serialize_message(ser1de, user_req));
         hotelreservation::CheckUserResponse user_resp;
@@ -121,7 +126,7 @@ public:
         }
 
         // Check availability
-        if (!checkAvailability(req.hotel_id(), req.in_date(), req.out_date(), req.room_number())) {
+        if (!checkAvailability(reqd.hotel_id, reqd.in_date, reqd.out_date, (int)reqd.room_number)) {
             response.set_message("No rooms available for the specified dates");
             *response.mutable_padding() = microservice::utils::generate_person_padding();
             return response;
@@ -130,15 +135,13 @@ public:
         // Create reservation
         std::lock_guard<std::mutex> lock(reservations_mutex_);
         
-        hotelreservation::Reservation reservation;
-        reservation.set_hotel_id(req.hotel_id());
-        reservation.set_customer_name(req.customer_name());
-        reservation.set_in_date(req.in_date());
-        reservation.set_out_date(req.out_date());
-        reservation.set_number(req.room_number());
-        *reservation.mutable_padding() = microservice::utils::generate_person_padding();
-
-        hotel_reservations_[req.hotel_id()].reservations.push_back(reservation);
+        microservice::models::ReservationData r;
+        r.hotel_id = reqd.hotel_id;
+        r.customer_name = reqd.customer_name;
+        r.in_date = reqd.in_date;
+        r.out_date = reqd.out_date;
+        r.number = reqd.room_number;
+        hotel_reservations_[req.hotel_id()].reservations.push_back(std::move(r));
         
         response.set_message("Reservation created successfully");
         *response.mutable_padding() = microservice::utils::generate_person_padding();

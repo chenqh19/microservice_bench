@@ -9,6 +9,7 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include "../utils/data_models.h"
 #include <cstring>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -74,18 +75,18 @@ public:
         Json::Value json(Json::arrayValue);
         for (const auto& hotel : resp.hotels()) {
             Json::Value hotel_json;
-            hotel_json["id"] = hotel.id();
-            hotel_json["name"] = microservice::utils::maybe_decompress_field(hotel.name());
-            hotel_json["phoneNumber"] = hotel.phone_number();
-            hotel_json["description"] = microservice::utils::maybe_decompress_field(hotel.description());
+			hotel_json["id"] = microservice::models::maybe_decompress(hotel.id());
+			hotel_json["name"] = microservice::models::maybe_decompress(hotel.name());
+			hotel_json["phoneNumber"] = microservice::models::maybe_decompress(hotel.phone_number());
+			hotel_json["description"] = microservice::models::maybe_decompress(hotel.description());
 
             Json::Value address;
-            address["streetNumber"] = microservice::utils::maybe_decompress_field(hotel.address().street_number());
-            address["streetName"] = microservice::utils::maybe_decompress_field(hotel.address().street_name());
-            address["city"] = microservice::utils::maybe_decompress_field(hotel.address().city());
-            address["state"] = microservice::utils::maybe_decompress_field(hotel.address().state());
-            address["country"] = microservice::utils::maybe_decompress_field(hotel.address().country());
-            address["postalCode"] = microservice::utils::maybe_decompress_field(hotel.address().postal_code());
+			address["streetNumber"] = microservice::models::maybe_decompress(hotel.address().street_number());
+			address["streetName"] = microservice::models::maybe_decompress(hotel.address().street_name());
+			address["city"] = microservice::models::maybe_decompress(hotel.address().city());
+			address["state"] = microservice::models::maybe_decompress(hotel.address().state());
+			address["country"] = microservice::models::maybe_decompress(hotel.address().country());
+			address["postalCode"] = microservice::models::maybe_decompress(hotel.address().postal_code());
             hotel_json["address"] = address;
 
             json.append(hotel_json);
@@ -97,18 +98,18 @@ public:
         Json::Value json(Json::arrayValue);
         for (const auto& hotel : resp.hotels()) {
             Json::Value hotel_json;
-            hotel_json["id"] = hotel.id();
-            hotel_json["name"] = microservice::utils::maybe_decompress_field(hotel.name());
-            hotel_json["phoneNumber"] = hotel.phone_number();
-            hotel_json["description"] = microservice::utils::maybe_decompress_field(hotel.description());
+			hotel_json["id"] = microservice::models::maybe_decompress(hotel.id());
+			hotel_json["name"] = microservice::models::maybe_decompress(hotel.name());
+			hotel_json["phoneNumber"] = microservice::models::maybe_decompress(hotel.phone_number());
+			hotel_json["description"] = microservice::models::maybe_decompress(hotel.description());
 
             Json::Value address;
-            address["streetNumber"] = microservice::utils::maybe_decompress_field(hotel.address().street_number());
-            address["streetName"] = microservice::utils::maybe_decompress_field(hotel.address().street_name());
-            address["city"] = microservice::utils::maybe_decompress_field(hotel.address().city());
-            address["state"] = microservice::utils::maybe_decompress_field(hotel.address().state());
-            address["country"] = microservice::utils::maybe_decompress_field(hotel.address().country());
-            address["postalCode"] = microservice::utils::maybe_decompress_field(hotel.address().postal_code());
+			address["streetNumber"] = microservice::models::maybe_decompress(hotel.address().street_number());
+			address["streetName"] = microservice::models::maybe_decompress(hotel.address().street_name());
+			address["city"] = microservice::models::maybe_decompress(hotel.address().city());
+			address["state"] = microservice::models::maybe_decompress(hotel.address().state());
+			address["country"] = microservice::models::maybe_decompress(hotel.address().country());
+			address["postalCode"] = microservice::models::maybe_decompress(hotel.address().postal_code());
             hotel_json["address"] = address;
 
             json.append(hotel_json);
@@ -160,8 +161,8 @@ public:
     std::string HandleSearch(const std::string& json_str) {
 		// Optional dummy compression
 #if ENABLE_DUMMY_SERVICE_COMPRESSION
-		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
 
         Json::Value request_json;
@@ -189,8 +190,8 @@ public:
     std::string HandleRecommend(const std::string& json_str) {
 		// Optional dummy compression
 #if ENABLE_DUMMY_SERVICE_COMPRESSION
-		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
 
         Json::Value request_json;
@@ -220,8 +221,8 @@ public:
     std::string HandleUser(const std::string& json_str) {
 		// Optional dummy compression
 #if ENABLE_DUMMY_SERVICE_COMPRESSION
-		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
 
         Json::Value request_json;
@@ -250,8 +251,8 @@ public:
     std::string HandleReservation(const std::string& json_str) {
 		// Optional dummy compression
 #if ENABLE_DUMMY_SERVICE_COMPRESSION
-		std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
-		std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
+        std::string compressed_random = microservice::compression::compress_data(pre_generated_random_data_);
+        std::string decompressed_random = microservice::compression::decompress_data(compressed_random);
 #endif
 
         Json::Value request_json;

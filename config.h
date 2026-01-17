@@ -7,16 +7,12 @@
 
 // Compression Configuration
 #define ENABLE_DUMMY_SERVICE_COMPRESSION 0
-// Compress individual string arguments (fields) when length exceeds this
-#define ARG_COMPRESSION_MIN_SIZE 512
-// Enable per-argument (field) compression
-#define ENABLE_ARG_COMPRESSION 1
 
-#define USE_HARDWARE_COMPRESSION 0
+#define USE_HARDWARE_COMPRESSION 1
 #define USE_NONBLOCKING_COMPRESSION 0
 
 // Serialization Configuration
-#define USE_SER1DE 1
+#define USE_SER1DE 0
 
 // Timing Configuration
 #define ENABLE_TIMING 0
