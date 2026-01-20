@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  base:
+    build:
+      context: ..
+      dockerfile: Dockerfile.base
+    image: hotel-reservation-base:latest
+    privileged: true
+    user: "0"
+
+  compress_frontend:
+    build:
+      context: ..
+      dockerfile: compression/Dockerfile
+    ports:
+      - "50060:50060"
+    depends_on:
+      - base
+    privileged: true
+    user: "0"
+
+

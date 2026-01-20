@@ -49,8 +49,8 @@ public:
             return std::vector<uint8_t>();
         }
 
-        // Ensure buffer is large enough
-        size_t max_compressed_size = data.size() + 1024;  // Add some overhead
+        // Ensure buffer is large enough (deflate worst-case ~ n + n/16 + 64)
+        size_t max_compressed_size = data.size() + (data.size() >> 4) + 2048;
         if (compressed_buffer_.size() < max_compressed_size) {
             compressed_buffer_.resize(max_compressed_size);
         }
@@ -62,7 +62,9 @@ public:
         job_ptr_->available_in = data.size();
         job_ptr_->next_out_ptr = compressed_buffer_.data();
         job_ptr_->available_out = compressed_buffer_.size();
-        job_ptr_->flags = QPL_FLAG_FIRST | QPL_FLAG_LAST | QPL_FLAG_DYNAMIC_HUFFMAN;
+        // Align software path behavior with hardware: always use dynamic Huffman
+        uint32_t flags = QPL_FLAG_FIRST | QPL_FLAG_LAST | QPL_FLAG_DYNAMIC_HUFFMAN;
+        job_ptr_->flags = flags;
 
         // Execute compression
         qpl_status status = qpl_execute_job(job_ptr_);
@@ -331,7 +333,7 @@ inline AsyncQplJob submit_compress_job(const std::string& data) {
 
     // Prepare buffers
     handle.input_buffer_.assign(data.begin(), data.end());
-    size_t max_compressed_size = data.size() + 1024;  // heuristic overhead
+    size_t max_compressed_size = data.size() + (data.size() >> 4) + 2048;  // safer heuristic
     handle.output_buffer_.resize(max_compressed_size);
     handle.is_decompress_ = false;
 
@@ -348,7 +350,9 @@ inline AsyncQplJob submit_compress_job(const std::string& data) {
     handle.job_ptr_->available_in = (uint32_t)handle.input_buffer_.size();
     handle.job_ptr_->next_out_ptr = handle.output_buffer_.data();
     handle.job_ptr_->available_out = (uint32_t)handle.output_buffer_.size();
-    handle.job_ptr_->flags = QPL_FLAG_FIRST | QPL_FLAG_LAST | QPL_FLAG_DYNAMIC_HUFFMAN;
+    // Align software path behavior with hardware: always use dynamic Huffman
+    uint32_t flags = QPL_FLAG_FIRST | QPL_FLAG_LAST | QPL_FLAG_DYNAMIC_HUFFMAN;
+    handle.job_ptr_->flags = flags;
 
     // Submit non-blocking
     handle.submit_status_ = qpl_submit_job(handle.job_ptr_);
