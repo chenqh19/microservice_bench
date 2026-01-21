@@ -1,5 +1,7 @@
 #include "utils/compression_utils.h"
 #include "config.h"
+#include "decision.h"
+#include "dispatcher.h"
 #include <httplib.h>
 #include <iostream>
 #include <string>
@@ -15,7 +17,7 @@ class CompressFrontendService {
 private:
     std::string pre_generated_random_data_;
 public:
-    static constexpr int POOL_SIZE = 64;
+    static constexpr int POOL_SIZE = 120;
     CompressFrontendService() {
 			const size_t kPreGenSize = 2 * 1024 * 1024;
 			const size_t kBlockSize = 4096; // repeatable base pattern size
@@ -123,9 +125,13 @@ static inline bool parse_size_param(const httplib::Request& req, size_t& size_ou
 int main() {
     const int NUM_WORKERS = CompressFrontendService::POOL_SIZE;
     PreforkHTTPServer server(NUM_WORKERS);
+	// Initialize global counters in master before forking
+	decision::init_hw_counters_master();
     if (server.fork_workers()) {
         CompressFrontendService service;
         httplib::Server svr;
+		// Map counters and claim a slot for this worker
+		decision::init_hw_counters_worker();
         svr.set_keep_alive_max_count(50000);
         svr.set_read_timeout(5);
         svr.set_write_timeout(5);
@@ -143,47 +149,17 @@ int main() {
                 requested_size = buffer.size();
             }
 			std::string slice(buffer.data(), requested_size);
-
-			// For software path and large inputs, compress in chunks to avoid QPL verify errors.
-			const size_t kChunkSize = 32 * 1024;
 			long long latency_us = 0;
+			std::vector<std::string> compressed_chunks;
+			decision::compress_collect(slice, compressed_chunks, latency_us);
 			size_t compressed_size_bytes = 0;
-#if USE_HARDWARE_COMPRESSION
-			{
-				auto t0 = std::chrono::steady_clock::now();
-				std::string compressed = microservice::compression::compress_data(slice);
-				auto t1 = std::chrono::steady_clock::now();
-#if ENABLE_TIMING
-				std::cout << compressed << std::endl;
-#endif
-				latency_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+			for (const auto& compressed : compressed_chunks) {
 				if (compressed.size() >= 11 && compressed.substr(0, 11) == "COMPRESSED:") {
-					compressed_size_bytes = (compressed.size() - 11) / 2;
+					compressed_size_bytes += (compressed.size() - 11) / 2;
 				} else {
-					compressed_size_bytes = compressed.size();
+					compressed_size_bytes += compressed.size();
 				}
 			}
-#else
-			{
-				// Software path: chunk to <=32KB compress calls, sum sizes and latency.
-				for (size_t offset = 0; offset < slice.size(); offset += kChunkSize) {
-                    size_t len = std::min(kChunkSize, slice.size() - offset);
-					auto t0 = std::chrono::steady_clock::now();
-					std::string compressed = microservice::compression::compress_data(
-						std::string(slice.data() + offset, len));
-					auto t1 = std::chrono::steady_clock::now();
-#if ENABLE_TIMING
-					std::cout << compressed << std::endl;
-#endif
-					latency_us += std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
-					if (compressed.size() >= 11 && compressed.substr(0, 11) == "COMPRESSED:") {
-						compressed_size_bytes += (compressed.size() - 11) / 2;
-					} else {
-						compressed_size_bytes += compressed.size();
-					}
-				}
-			}
-#endif
 			std::string json = std::string("{\"compressed_size\": ") + std::to_string(compressed_size_bytes) +
 				", \"compression_latency_us\": " + std::to_string(latency_us) + "}";
 			res.set_content(json, "application/json");
@@ -193,6 +169,8 @@ int main() {
         return 0;
     } else {
         std::cout << "Compress frontend master process started with " << NUM_WORKERS << " HTTP workers" << std::endl;
+		// Start a single global logger in master
+		decision::start_global_hw_logger();
         server.master_loop();
         return 0;
     }

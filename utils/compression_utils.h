@@ -191,6 +191,7 @@ inline void init_compression(qpl_path_t path = COMPRESSION_PATH) {
     }
 }
 
+
 // Compress data with fallback (thread-safe)
 inline std::string compress_data(const std::string& data) {
     if (!g_compression_manager) {
@@ -207,6 +208,8 @@ inline std::string compress_data(const std::string& data) {
     
     return data;  // Return original if compression failed
 }
+
+// Compress with an explicitly selected path (hardware/software) decided at runtime
 
 // Decompress data with fallback (thread-safe)
 inline std::string decompress_data(const std::string& data) {

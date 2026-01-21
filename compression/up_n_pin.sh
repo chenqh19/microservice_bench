@@ -6,7 +6,7 @@ sudo taskset -pc 0-31 $(pgrep -f "dockerd --containerd=/run/containerd/container
 # For all dockerd threads
 for pid in $(ps -eLf | grep dockerd | awk '{print $4}'); do
     # do not show output
-    sudo taskset -pc 0-31 $pid
+    sudo taskset -pc 0-31 "$pid" >/dev/null
 done
 
 
@@ -31,7 +31,7 @@ sudo taskset -pc 0-31 $(pgrep -f "dockerd --containerd=/run/containerd/container
 # For all dockerd threads
 for pid in $(ps -eLf | grep dockerd | awk '{print $4}'); do
     # do not show output
-    sudo taskset -pc 0-31 $pid
+    sudo taskset -pc 0-31 "$pid" >/dev/null
 done
 
 # sudo docker update --cpuset-cpus="0-31" microservice_bench-frontend-1
