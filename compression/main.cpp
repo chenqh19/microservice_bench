@@ -142,18 +142,48 @@ int main() {
             if (requested_size > buffer.size()) {
                 requested_size = buffer.size();
             }
-            std::string slice(buffer.data(), requested_size);
-			auto t0 = std::chrono::steady_clock::now();
-			std::string compressed = microservice::compression::compress_data(slice);
-			auto t1 = std::chrono::steady_clock::now();
+			std::string slice(buffer.data(), requested_size);
+
+			// For software path and large inputs, compress in chunks to avoid QPL verify errors.
+			const size_t kChunkSize = 32 * 1024;
+			long long latency_us = 0;
+			size_t compressed_size_bytes = 0;
+#if USE_HARDWARE_COMPRESSION
+			{
+				auto t0 = std::chrono::steady_clock::now();
+				std::string compressed = microservice::compression::compress_data(slice);
+				auto t1 = std::chrono::steady_clock::now();
 #if ENABLE_TIMING
-			std::cout << compressed << std::endl;
+				std::cout << compressed << std::endl;
 #endif
-			long long latency_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
-			size_t compressed_size_bytes = compressed.size();
-			if (compressed.size() >= 11 && compressed.substr(0, 11) == "COMPRESSED:") {
-				compressed_size_bytes = (compressed.size() - 11) / 2;
+				latency_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+				if (compressed.size() >= 11 && compressed.substr(0, 11) == "COMPRESSED:") {
+					compressed_size_bytes = (compressed.size() - 11) / 2;
+				} else {
+					compressed_size_bytes = compressed.size();
+				}
 			}
+#else
+			{
+				// Software path: chunk to <=32KB compress calls, sum sizes and latency.
+				for (size_t offset = 0; offset < slice.size(); offset += kChunkSize) {
+                    size_t len = std::min(kChunkSize, slice.size() - offset);
+					auto t0 = std::chrono::steady_clock::now();
+					std::string compressed = microservice::compression::compress_data(
+						std::string(slice.data() + offset, len));
+					auto t1 = std::chrono::steady_clock::now();
+#if ENABLE_TIMING
+					std::cout << compressed << std::endl;
+#endif
+					latency_us += std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+					if (compressed.size() >= 11 && compressed.substr(0, 11) == "COMPRESSED:") {
+						compressed_size_bytes += (compressed.size() - 11) / 2;
+					} else {
+						compressed_size_bytes += compressed.size();
+					}
+				}
+			}
+#endif
 			std::string json = std::string("{\"compressed_size\": ") + std::to_string(compressed_size_bytes) +
 				", \"compression_latency_us\": " + std::to_string(latency_us) + "}";
 			res.set_content(json, "application/json");

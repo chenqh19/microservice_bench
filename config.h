@@ -9,7 +9,7 @@
 #define ENABLE_DUMMY_SERVICE_COMPRESSION 0
 
 #define USE_HARDWARE_COMPRESSION 1
-#define USE_NONBLOCKING_COMPRESSION 0
+#define COMPRESSION_NONBLOCKING 0
 
 // Serialization Configuration
 #define USE_SER1DE 0
@@ -26,13 +26,6 @@
     #define COMPRESSION_PATH qpl_path_hardware
 #else
     #define COMPRESSION_PATH qpl_path_software
-#endif
-
-// Compression mode selection
-#if USE_NONBLOCKING_COMPRESSION
-    #define COMPRESSION_NONBLOCKING 1
-#else
-    #define COMPRESSION_NONBLOCKING 0
 #endif
 
 // ============================================================================

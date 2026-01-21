@@ -5,13 +5,6 @@ math.random(); math.random(); math.random()
 -- URL will be passed as a parameter to wrk2
 local url = ""
 
-local function get_user()
-  local id = math.random(0, 500)
-  local user_name = "Cornell_" .. tostring(id)
-  local pass_word = "1111111111"  -- Changed to fixed password
-  return user_name, pass_word
-end
-
 local function search_hotel() 
   local method = "GET"
   local path = "/search?customerName=John&inDate=2023-12-01&outDate=2023-12-02&latitude=37.7749&longitude=-122.4194&locale=en"
