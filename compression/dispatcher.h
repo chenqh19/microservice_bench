@@ -10,8 +10,6 @@
 #include <atomic>
 #include <thread>
 #include <sys/mman.h>
-#include <sys/file.h>
-#include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <cstring>
@@ -24,23 +22,13 @@ namespace decision {
 // ----------------------------------------------------------------------------
 namespace {
 static constexpr const char* SHM_NAME = "/compression_hw_counters_v1";
-static constexpr const char* LOCK_PATH = "/tmp/compression_hw_counters.lock";
-static constexpr uint32_t SHM_MAGIC = 0x48445743; // 'H''D''W''C'
 
 struct SharedCounters {
-	uint32_t magic;
-	uint32_t reserved;
 	alignas(64) uint64_t total; // global total submissions
 };
 
 static SharedCounters* g_shared = nullptr;
 static int g_shm_fd = -1;
-static int g_lock_fd = -1;
-
-inline void ensure_lock_file() {
-	if (g_lock_fd >= 0) return;
-	g_lock_fd = open(LOCK_PATH, O_CREAT | O_RDWR, 0666);
-}
 
 inline void map_shared(bool create) {
 	if (g_shared) return;
@@ -63,18 +51,13 @@ inline void map_shared(bool create) {
 } // anonymous namespace
 
 inline void init_hw_counters_master() {
-	ensure_lock_file();
 	map_shared(true);
 	if (!g_shared) return;
-	flock(g_lock_fd, LOCK_EX);
 	std::memset(g_shared, 0, sizeof(*g_shared));
-	g_shared->magic = SHM_MAGIC;
 	g_shared->total = 0;
-	flock(g_lock_fd, LOCK_UN);
 }
 
 inline void init_hw_counters_worker() {
-	ensure_lock_file();
 	map_shared(false);
 	if (!g_shared) return;
 	// Nothing else to do for single global counter
