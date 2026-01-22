@@ -26,23 +26,16 @@ namespace {
 static constexpr const char* SHM_NAME = "/compression_hw_counters_v1";
 static constexpr const char* LOCK_PATH = "/tmp/compression_hw_counters.lock";
 static constexpr uint32_t SHM_MAGIC = 0x48445743; // 'H''D''W''C'
-static constexpr uint32_t NUM_SLOTS = 512;
-
-struct SharedSlot {
-	pid_t pid;
-	uint64_t count;
-};
 
 struct SharedCounters {
 	uint32_t magic;
-	uint32_t num_slots;
-	SharedSlot slots[NUM_SLOTS];
+	uint32_t reserved;
+	alignas(64) uint64_t total; // global total submissions
 };
 
 static SharedCounters* g_shared = nullptr;
 static int g_shm_fd = -1;
 static int g_lock_fd = -1;
-thread_local int g_slot_index = -1;
 
 inline void ensure_lock_file() {
 	if (g_lock_fd >= 0) return;
@@ -76,7 +69,7 @@ inline void init_hw_counters_master() {
 	flock(g_lock_fd, LOCK_EX);
 	std::memset(g_shared, 0, sizeof(*g_shared));
 	g_shared->magic = SHM_MAGIC;
-	g_shared->num_slots = NUM_SLOTS;
+	g_shared->total = 0;
 	flock(g_lock_fd, LOCK_UN);
 }
 
@@ -84,29 +77,16 @@ inline void init_hw_counters_worker() {
 	ensure_lock_file();
 	map_shared(false);
 	if (!g_shared) return;
-	// Claim a slot for this worker pid
-	flock(g_lock_fd, LOCK_EX);
-	int free_idx = -1;
-	pid_t me = getpid();
-	for (uint32_t i = 0; i < NUM_SLOTS; ++i) {
-		if (g_shared->slots[i].pid == me) { g_slot_index = static_cast<int>(i); break; }
-		if (free_idx == -1 && g_shared->slots[i].pid == 0) free_idx = static_cast<int>(i);
-	}
-	if (g_slot_index == -1 && free_idx != -1) {
-		g_shared->slots[free_idx].pid = me;
-		g_shared->slots[free_idx].count = 0;
-		g_slot_index = free_idx;
-	}
-	flock(g_lock_fd, LOCK_UN);
+	// Nothing else to do for single global counter
 }
 
 inline void record_hw_submission() {
-	if (!g_shared || g_slot_index < 0) {
+	if (!g_shared) {
 		init_hw_counters_worker();
 	}
-	if (g_shared && g_slot_index >= 0) {
-		// Only this worker writes its own slot; no locking needed
-		++g_shared->slots[g_slot_index].count;
+	if (g_shared) {
+		// Atomic fetch_add on shared memory global counter
+		__atomic_fetch_add(&g_shared->total, 1ULL, __ATOMIC_RELAXED);
 	}
 }
 
@@ -115,19 +95,16 @@ inline void start_global_hw_logger() {
 	bool expected = false;
 	if (started.compare_exchange_strong(expected, true)) {
 		std::thread([](){
+			uint64_t last = 0;
 			for (;;) {
 				std::this_thread::sleep_for(std::chrono::seconds(10));
 				if (!g_shared) { map_shared(false); }
 				if (!g_shared) continue;
-				uint64_t total = 0;
-				ensure_lock_file();
-				flock(g_lock_fd, LOCK_EX);
-				for (uint32_t i = 0; i < NUM_SLOTS; ++i) {
-					total += g_shared->slots[i].count;
-					g_shared->slots[i].count = 0;
-				}
-				flock(g_lock_fd, LOCK_UN);
-				std::cout << "HW submissions (all workers) in last 10s: " << total << std::endl;
+				// Read total without locking; compute delta since last print
+				uint64_t current = __atomic_load_n(&g_shared->total, __ATOMIC_RELAXED);
+				uint64_t delta = current - last;
+				last = current;
+				std::cout << "HW submissions (all workers) in last 10s: " << delta << std::endl;
 			}
 		}).detach();
 	}
