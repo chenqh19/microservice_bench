@@ -149,9 +149,8 @@ int main() {
                 requested_size = buffer.size();
             }
 			std::string slice(buffer.data(), requested_size);
-			long long latency_us = 0;
 			std::vector<std::string> compressed_chunks;
-			decision::compress_collect(slice, compressed_chunks, latency_us);
+			decision::compress_collect(slice, compressed_chunks);
 			size_t compressed_size_bytes = 0;
 			for (const auto& compressed : compressed_chunks) {
 				if (compressed.size() >= 11 && compressed.substr(0, 11) == "COMPRESSED:") {
@@ -160,8 +159,7 @@ int main() {
 					compressed_size_bytes += compressed.size();
 				}
 			}
-			std::string json = std::string("{\"compressed_size\": ") + std::to_string(compressed_size_bytes) +
-				", \"compression_latency_us\": " + std::to_string(latency_us) + "}";
+			std::string json = std::string("{\"compressed_size\": ") + std::to_string(compressed_size_bytes) + "}";
 			res.set_content(json, "application/json");
         });
         std::cout << "HTTP Worker " << getpid() << " listening on 0.0.0.0:50060" << std::endl;

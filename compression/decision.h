@@ -3,12 +3,18 @@
 #include <cstdint>
 #include <chrono>
 #include "utils/compression_utils.h"
+#include "metrics.h"
 
 namespace decision {
 
+// Sampling configuration: record 1 / (2^HW_LATENCY_SAMPLE_LOG2) of HW latencies
+#ifndef HW_LATENCY_SAMPLE_LOG2
+#define HW_LATENCY_SAMPLE_LOG2 6  // ~1.6% sampling by default
+#endif
+
 // Threshold in bytes for selecting hardware when USE_HARDWARE_COMPRESSION==2
 #ifndef HW_DECISION_THRESHOLD_BYTES
-#define HW_DECISION_THRESHOLD_BYTES (430 * 1024)
+#define HW_DECISION_THRESHOLD_BYTES (300 * 1024)
 #endif
 
 inline bool should_use_hardware_for_request(size_t uncompressed_size) {
@@ -39,12 +45,43 @@ inline microservice::compression::CompressionManager* get_mgr_for(qpl_path_t pat
 
 inline std::string compress_with_path(const std::string& data, qpl_path_t path) {
 	microservice::compression::CompressionManager* mgr = get_mgr_for(path);
-	auto compressed = mgr->compress_to_string(data);
-	auto stats = mgr->get_compression_stats(data);
-	if (stats.success && !compressed.empty()) {
-		return std::string("COMPRESSED:") + compressed;
+	if (path == qpl_path_hardware) {
+		record_hw_submission();
+		auto inflight_at_submit = record_hw_start_get_inflight_after();
+		// Lightweight sampling: thread-local xorshift, sample if low bits are zero
+		thread_local uint64_t rng = 0x9e3779b97f4a7c15ull;
+		// xorshift64*
+		auto next = [&]() {
+			uint64_t x = rng;
+			x ^= x >> 12;
+			x ^= x << 25;
+			x ^= x >> 27;
+			rng = x;
+			return x * 2685821657736338717ull;
+		};
+		bool sample = ((next() & ((1ull << HW_LATENCY_SAMPLE_LOG2) - 1ull)) == 0ull);
+		std::string compressed;
+		if (sample) {
+			auto t0 = std::chrono::steady_clock::now();
+			compressed = mgr->compress_to_string(data);
+			auto t1 = std::chrono::steady_clock::now();
+			uint64_t latency_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+			record_hw_finish(inflight_at_submit, latency_us);
+		} else {
+			compressed = mgr->compress_to_string(data);
+			record_hw_finish_nosample();
+		}
+		if (!compressed.empty()) {
+			return std::string("COMPRESSED:") + compressed;
+		}
+		return data;
+	} else {
+		auto compressed = mgr->compress_to_string(data);
+		if (!compressed.empty()) {
+			return std::string("COMPRESSED:") + compressed;
+		}
+		return data;
 	}
-	return data;
 }
 
 } // namespace decision

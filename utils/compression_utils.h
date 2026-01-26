@@ -21,15 +21,20 @@ private:
     qpl_job* job_ptr_;
     std::vector<uint8_t> compressed_buffer_;
     std::vector<uint8_t> decompressed_buffer_;
+    bool initialized_ok_;
 
 public:
-    CompressionManager(qpl_path_t path = COMPRESSION_PATH) : execution_path_(path) {
+    CompressionManager(qpl_path_t path = COMPRESSION_PATH)
+        : execution_path_(path), job_ptr_(nullptr), initialized_ok_(false) {
         // Initialize QPL job
-        job_ptr_ = nullptr;
         uint32_t size = 0;
         qpl_get_job_size(execution_path_, &size);
         job_ptr_ = (qpl_job*)std::malloc(size);
-        qpl_init_job(execution_path_, job_ptr_);
+        qpl_status st = qpl_init_job(execution_path_, job_ptr_);
+        if (st != QPL_STS_OK) {
+            std::cerr << "QPL init failed with status: " << st << std::endl;
+        }
+        initialized_ok_ = (st == QPL_STS_OK);
         
         // Initialize buffers
         compressed_buffer_.resize(8192);  // 8KB initial size
@@ -45,6 +50,10 @@ public:
 
     // Compress data using QPL
     std::vector<uint8_t> compress(const std::string& data) {
+        if (!initialized_ok_) {
+            std::cerr << "QPL job not initialized" << std::endl;
+            return std::vector<uint8_t>();
+        }
         if (data.empty()) {
             return std::vector<uint8_t>();
         }
@@ -81,6 +90,10 @@ public:
 
     // Decompress data using QPL
     std::string decompress(const std::vector<uint8_t>& compressed_data) {
+        if (!initialized_ok_) {
+            std::cerr << "QPL job not initialized" << std::endl;
+            return "";
+        }
         if (compressed_data.empty()) {
             return "";
         }
