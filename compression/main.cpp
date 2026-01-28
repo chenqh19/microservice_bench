@@ -154,7 +154,7 @@ int main() {
 			size_t compressed_size_bytes = 0;
 			for (const auto& compressed : compressed_chunks) {
 				if (compressed.size() >= 11 && compressed.substr(0, 11) == "COMPRESSED:") {
-					compressed_size_bytes += (compressed.size() - 11) / 2;
+					compressed_size_bytes += (compressed.size() - 11);  // Binary data, not hex
 				} else {
 					compressed_size_bytes += compressed.size();
 				}

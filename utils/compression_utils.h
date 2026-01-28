@@ -142,56 +142,25 @@ public:
         return std::string((char*)decompressed_buffer_.data(), decompressed_size);
     }
 
-    // Compress and encode as base64-like string (for network transmission)
+    // Compress to binary string (for network transmission)
     std::string compress_to_string(const std::string& data) {
         auto compressed = compress(data);
         if (compressed.empty()) {
             return "";  // Return empty string if compression failed
         }
         
-        // Simple encoding: convert to hex string
-        std::string result;
-        result.reserve(compressed.size() * 2);
-        for (uint8_t byte : compressed) {
-            char hex[3];
-            snprintf(hex, sizeof(hex), "%02x", byte);
-            result += hex;
-        }
-        return result;
+        // Return compressed binary directly (no hex encoding needed for binary sockets)
+        return std::string((char*)compressed.data(), compressed.size());
     }
 
-    // Decompress from encoded string
-    std::string decompress_from_string(const std::string& encoded_data) {
-        if (encoded_data.empty()) {
+    // Decompress from binary string
+    std::string decompress_from_string(const std::string& compressed_data) {
+        if (compressed_data.empty()) {
             return "";
         }
 
-        // Validate hex string contains only valid hex characters
-        for (size_t i = 0; i < encoded_data.size(); i++) {
-            char c = encoded_data[i];
-            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
-                return "";  // Return empty on invalid hex
-            }
-        }
-        
-        // Convert from hex string
-        std::vector<uint8_t> compressed;
-        compressed.reserve(encoded_data.size() / 2);
-        
-        for (size_t i = 0; i < encoded_data.size(); i += 2) {
-            if (i + 1 < encoded_data.size()) {
-                std::string hex_byte = encoded_data.substr(i, 2);
-                try {
-                    uint8_t byte = std::stoi(hex_byte, nullptr, 16);
-                    compressed.push_back(byte);
-                } catch (const std::exception& e) {
-                    return "";  // Return empty on hex decode failure
-                }
-            } else {
-                return "";  // Return empty on odd length
-            }
-        }
-
+        // Convert string to vector<uint8_t> for decompression
+        std::vector<uint8_t> compressed(compressed_data.begin(), compressed_data.end());
         return decompress(compressed);
     }
 
@@ -394,15 +363,11 @@ public:
         if (is_decompress_) {
             return std::string((char*)output_buffer_.data(), produced);
         }
-        // Encode compressed bytes to hex and add prefix
+        // Return compressed binary with prefix (no hex encoding needed)
         std::string result;
-        result.reserve(11 + produced * 2);
+        result.reserve(11 + produced);
         result += "COMPRESSED:";
-        for (size_t i = 0; i < produced; ++i) {
-            char hex[3];
-            std::snprintf(hex, sizeof(hex), "%02x", output_buffer_[i]);
-            result += hex;
-        }
+        result.append((char*)output_buffer_.data(), produced);
         return result;
     }
 };
@@ -477,31 +442,19 @@ inline AsyncQplJob submit_decompress_job(const std::string& data) {
         return handle;
     }
 
-    // Decode hex to input buffer
-    const std::string encoded = data.substr(11);
-    if (encoded.size() % 2 != 0) {
-        // Invalid hex string (odd number of characters)
-        std::cerr << "Invalid hex-encoded compressed data: odd number of hex characters" << std::endl;
+    // Extract compressed binary data (no hex decoding needed)
+    const std::string compressed_binary = data.substr(11);
+    if (compressed_binary.empty()) {
         handle.is_passthrough_ = true;
         handle.passthrough_value_ = data;
         return handle;
     }
-    handle.input_buffer_.reserve(encoded.size() / 2);
-    try {
-        for (size_t i = 0; i + 1 < encoded.size(); i += 2) {
-            std::string hex_byte = encoded.substr(i, 2);
-            uint8_t byte = (uint8_t)std::stoi(hex_byte, nullptr, 16);
-            handle.input_buffer_.push_back(byte);
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to decode hex-encoded compressed data: " << e.what() << std::endl;
-        handle.is_passthrough_ = true;
-        handle.passthrough_value_ = data;
-        return handle;
-    }
+    
+    // Convert string to binary buffer
+    handle.input_buffer_.assign(compressed_binary.begin(), compressed_binary.end());
 
-    // Estimate output size (2x as heuristic)
-    size_t estimated_size = handle.input_buffer_.size() * 2;
+    // Estimate output size (6x as heuristic for highly compressed data)
+    size_t estimated_size = handle.input_buffer_.size() * 6;
     if (estimated_size == 0) {
         estimated_size = 8192;
     }
