@@ -47,7 +47,7 @@ private:
         std::vector<char> resp_buf(resp_len);
         if (read(fd, resp_buf.data(), resp_len) != (ssize_t)resp_len) { close(fd); return ""; }
         close(fd);
-        return std::string(resp_buf.begin(), resp_buf.end());
+        return std::string(resp_buf.data(), resp_len);
     }
 
 public:

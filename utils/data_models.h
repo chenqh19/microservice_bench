@@ -10,23 +10,17 @@
 namespace microservice {
 namespace models {
 
-// Threshold for when to compress strings in toProto
-static constexpr size_t kStringCompressThreshold = 256;
+// Compression is now done at the serialization layer (entire message compression)
+// These functions are now no-ops - compression happens after serialization
 
 inline std::string maybe_compress(const std::string& s) {
-	if (s.size() >= kStringCompressThreshold) {
-		// std::cout << "compress " << s << std::endl;
-		return microservice::compression::compress_data(s);
-	}
+	// No-op: compression is done at serialization layer
 	return s;
 }
 
 inline std::string maybe_decompress(const std::string& s) {
-	// decompress_data returns original if not prefixed with COMPRESSED:
-	if (s.size() >= 11 && s.rfind("COMPRESSED:", 0) == 0) {
-		// std::cout << "decompress " << s << std::endl;
-	}
-	return microservice::compression::decompress_data(s);
+	// No-op: decompression is done at deserialization layer
+	return s;
 }
 
 struct AddressData {

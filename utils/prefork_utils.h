@@ -174,7 +174,7 @@ void worker_loop(int server_fd, ServiceType& service, Ser1de_re& ser1de) {
         }
         
         RequestType request;
-        bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), request);
+        bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.data(), msg_len), request);
         if (ok) {
             auto response = service.process_request(request);
             std::string resp_str = microservice::utils::serialize_message(ser1de, response);

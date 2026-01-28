@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <typeinfo>
 #include "../config.h"
+#include "compression_utils.h"
 
 // Configuration options are now defined in config.h
 // USE_SER1DE and ENABLE_TIMING are defined there
@@ -74,7 +75,8 @@ std::string serialize_message(Ser1de_re& ser1de, const T& message) {
     }
 #endif
     
-    return serialized;
+    // Compress the entire serialized message (always compress, regardless of size)
+    return microservice::compression::compress_data(serialized);
 }
 
 template<typename T>
@@ -87,16 +89,19 @@ bool deserialize_message(Ser1de_re& ser1de, const std::string& data, T& message)
     auto start = high_resolution_clock::now();
 #endif
 
+    // Decompress the data before deserialization
+    std::string decompressed_data = microservice::compression::decompress_data(data);
+
 #if USE_SER1DE
     try {
-        ser1de.ParseFromString(data, &message);
+        ser1de.ParseFromString(decompressed_data, &message);
         result = true;
     } catch (const std::exception& e) {
         result = false;
     }
 #else
     (void)ser1de; // Suppress unused parameter warning
-    result = message.ParseFromString(data);
+    result = message.ParseFromString(decompressed_data);
 #endif
 
 #if ENABLE_TIMING

@@ -159,7 +159,7 @@ int main() {
             
             // Try to deserialize as UserRequest first
             hotelreservation::UserRequest user_req;
-            bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), user_req);
+            bool ok = microservice::utils::deserialize_message(ser1de, std::string(buf.data(), msg_len), user_req);
             if (ok) {
                 auto response = service.process_request(user_req);
                 std::string resp_str = microservice::utils::serialize_message(ser1de, response);
@@ -169,7 +169,7 @@ int main() {
             } else {
                 // Try as CheckUserRequest
                 hotelreservation::CheckUserRequest check_req;
-                ok = microservice::utils::deserialize_message(ser1de, std::string(buf.begin(), buf.end()), check_req);
+                ok = microservice::utils::deserialize_message(ser1de, std::string(buf.data(), msg_len), check_req);
                 if (ok) {
                     auto response = service.process_check_request(check_req);
                     std::string resp_str = microservice::utils::serialize_message(ser1de, response);

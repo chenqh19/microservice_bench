@@ -43,7 +43,7 @@ private:
         std::vector<char> resp_buf(resp_len);
         if (read(fd, resp_buf.data(), resp_len) != (ssize_t)resp_len) { close(fd); return ""; }
         close(fd);
-        return std::string(resp_buf.begin(), resp_buf.end());
+        return std::string(resp_buf.data(), resp_len);
     }
 
 public:
@@ -84,8 +84,8 @@ public:
         }
 
         // Get rates for these hotels
-        hotelreservation::GetRatesRequest rate_req;
-        for (const auto& hotel_id : geo_resp.hotel_ids()) {
+		hotelreservation::GetRatesRequest rate_req;
+		for (const auto& hotel_id : geo_resp.hotel_ids()) {
             rate_req.add_hotel_ids(hotel_id);
         }
         *rate_req.mutable_padding() = microservice::utils::generate_person_padding();
@@ -97,8 +97,8 @@ public:
         }
 
         // Get profiles for these hotels
-        hotelreservation::GetProfilesRequest profile_req;
-        for (const auto& hotel_id : geo_resp.hotel_ids()) {
+		hotelreservation::GetProfilesRequest profile_req;
+		for (const auto& hotel_id : geo_resp.hotel_ids()) {
             profile_req.add_hotel_ids(hotel_id);
         }
         *profile_req.mutable_padding() = microservice::utils::generate_person_padding();

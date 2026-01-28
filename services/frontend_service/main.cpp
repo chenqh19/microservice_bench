@@ -70,23 +70,23 @@ public:
         return req;
     }
 
-    // Helper function to convert protobuf messages to JSON with compression
+    // Helper function to convert protobuf messages to JSON
     Json::Value searchResponseToJson(const hotelreservation::SearchResponse& resp) {
         Json::Value json(Json::arrayValue);
         for (const auto& hotel : resp.hotels()) {
             Json::Value hotel_json;
-			hotel_json["id"] = microservice::models::maybe_decompress(hotel.id());
-			hotel_json["name"] = microservice::models::maybe_decompress(hotel.name());
-			hotel_json["phoneNumber"] = microservice::models::maybe_decompress(hotel.phone_number());
-			hotel_json["description"] = microservice::models::maybe_decompress(hotel.description());
+			hotel_json["id"] = hotel.id();
+			hotel_json["name"] = hotel.name();
+			hotel_json["phoneNumber"] = hotel.phone_number();
+			hotel_json["description"] = hotel.description();
 
             Json::Value address;
-			address["streetNumber"] = microservice::models::maybe_decompress(hotel.address().street_number());
-			address["streetName"] = microservice::models::maybe_decompress(hotel.address().street_name());
-			address["city"] = microservice::models::maybe_decompress(hotel.address().city());
-			address["state"] = microservice::models::maybe_decompress(hotel.address().state());
-			address["country"] = microservice::models::maybe_decompress(hotel.address().country());
-			address["postalCode"] = microservice::models::maybe_decompress(hotel.address().postal_code());
+			address["streetNumber"] = hotel.address().street_number();
+			address["streetName"] = hotel.address().street_name();
+			address["city"] = hotel.address().city();
+			address["state"] = hotel.address().state();
+			address["country"] = hotel.address().country();
+			address["postalCode"] = hotel.address().postal_code();
             hotel_json["address"] = address;
 
             json.append(hotel_json);
@@ -98,18 +98,18 @@ public:
         Json::Value json(Json::arrayValue);
         for (const auto& hotel : resp.hotels()) {
             Json::Value hotel_json;
-			hotel_json["id"] = microservice::models::maybe_decompress(hotel.id());
-			hotel_json["name"] = microservice::models::maybe_decompress(hotel.name());
-			hotel_json["phoneNumber"] = microservice::models::maybe_decompress(hotel.phone_number());
-			hotel_json["description"] = microservice::models::maybe_decompress(hotel.description());
+			hotel_json["id"] = hotel.id();
+			hotel_json["name"] = hotel.name();
+			hotel_json["phoneNumber"] = hotel.phone_number();
+			hotel_json["description"] = hotel.description();
 
             Json::Value address;
-			address["streetNumber"] = microservice::models::maybe_decompress(hotel.address().street_number());
-			address["streetName"] = microservice::models::maybe_decompress(hotel.address().street_name());
-			address["city"] = microservice::models::maybe_decompress(hotel.address().city());
-			address["state"] = microservice::models::maybe_decompress(hotel.address().state());
-			address["country"] = microservice::models::maybe_decompress(hotel.address().country());
-			address["postalCode"] = microservice::models::maybe_decompress(hotel.address().postal_code());
+			address["streetNumber"] = hotel.address().street_number();
+			address["streetName"] = hotel.address().street_name();
+			address["city"] = hotel.address().city();
+			address["state"] = hotel.address().state();
+			address["country"] = hotel.address().country();
+			address["postalCode"] = hotel.address().postal_code();
             hotel_json["address"] = address;
 
             json.append(hotel_json);
@@ -137,7 +137,7 @@ public:
         std::vector<char> resp_buf(resp_len);
         if (read(fd, resp_buf.data(), resp_len) != (ssize_t)resp_len) { close(fd); return "{\"error\": \"read error\"}"; }
         close(fd);
-        return std::string(resp_buf.begin(), resp_buf.end());
+        return std::string(resp_buf.data(), resp_len);
     }
 
 public:

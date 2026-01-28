@@ -82,6 +82,13 @@ public:
             return std::vector<uint8_t>();
         }
 
+        // Print compression path used
+        if (execution_path_ == qpl_path_hardware) {
+            std::cout << "compress hardware" << std::endl;
+        } else {
+            std::cout << "compress software" << std::endl;
+        }
+
         // Return compressed data
         size_t compressed_size = job_ptr_->total_out;
         return std::vector<uint8_t>(compressed_buffer_.begin(), 
@@ -98,8 +105,12 @@ public:
             return "";
         }
 
-        // Ensure buffer is large enough (start with 2x size)
-        size_t estimated_size = compressed_data.size() * 2;
+        // Ensure buffer is large enough - start with larger estimate for better compression ratios
+        // For deflate, worst case is that data didn't compress, so estimate larger
+        size_t estimated_size = compressed_data.size() * 6;
+        if (estimated_size < 8192) {
+            estimated_size = 8192;  // Minimum buffer size
+        }
         if (decompressed_buffer_.size() < estimated_size) {
             decompressed_buffer_.resize(estimated_size);
         }
@@ -117,6 +128,13 @@ public:
         if (status != QPL_STS_OK) {
             std::cerr << "Decompression failed with status: " << status << std::endl;
             return "";
+        }
+
+        // Print decompression path used
+        if (execution_path_ == qpl_path_hardware) {
+            std::cout << "decompress hardware" << std::endl;
+        } else {
+            std::cout << "decompress software" << std::endl;
         }
 
         // Return decompressed data
@@ -148,6 +166,14 @@ public:
             return "";
         }
 
+        // Validate hex string contains only valid hex characters
+        for (size_t i = 0; i < encoded_data.size(); i++) {
+            char c = encoded_data[i];
+            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+                return "";  // Return empty on invalid hex
+            }
+        }
+        
         // Convert from hex string
         std::vector<uint8_t> compressed;
         compressed.reserve(encoded_data.size() / 2);
@@ -155,8 +181,14 @@ public:
         for (size_t i = 0; i < encoded_data.size(); i += 2) {
             if (i + 1 < encoded_data.size()) {
                 std::string hex_byte = encoded_data.substr(i, 2);
-                uint8_t byte = std::stoi(hex_byte, nullptr, 16);
-                compressed.push_back(byte);
+                try {
+                    uint8_t byte = std::stoi(hex_byte, nullptr, 16);
+                    compressed.push_back(byte);
+                } catch (const std::exception& e) {
+                    return "";  // Return empty on hex decode failure
+                }
+            } else {
+                return "";  // Return empty on odd length
             }
         }
 
@@ -211,15 +243,21 @@ inline std::string compress_data(const std::string& data) {
         init_compression();
     }
     
-    auto compressed = g_compression_manager->compress_to_string(data);
-    auto stats = g_compression_manager->get_compression_stats(data);
+    // Don't compress empty data
+    if (data.empty()) {
+        return data;
+    }
     
-    // Always use compressed data if compression succeeded and we got a result
-    if (stats.success && !compressed.empty()) {
+    // Try to compress
+    auto compressed = g_compression_manager->compress_to_string(data);
+    
+    // If compression succeeded and returned non-empty result, use it
+    if (!compressed.empty()) {
         return "COMPRESSED:" + compressed;
     }
     
-    return data;  // Return original if compression failed
+    // Compression failed or returned empty, return original data
+    return data;
 }
 
 // Compress with an explicitly selected path (hardware/software) decided at runtime
@@ -230,9 +268,23 @@ inline std::string decompress_data(const std::string& data) {
         init_compression();
     }
     
-    if (data.substr(0, 11) == "COMPRESSED:") {
+    // Check if data is empty
+    if (data.empty()) {
+        return data;
+    }
+    
+    // Check if data starts with COMPRESSED: prefix
+    if (data.size() >= 11 && data.substr(0, 11) == "COMPRESSED:") {
         std::string compressed_part = data.substr(11);
-        return g_compression_manager->decompress_from_string(compressed_part);
+        if (compressed_part.empty()) {
+            return data;  // Return original if compressed part is empty
+        }
+        std::string decompressed = g_compression_manager->decompress_from_string(compressed_part);
+        // If decompression failed (returned empty), return original data
+        if (decompressed.empty() && !compressed_part.empty()) {
+            return data;
+        }
+        return decompressed;
     }
     
     return data;  // Return as-is if not compressed
@@ -323,6 +375,22 @@ public:
             return std::string();
         }
         size_t produced = job_ptr_ ? job_ptr_->total_out : 0u;
+        
+        // Print compression/decompression path used
+#if USE_HARDWARE_COMPRESSION
+        if (is_decompress_) {
+            std::cout << "decompress hardware" << std::endl;
+        } else {
+            std::cout << "compress hardware" << std::endl;
+        }
+#else
+        if (is_decompress_) {
+            std::cout << "decompress software" << std::endl;
+        } else {
+            std::cout << "compress software" << std::endl;
+        }
+#endif
+        
         if (is_decompress_) {
             return std::string((char*)output_buffer_.data(), produced);
         }
@@ -357,7 +425,22 @@ inline AsyncQplJob submit_compress_job(const std::string& data) {
     uint32_t size = 0;
     qpl_get_job_size(COMPRESSION_PATH, &size);
     handle.job_ptr_ = (qpl_job*)std::malloc(size);
-    qpl_init_job(COMPRESSION_PATH, handle.job_ptr_);
+    if (!handle.job_ptr_) {
+        std::cerr << "Failed to allocate memory for QPL job (compress)" << std::endl;
+        handle.submit_status_ = static_cast<qpl_status>(1);  // Use non-zero value to indicate error
+        handle.submitted_ = false;
+        return handle;
+    }
+    
+    qpl_status init_status = qpl_init_job(COMPRESSION_PATH, handle.job_ptr_);
+    if (init_status != QPL_STS_OK) {
+        std::cerr << "qpl_init_job (compress) failed with status: " << init_status << std::endl;
+        std::free(handle.job_ptr_);
+        handle.job_ptr_ = nullptr;
+        handle.submit_status_ = init_status;
+        handle.submitted_ = false;
+        return handle;
+    }
 
     // Setup job
     handle.job_ptr_->op = qpl_op_compress;
@@ -396,11 +479,25 @@ inline AsyncQplJob submit_decompress_job(const std::string& data) {
 
     // Decode hex to input buffer
     const std::string encoded = data.substr(11);
+    if (encoded.size() % 2 != 0) {
+        // Invalid hex string (odd number of characters)
+        std::cerr << "Invalid hex-encoded compressed data: odd number of hex characters" << std::endl;
+        handle.is_passthrough_ = true;
+        handle.passthrough_value_ = data;
+        return handle;
+    }
     handle.input_buffer_.reserve(encoded.size() / 2);
-    for (size_t i = 0; i + 1 < encoded.size(); i += 2) {
-        std::string hex_byte = encoded.substr(i, 2);
-        uint8_t byte = (uint8_t)std::stoi(hex_byte, nullptr, 16);
-        handle.input_buffer_.push_back(byte);
+    try {
+        for (size_t i = 0; i + 1 < encoded.size(); i += 2) {
+            std::string hex_byte = encoded.substr(i, 2);
+            uint8_t byte = (uint8_t)std::stoi(hex_byte, nullptr, 16);
+            handle.input_buffer_.push_back(byte);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to decode hex-encoded compressed data: " << e.what() << std::endl;
+        handle.is_passthrough_ = true;
+        handle.passthrough_value_ = data;
+        return handle;
     }
 
     // Estimate output size (2x as heuristic)
@@ -415,7 +512,22 @@ inline AsyncQplJob submit_decompress_job(const std::string& data) {
     uint32_t size = 0;
     qpl_get_job_size(COMPRESSION_PATH, &size);
     handle.job_ptr_ = (qpl_job*)std::malloc(size);
-    qpl_init_job(COMPRESSION_PATH, handle.job_ptr_);
+    if (!handle.job_ptr_) {
+        std::cerr << "Failed to allocate memory for QPL job (decompress)" << std::endl;
+        handle.submit_status_ = static_cast<qpl_status>(1);  // Use non-zero value to indicate error
+        handle.submitted_ = false;
+        return handle;
+    }
+    
+    qpl_status init_status = qpl_init_job(COMPRESSION_PATH, handle.job_ptr_);
+    if (init_status != QPL_STS_OK) {
+        std::cerr << "qpl_init_job (decompress) failed with status: " << init_status << std::endl;
+        std::free(handle.job_ptr_);
+        handle.job_ptr_ = nullptr;
+        handle.submit_status_ = init_status;
+        handle.submitted_ = false;
+        return handle;
+    }
 
     // Setup job
     handle.job_ptr_->op = qpl_op_decompress;
