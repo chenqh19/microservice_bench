@@ -1,4 +1,5 @@
 #pragma once
+#include "regression.h"
 #include <cstdint>
 #include <cstring>
 #include <atomic>
@@ -8,6 +9,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
+#include <vector>
 #
 namespace decision {
 #
@@ -18,7 +20,7 @@ struct SharedCounters {
 	alignas(64) uint64_t total;      // total HW submissions since start
 	alignas(64) uint64_t inflight;   // current in-flight HW operations
 	alignas(64) uint64_t ring_write_index;
-	static constexpr uint32_t RING_CAPACITY = 64;
+	static constexpr uint32_t RING_CAPACITY = 1024;
 	alignas(64) uint64_t latencies[RING_CAPACITY]; // us
 	alignas(64) uint64_t inflight_at_submit[RING_CAPACITY]; // concurrency seen at submission (including this)
 };
@@ -48,6 +50,17 @@ inline void init_hw_counters_master() {
 	map_shared(true);
 	if (!g_shared) return;
 	std::memset(g_shared, 0, sizeof(*g_shared));
+}
+
+// Call in master process after fork so it re-maps the shm and sees workers' updates.
+// Before fork the master had the only mapping; workers inherit CoW copies, so the
+// master's view of ring_write_index etc. never advanced.
+inline void reattach_shm_after_fork() {
+	if (!g_shared) return;
+	munmap(g_shared, sizeof(SharedCounters));
+	if (g_shm_fd >= 0) { close(g_shm_fd); g_shm_fd = -1; }
+	g_shared = nullptr;
+	map_shared(false);
 }
 #
 inline void init_hw_counters_worker() {
@@ -95,7 +108,6 @@ inline void start_global_hw_logger() {
 	if (started.compare_exchange_strong(expected, true)) {
 		std::thread([](){
 			uint64_t last_total = 0;
-			uint64_t last_ring = 0;
 			for (;;) {
 				std::this_thread::sleep_for(std::chrono::seconds(10));
 				if (!g_shared) { map_shared(false); }
@@ -105,25 +117,37 @@ inline void start_global_hw_logger() {
 				uint64_t delta_total = current_total - last_total;
 				last_total = current_total;
 				std::cout << "HW submissions (all workers) in last 10s: " << delta_total << std::endl;
-				// Print inflight->latency mappings since last tick
-				uint64_t current_ring = __atomic_load_n(&g_shared->ring_write_index, __ATOMIC_RELAXED);
-				uint64_t available = current_ring - last_ring;
-				if (available > 0) {
-					uint64_t start = last_ring;
-					// If more entries than capacity were written, only print the most recent RING_CAPACITY
-					if (available > SharedCounters::RING_CAPACITY) {
-						start = current_ring - SharedCounters::RING_CAPACITY;
-						available = SharedCounters::RING_CAPACITY;
-					}
-					std::cout << "HW inflight->latency_us (last " << available << "):";
-					for (uint64_t idx = start; idx < current_ring; ++idx) {
+				// Use current ring contents (most recent up to RING_CAPACITY entries). Acquire so we see workers' writes.
+				uint64_t current_ring = __atomic_load_n(&g_shared->ring_write_index, __ATOMIC_ACQUIRE);
+				uint64_t available = (current_ring >= SharedCounters::RING_CAPACITY)
+					? SharedCounters::RING_CAPACITY
+					: static_cast<uint64_t>(current_ring);
+				uint64_t start = (current_ring >= SharedCounters::RING_CAPACITY)
+					? (current_ring - SharedCounters::RING_CAPACITY)
+					: 0;
+				if (available == 0) {
+					std::cout << "HW latency regression: no samples in ring yet" << std::endl;
+				} else {
+					std::vector<uint64_t> inflight_vals, latency_vals;
+					inflight_vals.reserve(available);
+					latency_vals.reserve(available);
+					// std::cout << "HW inflight->latency_us (current ring, n=" << available << "):";
+					for (uint64_t idx = start; idx < start + available; ++idx) {
 						uint64_t pos = idx % SharedCounters::RING_CAPACITY;
-						uint64_t infl = __atomic_load_n(&g_shared->inflight_at_submit[pos], __ATOMIC_RELAXED);
-						uint64_t lat = __atomic_load_n(&g_shared->latencies[pos], __ATOMIC_RELAXED);
-						std::cout << " [" << infl << "->" << lat << "]";
+						uint64_t infl = __atomic_load_n(&g_shared->inflight_at_submit[pos], __ATOMIC_ACQUIRE);
+						uint64_t lat = __atomic_load_n(&g_shared->latencies[pos], __ATOMIC_ACQUIRE);
+						inflight_vals.push_back(infl);
+						latency_vals.push_back(lat);
 					}
-					std::cout << std::endl;
-					last_ring = current_ring;
+					// std::cout << std::endl;
+					// Linear regression: latency ~ slope * inflight + intercept
+					LinearFit fit = linear_regression(inflight_vals.data(), latency_vals.data(), available);
+					if (fit.valid) {
+						std::cout << "HW latency regression: latency_us ~ " << fit.slope << " * inflight + " << fit.intercept
+							<< " (R²=" << fit.r_squared << ", n=" << available << ")" << std::endl;
+					} else {
+						std::cout << "HW latency regression: insufficient variance (intercept=" << fit.intercept << ", n=" << available << ")" << std::endl;
+					}
 				}
 			}
 		}).detach();

@@ -167,6 +167,8 @@ int main() {
         return 0;
     } else {
         std::cout << "Compress frontend master process started with " << NUM_WORKERS << " HTTP workers" << std::endl;
+		// Re-attach to shm after fork so master sees workers' ring_write_index / ring updates
+		decision::reattach_shm_after_fork();
 		// Start a single global logger in master
 		decision::start_global_hw_logger();
         server.master_loop();

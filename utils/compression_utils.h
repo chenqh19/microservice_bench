@@ -82,13 +82,6 @@ public:
             return std::vector<uint8_t>();
         }
 
-        // Print compression path used
-        if (execution_path_ == qpl_path_hardware) {
-            std::cout << "compress hardware" << std::endl;
-        } else {
-            std::cout << "compress software" << std::endl;
-        }
-
         // Return compressed data
         size_t compressed_size = job_ptr_->total_out;
         return std::vector<uint8_t>(compressed_buffer_.begin(), 
@@ -128,13 +121,6 @@ public:
         if (status != QPL_STS_OK) {
             std::cerr << "Decompression failed with status: " << status << std::endl;
             return "";
-        }
-
-        // Print decompression path used
-        if (execution_path_ == qpl_path_hardware) {
-            std::cout << "decompress hardware" << std::endl;
-        } else {
-            std::cout << "decompress software" << std::endl;
         }
 
         // Return decompressed data
@@ -344,21 +330,7 @@ public:
             return std::string();
         }
         size_t produced = job_ptr_ ? job_ptr_->total_out : 0u;
-        
-        // Print compression/decompression path used
-#if USE_HARDWARE_COMPRESSION
-        if (is_decompress_) {
-            std::cout << "decompress hardware" << std::endl;
-        } else {
-            std::cout << "compress hardware" << std::endl;
-        }
-#else
-        if (is_decompress_) {
-            std::cout << "decompress software" << std::endl;
-        } else {
-            std::cout << "compress software" << std::endl;
-        }
-#endif
+    
         
         if (is_decompress_) {
             return std::string((char*)output_buffer_.data(), produced);

@@ -9,12 +9,12 @@ namespace decision {
 
 // Sampling configuration: record 1 / (2^HW_LATENCY_SAMPLE_LOG2) of HW latencies
 #ifndef HW_LATENCY_SAMPLE_LOG2
-#define HW_LATENCY_SAMPLE_LOG2 6  // ~1.6% sampling by default
+#define HW_LATENCY_SAMPLE_LOG2 2
 #endif
 
 // Threshold in bytes for selecting hardware when USE_HARDWARE_COMPRESSION==2
 #ifndef HW_DECISION_THRESHOLD_BYTES
-#define HW_DECISION_THRESHOLD_BYTES (2000 * 1024)
+#define HW_DECISION_THRESHOLD_BYTES (1600 * 1024)
 #endif
 
 inline bool should_use_hardware_for_request(size_t uncompressed_size) {
