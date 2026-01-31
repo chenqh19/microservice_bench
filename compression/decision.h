@@ -47,7 +47,15 @@ inline std::string compress_with_path(const std::string& data, qpl_path_t path) 
 	microservice::compression::CompressionManager* mgr = get_mgr_for(path);
 	if (path == qpl_path_hardware) {
 		record_hw_submission();
-		auto inflight_at_submit = record_hw_start_get_inflight_after();
+		uint64_t task_size = static_cast<uint64_t>(data.size());
+		HwSubmitKey key = record_hw_start_get_inflight_after(task_size);
+		// Ensure we always decrement inflight when leaving this path (e.g. on exception)
+		struct InflightGuard {
+			uint64_t task_size_;
+			bool committed_ = false;
+			void commit() { committed_ = true; }
+			~InflightGuard() { if (!committed_) record_hw_finish_nosample(task_size_); }
+		} hw_guard{task_size};
 		// Lightweight sampling: thread-local xorshift, sample if low bits are zero
 		thread_local uint64_t rng = 0x9e3779b97f4a7c15ull;
 		// xorshift64*
@@ -66,10 +74,12 @@ inline std::string compress_with_path(const std::string& data, qpl_path_t path) 
 			compressed = mgr->compress_to_string(data);
 			auto t1 = std::chrono::steady_clock::now();
 			uint64_t latency_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
-			record_hw_finish(inflight_at_submit, latency_us);
+			record_hw_finish(key, latency_us);
+			hw_guard.commit();
 		} else {
 			compressed = mgr->compress_to_string(data);
-			record_hw_finish_nosample();
+			record_hw_finish_nosample(task_size);
+			hw_guard.commit();
 		}
 		if (!compressed.empty()) {
 			return std::string("COMPRESSED:") + compressed;

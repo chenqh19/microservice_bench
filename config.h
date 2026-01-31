@@ -8,7 +8,7 @@
 // Compression Configuration
 #define ENABLE_DUMMY_SERVICE_COMPRESSION 0
 
-#define USE_HARDWARE_COMPRESSION 2
+#define USE_HARDWARE_COMPRESSION 1
 #define COMPRESSION_NONBLOCKING 0
 
 // Serialization Configuration

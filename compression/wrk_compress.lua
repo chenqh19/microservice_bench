@@ -1,5 +1,5 @@
 -- use it with:
--- taskset -c 32-63 ../wrk2/wrk -t 50 -c 50 -d30s -L -s wrk_compress.lua http://localhost:50060 -R 10000
+-- taskset -c 32-63 ../wrk2/wrk -t 100 -c 100 -D exp -d30s -L -s wrk_compress.lua http://localhost:50060 -R 1600
 
 local socket = require("socket")
 math.randomseed(socket.gettime() * 1000)
