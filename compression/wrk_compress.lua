@@ -11,7 +11,7 @@ math.random(); math.random(); math.random()
 local function compress_request()
   local method = "GET"
   -- Random size between 64KB and 512KB (bytes)
-  local size = math.random(600 * 1024, 2000 * 1024)
+  local size = math.random(1000 * 1024, 1007 * 1024)
   local path = "/compress?size=" .. tostring(size)
   return wrk.format(method, path, nil, nil)
 end

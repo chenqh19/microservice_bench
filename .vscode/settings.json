@@ -83,5 +83,6 @@
         "fstream": "cpp",
         "future": "cpp",
         "cinttypes": "cpp"
-    }
+    },
+    "cmake.sourceDirectory": "/home/chenqh23/microservice_bench/compression"
 }

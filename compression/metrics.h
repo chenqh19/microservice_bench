@@ -9,27 +9,24 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
-#include <vector>
 #
 namespace decision {
 #
 namespace {
-static constexpr const char* SHM_NAME = "/compression_hw_counters_v5";
+static constexpr const char* SHM_NAME = "/compression_hw_counters_v6";
 #
-// Key at submission time: (inflight count, current task size)
+// Key at submission time: x1 = inflight count
 struct HwSubmitKey {
 	uint64_t inflight_count;
-	uint64_t current_task_size;   // bytes
 };
 #
 struct SharedCounters {
 	alignas(64) uint64_t total;      // total HW submissions since start
 	alignas(64) uint64_t inflight;   // current in-flight HW operations
 	alignas(64) uint64_t ring_write_index;
-	static constexpr uint32_t RING_CAPACITY = 1024;
+	static constexpr uint32_t RING_CAPACITY = 4096;
 	alignas(64) uint64_t latencies[RING_CAPACITY]; // us
 	alignas(64) uint64_t inflight_at_submit[RING_CAPACITY];
-	alignas(64) uint64_t current_task_size_at_submit[RING_CAPACITY];  // bytes
 };
 #
 static SharedCounters* g_shared = nullptr;
@@ -74,6 +71,12 @@ inline void init_hw_counters_worker() {
 	map_shared(false);
 }
 #
+// Current number of in-flight HW jobs (for path decision).
+inline uint64_t get_hw_inflight() {
+	if (!g_shared) init_hw_counters_worker();
+	return g_shared ? __atomic_load_n(&g_shared->inflight, __ATOMIC_RELAXED) : 0;
+}
+#
 inline void record_hw_submission() {
 	if (!g_shared) init_hw_counters_worker();
 	if (g_shared) {
@@ -88,9 +91,9 @@ inline void record_hw_start() {
 	}
 }
 #
-// Returns submission-time key (inflight count, current task size) after adding this task.
-inline HwSubmitKey record_hw_start_get_inflight_after(uint64_t current_task_size) {
-	HwSubmitKey key{0, current_task_size};
+// Returns submission-time key (x1 = inflight count) after adding this task.
+inline HwSubmitKey record_hw_start_get_inflight_after() {
+	HwSubmitKey key{0};
 	if (!g_shared) init_hw_counters_worker();
 	if (!g_shared) return key;
 	uint64_t before_inflight = __atomic_fetch_add(&g_shared->inflight, 1ULL, __ATOMIC_RELAXED);
@@ -105,10 +108,9 @@ inline void record_hw_finish(const HwSubmitKey& key, uint64_t latency_us) {
 	uint64_t pos = idx % SharedCounters::RING_CAPACITY;
 	g_shared->latencies[pos] = latency_us;
 	g_shared->inflight_at_submit[pos] = key.inflight_count;
-	g_shared->current_task_size_at_submit[pos] = key.current_task_size;
 }
 
-inline void record_hw_finish_nosample(uint64_t current_task_size) {
+inline void record_hw_finish_nosample() {
 	if (!g_shared) return;
 	__atomic_fetch_sub(&g_shared->inflight, 1ULL, __ATOMIC_RELAXED);
 }
@@ -128,7 +130,7 @@ inline void start_global_hw_logger() {
 				uint64_t delta_total = current_total - last_total;
 				last_total = current_total;
 				std::cout << "HW submissions (all workers) in last 10s: " << delta_total << std::endl;
-				// Read ring for regression (x1=inflight_at_submit, x2=task_size_bytes, y=latency_us)
+				// Read and print ring contents (x1=inflight_at_submit, y=latency_us)
 				uint64_t current_ring = __atomic_load_n(&g_shared->ring_write_index, __ATOMIC_ACQUIRE);
 				uint64_t available = (current_ring >= SharedCounters::RING_CAPACITY)
 					? SharedCounters::RING_CAPACITY
@@ -136,30 +138,14 @@ inline void start_global_hw_logger() {
 				uint64_t start = (current_ring >= SharedCounters::RING_CAPACITY)
 					? (current_ring - SharedCounters::RING_CAPACITY)
 					: 0;
-				if (available >= 3) {
-					std::vector<uint64_t> x1_vals, x2_vals, y_vals;
-					x1_vals.reserve(available);
-					x2_vals.reserve(available);
-					y_vals.reserve(available);
-					for (uint64_t idx = start; idx < start + available; ++idx) {
-						uint64_t pos = idx % SharedCounters::RING_CAPACITY;
-						x1_vals.push_back(__atomic_load_n(&g_shared->inflight_at_submit[pos], __ATOMIC_ACQUIRE));
-						x2_vals.push_back(__atomic_load_n(&g_shared->current_task_size_at_submit[pos], __ATOMIC_ACQUIRE));
-						y_vals.push_back(__atomic_load_n(&g_shared->latencies[pos], __ATOMIC_ACQUIRE));
-					}
-					// x1 -> y
-					LinearFit fit1 = linear_regression(x1_vals.data(), nullptr, nullptr, y_vals.data(), available, 1);
-					if (fit1.valid)
-						std::cout << "HW regression x1->y: latency_us ~ " << fit1.intercept << " + " << fit1.coef[0] << "*x1  (x1=inflight_at_submit, R²=" << fit1.r_squared << ", n=" << available << ")" << std::endl;
-					// x2 -> y
-					LinearFit fit2 = linear_regression(x2_vals.data(), nullptr, nullptr, y_vals.data(), available, 1);
-					if (fit2.valid)
-						std::cout << "HW regression x2->y: latency_us ~ " << fit2.intercept << " + " << fit2.coef[0] << "*x2  (x2=task_size_bytes, R²=" << fit2.r_squared << ", n=" << available << ")" << std::endl;
-					// (x1,x2) -> y
-					LinearFit fit12 = linear_regression(x1_vals.data(), x2_vals.data(), nullptr, y_vals.data(), available, 2);
-					if (fit12.valid)
-						std::cout << "HW regression (x1,x2)->y: latency_us ~ " << fit12.intercept << " + " << fit12.coef[0] << "*x1 + " << fit12.coef[1] << "*x2  (R²=" << fit12.r_squared << ", n=" << available << ")" << std::endl;
+				std::cout << "ring (x1, latency_us) n=" << available << ":" << std::endl;
+				for (uint64_t idx = start; idx < start + available; ++idx) {
+					uint64_t pos = idx % SharedCounters::RING_CAPACITY;
+					uint64_t x1 = __atomic_load_n(&g_shared->inflight_at_submit[pos], __ATOMIC_ACQUIRE);
+					uint64_t y = __atomic_load_n(&g_shared->latencies[pos], __ATOMIC_ACQUIRE);
+					std::cout << " [ " << x1 << " , " << y << " ] ";
 				}
+				std::cout << std::endl;
 			}
 		}).detach();
 	}

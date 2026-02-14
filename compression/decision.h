@@ -9,12 +9,12 @@ namespace decision {
 
 // Sampling configuration: record 1 / (2^HW_LATENCY_SAMPLE_LOG2) of HW latencies
 #ifndef HW_LATENCY_SAMPLE_LOG2
-#define HW_LATENCY_SAMPLE_LOG2 2
+#define HW_LATENCY_SAMPLE_LOG2 0
 #endif
 
 // Threshold in bytes for selecting hardware when USE_HARDWARE_COMPRESSION==2
 #ifndef HW_DECISION_THRESHOLD_BYTES
-#define HW_DECISION_THRESHOLD_BYTES (1600 * 1024)
+#define HW_DECISION_THRESHOLD_BYTES (1004 * 1024)
 #endif
 
 inline bool should_use_hardware_for_request(size_t uncompressed_size) {
@@ -47,15 +47,13 @@ inline std::string compress_with_path(const std::string& data, qpl_path_t path) 
 	microservice::compression::CompressionManager* mgr = get_mgr_for(path);
 	if (path == qpl_path_hardware) {
 		record_hw_submission();
-		uint64_t task_size = static_cast<uint64_t>(data.size());
-		HwSubmitKey key = record_hw_start_get_inflight_after(task_size);
+		HwSubmitKey key = record_hw_start_get_inflight_after();
 		// Ensure we always decrement inflight when leaving this path (e.g. on exception)
 		struct InflightGuard {
-			uint64_t task_size_;
 			bool committed_ = false;
 			void commit() { committed_ = true; }
-			~InflightGuard() { if (!committed_) record_hw_finish_nosample(task_size_); }
-		} hw_guard{task_size};
+			~InflightGuard() { if (!committed_) record_hw_finish_nosample(); }
+		} hw_guard;
 		// Lightweight sampling: thread-local xorshift, sample if low bits are zero
 		thread_local uint64_t rng = 0x9e3779b97f4a7c15ull;
 		// xorshift64*
@@ -70,15 +68,13 @@ inline std::string compress_with_path(const std::string& data, qpl_path_t path) 
 		bool sample = ((next() & ((1ull << HW_LATENCY_SAMPLE_LOG2) - 1ull)) == 0ull);
 		std::string compressed;
 		if (sample) {
-			auto t0 = std::chrono::steady_clock::now();
-			compressed = mgr->compress_to_string(data);
-			auto t1 = std::chrono::steady_clock::now();
-			uint64_t latency_us = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+			uint64_t latency_us = 0;
+			compressed = mgr->compress_to_string(data, &latency_us);
 			record_hw_finish(key, latency_us);
 			hw_guard.commit();
 		} else {
 			compressed = mgr->compress_to_string(data);
-			record_hw_finish_nosample(task_size);
+			record_hw_finish_nosample();
 			hw_guard.commit();
 		}
 		if (!compressed.empty()) {

@@ -11,6 +11,8 @@ namespace decision {
 inline void compress_collect(const std::string& slice,
 	std::vector<std::string>& compressed_out) {
 	bool use_hw = should_use_hardware_for_request(slice.size());
+	if (use_hw && get_hw_inflight() >= 6)
+		use_hw = false;
 	compressed_out.clear();
 	if (use_hw) {
 		std::string compressed = compress_with_path(slice, qpl_path_hardware);

@@ -6,6 +6,8 @@
 #include <vector>
 #include <memory>
 #include <thread>
+#include <chrono>
+#include <cstdint>
 #include "qpl/qpl.h"
 #include "../config.h"
 
@@ -48,20 +50,36 @@ public:
         }
     }
 
-    // Compress data using QPL
-    std::vector<uint8_t> compress(const std::string& data) {
+    // Compress data using QPL. If out_latency_us is non-null and path is hardware,
+    // writes wall time (us) around qpl_execute_job to *out_latency_us.
+    // If out_str is non-null, writes compressed bytes into *out_str (avoids extra copy);
+    // otherwise writes to internal buffer and returns result as vector.
+    std::vector<uint8_t> compress(const std::string& data, uint64_t* out_latency_us = nullptr,
+                                  std::string* out_str = nullptr) {
         if (!initialized_ok_) {
             std::cerr << "QPL job not initialized" << std::endl;
+            if (out_str) out_str->clear();
             return std::vector<uint8_t>();
         }
         if (data.empty()) {
+            if (out_str) out_str->clear();
             return std::vector<uint8_t>();
         }
 
         // Ensure buffer is large enough (deflate worst-case ~ n + n/16 + 64)
         size_t max_compressed_size = data.size() + (data.size() >> 4) + 2048;
-        if (compressed_buffer_.size() < max_compressed_size) {
-            compressed_buffer_.resize(max_compressed_size);
+        uint8_t* out_ptr;
+        size_t out_cap;
+        if (out_str) {
+            out_str->resize(max_compressed_size);
+            out_ptr = (uint8_t*)out_str->data();
+            out_cap = max_compressed_size;
+        } else {
+            if (compressed_buffer_.size() < max_compressed_size) {
+                compressed_buffer_.resize(max_compressed_size);
+            }
+            out_ptr = compressed_buffer_.data();
+            out_cap = compressed_buffer_.size();
         }
 
         // Setup compression job
@@ -69,85 +87,111 @@ public:
         job_ptr_->level = qpl_default_level;
         job_ptr_->next_in_ptr = (uint8_t*)data.data();
         job_ptr_->available_in = data.size();
-        job_ptr_->next_out_ptr = compressed_buffer_.data();
-        job_ptr_->available_out = compressed_buffer_.size();
+        job_ptr_->next_out_ptr = out_ptr;
+        job_ptr_->available_out = out_cap;
         // Align software path behavior with hardware: always use dynamic Huffman
         uint32_t flags = QPL_FLAG_FIRST | QPL_FLAG_LAST | QPL_FLAG_DYNAMIC_HUFFMAN;
         job_ptr_->flags = flags;
 
-        // Execute compression
-        qpl_status status = qpl_execute_job(job_ptr_);
+        // Execute compression (timed when out_latency_us requested on HW path)
+        qpl_status status;
+        if (out_latency_us != nullptr && execution_path_ == qpl_path_hardware) {
+            auto t0 = std::chrono::steady_clock::now();
+            status = qpl_execute_job(job_ptr_);
+            auto t1 = std::chrono::steady_clock::now();
+            *out_latency_us = static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count());
+        } else {
+            status = qpl_execute_job(job_ptr_);
+        }
         if (status != QPL_STS_OK) {
             std::cerr << "Compression failed with status: " << status << std::endl;
+            if (out_str) out_str->clear();
             return std::vector<uint8_t>();
         }
 
-        // Return compressed data
         size_t compressed_size = job_ptr_->total_out;
-        return std::vector<uint8_t>(compressed_buffer_.begin(), 
-                                   compressed_buffer_.begin() + compressed_size);
+        if (out_str) {
+            out_str->resize(compressed_size);
+            return std::vector<uint8_t>();
+        }
+        return std::vector<uint8_t>(compressed_buffer_.begin(),
+                                    compressed_buffer_.begin() + compressed_size);
     }
 
-    // Decompress data using QPL
-    std::string decompress(const std::vector<uint8_t>& compressed_data) {
+    // Decompress from contiguous bytes. If out_str is non-null, writes into *out_str (no copy);
+    // otherwise uses internal buffer and returns result (one copy).
+    std::string decompress_impl(const uint8_t* data, size_t size, std::string* out_str = nullptr) {
         if (!initialized_ok_) {
             std::cerr << "QPL job not initialized" << std::endl;
+            if (out_str) out_str->clear();
             return "";
         }
-        if (compressed_data.empty()) {
+        if (size == 0) {
+            if (out_str) out_str->clear();
             return "";
         }
 
-        // Ensure buffer is large enough - start with larger estimate for better compression ratios
-        // For deflate, worst case is that data didn't compress, so estimate larger
-        size_t estimated_size = compressed_data.size() * 6;
-        if (estimated_size < 8192) {
-            estimated_size = 8192;  // Minimum buffer size
-        }
-        if (decompressed_buffer_.size() < estimated_size) {
-            decompressed_buffer_.resize(estimated_size);
+        size_t estimated_size = size * 6;
+        if (estimated_size < 8192) estimated_size = 8192;
+        uint8_t* out_ptr;
+        size_t out_cap;
+        if (out_str) {
+            out_str->resize(estimated_size);
+            out_ptr = (uint8_t*)out_str->data();
+            out_cap = estimated_size;
+        } else {
+            if (decompressed_buffer_.size() < estimated_size) {
+                decompressed_buffer_.resize(estimated_size);
+            }
+            out_ptr = decompressed_buffer_.data();
+            out_cap = decompressed_buffer_.size();
         }
 
-        // Setup decompression job
         job_ptr_->op = qpl_op_decompress;
-        job_ptr_->next_in_ptr = (uint8_t*)compressed_data.data();
-        job_ptr_->available_in = compressed_data.size();
-        job_ptr_->next_out_ptr = decompressed_buffer_.data();
-        job_ptr_->available_out = decompressed_buffer_.size();
+        job_ptr_->next_in_ptr = const_cast<uint8_t*>(data);
+        job_ptr_->available_in = size;
+        job_ptr_->next_out_ptr = out_ptr;
+        job_ptr_->available_out = out_cap;
         job_ptr_->flags = QPL_FLAG_FIRST | QPL_FLAG_LAST;
 
-        // Execute decompression
         qpl_status status = qpl_execute_job(job_ptr_);
         if (status != QPL_STS_OK) {
             std::cerr << "Decompression failed with status: " << status << std::endl;
+            if (out_str) out_str->clear();
             return "";
         }
-
-        // Return decompressed data
         size_t decompressed_size = job_ptr_->total_out;
+        if (out_str) {
+            out_str->resize(decompressed_size);
+            return std::move(*out_str);
+        }
         return std::string((char*)decompressed_buffer_.data(), decompressed_size);
     }
 
-    // Compress to binary string (for network transmission)
-    std::string compress_to_string(const std::string& data) {
-        auto compressed = compress(data);
-        if (compressed.empty()) {
-            return "";  // Return empty string if compression failed
-        }
-        
-        // Return compressed binary directly (no hex encoding needed for binary sockets)
-        return std::string((char*)compressed.data(), compressed.size());
+    // Decompress data using QPL (vector overload). No copy of output when using out buffer.
+    std::string decompress(const std::vector<uint8_t>& compressed_data) {
+        std::string result;
+        return decompress_impl(compressed_data.data(), compressed_data.size(), &result);
     }
 
-    // Decompress from binary string
-    std::string decompress_from_string(const std::string& compressed_data) {
-        if (compressed_data.empty()) {
-            return "";
-        }
+    // Decompress from string without copying input or output.
+    std::string decompress(const std::string& compressed_data) {
+        std::string result;
+        return decompress_impl((const uint8_t*)compressed_data.data(), compressed_data.size(), &result);
+    }
 
-        // Convert string to vector<uint8_t> for decompression
-        std::vector<uint8_t> compressed(compressed_data.begin(), compressed_data.end());
-        return decompress(compressed);
+    // Compress to binary string (for network transmission). Writes directly into result string (no extra copy).
+    // If out_latency_us is non-null and path is hardware, writes qpl_execute_job wall time (us) there.
+    std::string compress_to_string(const std::string& data, uint64_t* out_latency_us = nullptr) {
+        std::string result;
+        compress(data, out_latency_us, &result);
+        return result;
+    }
+
+    // Decompress from binary string (uses string buffer directly, no copy of input).
+    std::string decompress_from_string(const std::string& compressed_data) {
+        return decompress(compressed_data);
     }
 
     // Check if compression is beneficial
