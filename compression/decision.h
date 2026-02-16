@@ -2,10 +2,14 @@
 #include "config.h"
 #include <cstdint>
 #include <chrono>
-#include "utils/compression_utils.h"
+#include <functional>
+#include <string>
 #include "metrics.h"
 
 namespace decision {
+
+// Operation-agnostic path: no dependency on QPL or compression.
+enum class HwSwPath { Software, Hardware };
 
 // Sampling configuration: record 1 / (2^HW_LATENCY_SAMPLE_LOG2) of HW latencies
 #ifndef HW_LATENCY_SAMPLE_LOG2
@@ -13,29 +17,32 @@ namespace decision {
 #endif
 
 // Threshold in bytes for selecting hardware when USE_HARDWARE_COMPRESSION==2
+// (Used generically for any HW/SW operation decision.)
 #ifndef HW_DECISION_THRESHOLD_BYTES
 #define HW_DECISION_THRESHOLD_BYTES (1004 * 1024)
 #endif
 
-inline bool should_use_hardware_for_request(size_t uncompressed_size) {
+inline bool should_use_hardware_for_request(size_t input_size) {
 #if USE_HARDWARE_COMPRESSION == 1
 	return true;
 #elif USE_HARDWARE_COMPRESSION == 0
 	return false;
 #elif USE_HARDWARE_COMPRESSION == 2
-	// Size-based decision: use hardware for large inputs
-	return uncompressed_size >= static_cast<size_t>(HW_DECISION_THRESHOLD_BYTES);
+	return input_size >= static_cast<size_t>(HW_DECISION_THRESHOLD_BYTES);
 #else
 	return true;
 #endif
 }
 
-// Per-path compression uses async QPL (submit -> wait -> get result) via compress_to_string_via_async.
-// When path is HW and out_compress_latency_us is non-null, writes compression wait time (us) there.
-inline std::string compress_with_path(const std::string& data, qpl_path_t path,
-	uint64_t* out_compress_latency_us = nullptr) {
-	// Use async path (submit -> wait -> get result) with per-request path and HW latency sampling
-	if (path == qpl_path_hardware) {
+// Operation callback: (data, path, out_latency_us) -> result string.
+// out_latency_us may be null; when path is Hardware and non-null, implementation may write latency (us).
+using ExecuteOp = std::function<std::string(const std::string&, HwSwPath, uint64_t*)>;
+
+// Execute one operation on the given path with HW metrics (submit/start/finish, optional sampling).
+// Does not depend on compression; the actual work is done by op().
+inline std::string execute_with_path(const std::string& data, HwSwPath path,
+	ExecuteOp op, uint64_t* out_latency_us = nullptr) {
+	if (path == HwSwPath::Hardware) {
 		record_hw_submission();
 		HwSubmitKey key = record_hw_start_get_inflight_after();
 		struct InflightGuard {
@@ -54,8 +61,8 @@ inline std::string compress_with_path(const std::string& data, qpl_path_t path,
 		};
 		bool sample = ((next() & ((1ull << HW_LATENCY_SAMPLE_LOG2) - 1ull)) == 0ull);
 		uint64_t latency_us = 0;
-		std::string compressed = microservice::compression::compress_to_string_via_async(data, path, &latency_us);
-		if (out_compress_latency_us) *out_compress_latency_us = latency_us;
+		std::string result = op(data, HwSwPath::Hardware, &latency_us);
+		if (out_latency_us) *out_latency_us = latency_us;
 		if (sample) {
 			record_hw_finish(key, latency_us);
 			hw_guard.commit();
@@ -63,26 +70,9 @@ inline std::string compress_with_path(const std::string& data, qpl_path_t path,
 			record_hw_finish_nosample();
 			hw_guard.commit();
 		}
-		if (!compressed.empty()) {
-			return std::string("COMPRESSED:") + compressed;
-		}
-		return data;
-	} else {
-		std::string compressed = microservice::compression::compress_to_string_via_async(data, path);
-		if (!compressed.empty()) {
-			return std::string("COMPRESSED:") + compressed;
-		}
-		return data;
+		return result;
 	}
-}
-
-// Decompress using the same path (HW/SW) as was used for compression.
-// When path is HW and out_decompress_latency_us is non-null, writes decompression wait time (us) there.
-inline std::string decompress_with_path(const std::string& data, qpl_path_t path,
-	uint64_t* out_decompress_latency_us = nullptr) {
-	return microservice::compression::decompress_from_string_via_async(data, path, out_decompress_latency_us);
+	return op(data, HwSwPath::Software, out_latency_us);
 }
 
 } // namespace decision
-
-

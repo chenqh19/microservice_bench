@@ -1,7 +1,7 @@
 #include "utils/compression_utils.h"
 #include "config.h"
-#include "decision.h"
 #include "dispatcher.h"
+#include "compression_adapter.h"
 #include <httplib.h>
 #include <iostream>
 #include <string>
@@ -150,9 +150,10 @@ int main() {
             }
 			std::string slice(buffer.data(), requested_size);
 			std::vector<std::string> compressed_chunks;
-			qpl_path_t path_used = qpl_path_software;
+			decision::HwSwPath path_used = decision::HwSwPath::Software;
 			uint64_t compress_latency_us = 0;
-			decision::compress_collect(slice, compressed_chunks, &path_used, &compress_latency_us);
+			decision::collect(slice, compressed_chunks, decision::compress_operation(),
+				&path_used, &compress_latency_us);
 			size_t compressed_size_bytes = 0;
 			for (const auto& compressed : compressed_chunks) {
 				if (compressed.size() >= 11 && compressed.substr(0, 11) == "COMPRESSED:") {
@@ -161,7 +162,7 @@ int main() {
 					compressed_size_bytes += compressed.size();
 				}
 			}
-			bool hw_compress = (path_used == qpl_path_hardware);
+			bool hw_compress = (path_used == decision::HwSwPath::Hardware);
 			std::string json = std::string("{\"compressed_size\": ") + std::to_string(compressed_size_bytes) +
 				std::string(", \"hardware_compression\": ") + (hw_compress ? "true" : "false") +
 				std::string(", \"compress_latency_us\": ") + std::to_string(compress_latency_us) + "}\n";
