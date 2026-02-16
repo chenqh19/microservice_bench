@@ -1,0 +1,3 @@
+/home/chenqh23/microservice_bench/matmul/build/CMakeFiles/run_matmul.dir
+/home/chenqh23/microservice_bench/matmul/build/CMakeFiles/edit_cache.dir
+/home/chenqh23/microservice_bench/matmul/build/CMakeFiles/rebuild_cache.dir

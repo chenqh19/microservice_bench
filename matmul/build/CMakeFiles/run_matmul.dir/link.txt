@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/run_matmul.dir/run_matmul.cpp.o CMakeFiles/run_matmul.dir/amx_matmul.cpp.o -o run_matmul 

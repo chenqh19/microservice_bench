@@ -1,7 +1,8 @@
 FROM hotel-reservation-base:latest
 
-# Build context is the repo root (..), so copy this app dir and shared deps
+# Build context is the repo root (..). Copy compression, scheduler, utils, config.
 COPY compression .
+COPY scheduler ./scheduler
 COPY utils ./utils
 COPY config.h ./
 

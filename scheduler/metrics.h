@@ -8,17 +8,17 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
-#
+
 namespace decision {
-#
+
 namespace {
 static constexpr const char* SHM_NAME = "/compression_hw_counters_v6";
-#
+
 // Key at submission time: x1 = inflight count
 struct HwSubmitKey {
 	uint64_t inflight_count;
 };
-#
+
 struct SharedCounters {
 	alignas(64) uint64_t total;      // total HW submissions since start
 	alignas(64) uint64_t inflight;   // current in-flight HW operations
@@ -27,10 +27,10 @@ struct SharedCounters {
 	alignas(64) uint64_t latencies[RING_CAPACITY]; // us
 	alignas(64) uint64_t inflight_at_submit[RING_CAPACITY];
 };
-#
+
 static SharedCounters* g_shared = nullptr;
 static int g_shm_fd = -1;
-#
+
 inline void map_shared(bool create) {
 	if (g_shared) return;
 	int flags = create ? (O_CREAT | O_RDWR) : O_RDWR;
@@ -48,7 +48,7 @@ inline void map_shared(bool create) {
 	g_shared = reinterpret_cast<SharedCounters*>(ptr);
 }
 } // anon
-#
+
 inline void init_hw_counters_master() {
 	map_shared(true);
 	if (!g_shared) return;
@@ -56,8 +56,6 @@ inline void init_hw_counters_master() {
 }
 
 // Call in master process after fork so it re-maps the shm and sees workers' updates.
-// Before fork the master had the only mapping; workers inherit CoW copies, so the
-// master's view of ring_write_index etc. never advanced.
 inline void reattach_shm_after_fork() {
 	if (!g_shared) return;
 	munmap(g_shared, sizeof(SharedCounters));
@@ -65,32 +63,30 @@ inline void reattach_shm_after_fork() {
 	g_shared = nullptr;
 	map_shared(false);
 }
-#
+
 inline void init_hw_counters_worker() {
 	map_shared(false);
 }
-#
-// Current number of in-flight HW jobs (for path decision).
+
 inline uint64_t get_hw_inflight() {
 	if (!g_shared) init_hw_counters_worker();
 	return g_shared ? __atomic_load_n(&g_shared->inflight, __ATOMIC_RELAXED) : 0;
 }
-#
+
 inline void record_hw_submission() {
 	if (!g_shared) init_hw_counters_worker();
 	if (g_shared) {
 		__atomic_fetch_add(&g_shared->total, 1ULL, __ATOMIC_RELAXED);
 	}
 }
-#
+
 inline void record_hw_start() {
 	if (!g_shared) init_hw_counters_worker();
 	if (g_shared) {
 		__atomic_fetch_add(&g_shared->inflight, 1ULL, __ATOMIC_RELAXED);
 	}
 }
-#
-// Returns submission-time key (x1 = inflight count) after adding this task.
+
 inline HwSubmitKey record_hw_start_get_inflight_after() {
 	HwSubmitKey key{0};
 	if (!g_shared) init_hw_counters_worker();
@@ -99,7 +95,7 @@ inline HwSubmitKey record_hw_start_get_inflight_after() {
 	key.inflight_count = before_inflight + 1;
 	return key;
 }
-#
+
 inline void record_hw_finish(const HwSubmitKey& key, uint64_t latency_us) {
 	if (!g_shared) return;
 	__atomic_fetch_sub(&g_shared->inflight, 1ULL, __ATOMIC_RELAXED);
@@ -113,7 +109,7 @@ inline void record_hw_finish_nosample() {
 	if (!g_shared) return;
 	__atomic_fetch_sub(&g_shared->inflight, 1ULL, __ATOMIC_RELAXED);
 }
-#
+
 inline void start_global_hw_logger() {
 	static std::atomic<bool> started{false};
 	bool expected = false;
@@ -124,12 +120,10 @@ inline void start_global_hw_logger() {
 				std::this_thread::sleep_for(std::chrono::seconds(10));
 				if (!g_shared) { map_shared(false); }
 				if (!g_shared) continue;
-				// Print total delta
 				uint64_t current_total = __atomic_load_n(&g_shared->total, __ATOMIC_RELAXED);
 				uint64_t delta_total = current_total - last_total;
 				last_total = current_total;
 				std::cout << "HW submissions (all workers) in last 10s: " << delta_total << std::endl;
-				// Read and print ring contents (x1=inflight_at_submit, y=latency_us)
 				uint64_t current_ring = __atomic_load_n(&g_shared->ring_write_index, __ATOMIC_ACQUIRE);
 				uint64_t available = (current_ring >= SharedCounters::RING_CAPACITY)
 					? SharedCounters::RING_CAPACITY
@@ -149,7 +143,5 @@ inline void start_global_hw_logger() {
 		}).detach();
 	}
 }
-#
+
 } // namespace decision
-
-

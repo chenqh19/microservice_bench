@@ -1,3 +1,5 @@
+# Docker-oriented build for compress_frontend_service (see docker-compose.yml).
+# Context: repo root. Copy compression/, scheduler/, utils/, config.h into image.
 cmake_minimum_required(VERSION 3.16)
 project(compress_frontend_service)
 
@@ -19,12 +21,18 @@ FetchContent_MakeAvailable(httplib)
 link_directories(/app/ser1de/qpl_install_dir/lib)
 include_directories(/app/ser1de/qpl_install_dir/include/)
 
-add_executable(compress_frontend_service
-    main.cpp
-)
+add_executable(compress_frontend_service main.cpp)
 
+# Local: scheduler at repo root ../scheduler. Docker: COPY scheduler ./scheduler so scheduler is alongside compression contents.
+if(EXISTS ${CMAKE_SOURCE_DIR}/scheduler)
+  set(SCHEDULER_DIR ${CMAKE_SOURCE_DIR}/scheduler)
+else()
+  set(SCHEDULER_DIR ${CMAKE_SOURCE_DIR}/../scheduler)
+endif()
 target_include_directories(compress_frontend_service PRIVATE
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/..
+    ${SCHEDULER_DIR}
 )
 
 target_link_libraries(compress_frontend_service
@@ -32,5 +40,3 @@ target_link_libraries(compress_frontend_service
     Threads::Threads
     qpl
 )
-
-
