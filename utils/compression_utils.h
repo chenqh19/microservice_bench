@@ -121,6 +121,8 @@ public:
 
     // Decompress from contiguous bytes. If out_str is non-null, writes into *out_str (no copy);
     // otherwise uses internal buffer and returns result (one copy).
+    // Uses a large output estimate (size * 256, min 256KB) to avoid QPL_STS_MORE_OUTPUT_NEEDED for
+    // highly compressible data; retries with 4x buffer if that status is returned.
     std::string decompress_impl(const uint8_t* data, size_t size, std::string* out_str = nullptr) {
         if (!initialized_ok_) {
             std::cerr << "QPL job not initialized" << std::endl;
@@ -132,41 +134,52 @@ public:
             return "";
         }
 
-        size_t estimated_size = size * 6;
-        if (estimated_size < 8192) estimated_size = 8192;
-        uint8_t* out_ptr;
-        size_t out_cap;
-        if (out_str) {
-            out_str->resize(estimated_size);
-            out_ptr = (uint8_t*)out_str->data();
-            out_cap = estimated_size;
-        } else {
-            if (decompressed_buffer_.size() < estimated_size) {
-                decompressed_buffer_.resize(estimated_size);
+        const size_t min_estimated = 256 * 1024;  // 256KB minimum for highly compressible data
+        size_t estimated_size = size * 256;
+        if (estimated_size < min_estimated) estimated_size = min_estimated;
+
+        for (int retry = 0; retry < 3; ++retry) {
+            uint8_t* out_ptr;
+            size_t out_cap;
+            if (out_str) {
+                out_str->resize(estimated_size);
+                out_ptr = (uint8_t*)out_str->data();
+                out_cap = estimated_size;
+            } else {
+                if (decompressed_buffer_.size() < estimated_size) {
+                    decompressed_buffer_.resize(estimated_size);
+                }
+                out_ptr = decompressed_buffer_.data();
+                out_cap = decompressed_buffer_.size();
             }
-            out_ptr = decompressed_buffer_.data();
-            out_cap = decompressed_buffer_.size();
-        }
 
-        job_ptr_->op = qpl_op_decompress;
-        job_ptr_->next_in_ptr = const_cast<uint8_t*>(data);
-        job_ptr_->available_in = size;
-        job_ptr_->next_out_ptr = out_ptr;
-        job_ptr_->available_out = out_cap;
-        job_ptr_->flags = QPL_FLAG_FIRST | QPL_FLAG_LAST;
+            job_ptr_->op = qpl_op_decompress;
+            job_ptr_->next_in_ptr = const_cast<uint8_t*>(data);
+            job_ptr_->available_in = size;
+            job_ptr_->next_out_ptr = out_ptr;
+            job_ptr_->available_out = out_cap;
+            job_ptr_->flags = QPL_FLAG_FIRST | QPL_FLAG_LAST;
 
-        qpl_status status = qpl_execute_job(job_ptr_);
-        if (status != QPL_STS_OK) {
+            qpl_status status = qpl_execute_job(job_ptr_);
+            if (status == QPL_STS_OK) {
+                size_t decompressed_size = job_ptr_->total_out;
+                if (out_str) {
+                    out_str->resize(decompressed_size);
+                    return std::move(*out_str);
+                }
+                return std::string((char*)decompressed_buffer_.data(), decompressed_size);
+            }
+            if (status == QPL_STS_MORE_OUTPUT_NEEDED) {
+                estimated_size *= 4;
+                continue;
+            }
             std::cerr << "Decompression failed with status: " << status << std::endl;
             if (out_str) out_str->clear();
             return "";
         }
-        size_t decompressed_size = job_ptr_->total_out;
-        if (out_str) {
-            out_str->resize(decompressed_size);
-            return std::move(*out_str);
-        }
-        return std::string((char*)decompressed_buffer_.data(), decompressed_size);
+        std::cerr << "Decompression failed: output buffer still too small after retries" << std::endl;
+        if (out_str) out_str->clear();
+        return "";
     }
 
     // Decompress data using QPL (vector overload). No copy of output when using out buffer.
@@ -290,18 +303,75 @@ inline std::string decompress_data(const std::string& data) {
 }
 
 // ============================================================================
-// Non-blocking (asynchronous) helpers using QPL submit/wait APIs
-// Submit a job with qpl_submit_job and allow waiting later with qpl_wait_job.
+// Non-blocking (asynchronous) helpers using QPL submit/check APIs
+// Submit with qpl_submit_job; poll for completion with qpl_check_job (no blocking qpl_wait_job).
+// Jobs are reused per thread per path (like sync CompressionManager): one job per (path, op).
 // ============================================================================
+
+struct ReusableQplJob {
+    qpl_job* job_ptr_ = nullptr;
+    qpl_path_t path_ = COMPRESSION_PATH;
+    bool is_decompress_ = false;
+    std::vector<uint8_t> input_buffer_;
+    std::vector<uint8_t> output_buffer_;
+    bool initialized_ = false;
+
+    bool ensure_init() {
+        if (initialized_) return true;
+        uint32_t size = 0;
+        qpl_get_job_size(path_, &size);
+        job_ptr_ = (qpl_job*)std::malloc(size);
+        if (!job_ptr_) return false;
+        qpl_status st = qpl_init_job(path_, job_ptr_);
+        if (st != QPL_STS_OK) {
+            std::free(job_ptr_);
+            job_ptr_ = nullptr;
+            return false;
+        }
+        initialized_ = true;
+        return true;
+    }
+
+    void wait_idle() {
+        if (!job_ptr_) return;
+        qpl_status st;
+        do {
+            st = qpl_check_job(job_ptr_);
+            if (st == QPL_STS_BEING_PROCESSED) {
+                std::this_thread::yield();
+            }
+        } while (st == QPL_STS_BEING_PROCESSED);
+    }
+};
+
+namespace {
+inline int reusable_index(qpl_path_t path, bool is_decompress) {
+    return (path == qpl_path_hardware ? 0 : 1) + (is_decompress ? 2 : 0);
+}
+thread_local ReusableQplJob g_reusable_jobs[4];
+
+inline ReusableQplJob* get_reusable_job(qpl_path_t path, bool is_decompress) {
+    int idx = reusable_index(path, is_decompress);
+    ReusableQplJob* r = &g_reusable_jobs[idx];
+    r->path_ = path;
+    r->is_decompress_ = is_decompress;
+    if (!r->ensure_init()) return nullptr;
+    return r;
+}
+}  // namespace
 
 class AsyncQplJob {
 private:
+    bool owns_job_ = true;
+    ReusableQplJob* borrowed_ = nullptr;
+
     void cleanup() {
-        if (job_ptr_) {
+        if (owns_job_ && job_ptr_) {
             qpl_fini_job(job_ptr_);
             std::free(job_ptr_);
             job_ptr_ = nullptr;
         }
+        borrowed_ = nullptr;
     }
 
 public:
@@ -324,6 +394,8 @@ public:
     AsyncQplJob& operator=(const AsyncQplJob&) = delete;
 
     AsyncQplJob(AsyncQplJob&& other) noexcept {
+        owns_job_ = other.owns_job_;
+        borrowed_ = other.borrowed_;
         job_ptr_ = other.job_ptr_;
         input_buffer_ = std::move(other.input_buffer_);
         output_buffer_ = std::move(other.output_buffer_);
@@ -332,12 +404,16 @@ public:
         passthrough_value_ = std::move(other.passthrough_value_);
         submitted_ = other.submitted_;
         submit_status_ = other.submit_status_;
+        other.owns_job_ = true;
+        other.borrowed_ = nullptr;
         other.job_ptr_ = nullptr;
     }
 
     AsyncQplJob& operator=(AsyncQplJob&& other) noexcept {
         if (this != &other) {
             cleanup();
+            owns_job_ = other.owns_job_;
+            borrowed_ = other.borrowed_;
             job_ptr_ = other.job_ptr_;
             input_buffer_ = std::move(other.input_buffer_);
             output_buffer_ = std::move(other.output_buffer_);
@@ -346,11 +422,23 @@ public:
             passthrough_value_ = std::move(other.passthrough_value_);
             submitted_ = other.submitted_;
             submit_status_ = other.submit_status_;
+            other.owns_job_ = true;
+            other.borrowed_ = nullptr;
             other.job_ptr_ = nullptr;
         }
         return *this;
     }
 
+    // Set this handle to reference a reusable (pool) job; used by submit_*_job.
+    void set_borrowed(ReusableQplJob* r, bool is_decompress) {
+        owns_job_ = false;
+        borrowed_ = r;
+        job_ptr_ = r ? r->job_ptr_ : nullptr;
+        is_decompress_ = is_decompress;
+    }
+
+    // Poll for completion using qpl_check_job (non-blocking check). Loops until job is done
+    // so the calling thread yields instead of blocking in qpl_wait_job.
     qpl_status wait() {
         if (is_passthrough_) {
             return QPL_STS_OK;
@@ -358,37 +446,53 @@ public:
         if (!submitted_ || !job_ptr_) {
             return submit_status_;
         }
-        // Block until job completes
-        qpl_status st = qpl_wait_job(job_ptr_);
+        qpl_status st;
+        do {
+            st = qpl_check_job(job_ptr_);
+            if (st == QPL_STS_BEING_PROCESSED) {
+                std::this_thread::yield();
+            }
+        } while (st == QPL_STS_BEING_PROCESSED);
         submit_status_ = st;
         return st;
     }
 
-    std::string get_result() {
+    // Get result string. If out_latency_us is non-null, times the wait() call and
+    // writes wall-clock microseconds to *out_latency_us (for HW latency sampling).
+    std::string get_result(uint64_t* out_latency_us = nullptr) {
         if (is_passthrough_) {
             return passthrough_value_;
         }
-        qpl_status st = wait();
+        qpl_status st;
+        if (out_latency_us) {
+            auto t0 = std::chrono::steady_clock::now();
+            st = wait();
+            auto t1 = std::chrono::steady_clock::now();
+            *out_latency_us = static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count());
+        } else {
+            st = wait();
+        }
         if (st != QPL_STS_OK) {
             std::cerr << "QPL async job failed with status: " << st << std::endl;
             return std::string();
         }
         size_t produced = job_ptr_ ? job_ptr_->total_out : 0u;
-    
-        
+        const uint8_t* out_data = borrowed_ ? borrowed_->output_buffer_.data() : output_buffer_.data();
+
         if (is_decompress_) {
-            return std::string((char*)output_buffer_.data(), produced);
+            return std::string((char*)out_data, produced);
         }
         // Return compressed binary with prefix (no hex encoding needed)
         std::string result;
         result.reserve(11 + produced);
         result += "COMPRESSED:";
-        result.append((char*)output_buffer_.data(), produced);
+        result.append((char*)out_data, produced);
         return result;
     }
 };
 
-inline AsyncQplJob submit_compress_job(const std::string& data) {
+inline AsyncQplJob submit_compress_job(const std::string& data, qpl_path_t path = COMPRESSION_PATH) {
     AsyncQplJob handle;
     if (data.empty()) {
         handle.is_passthrough_ = true;
@@ -396,46 +500,30 @@ inline AsyncQplJob submit_compress_job(const std::string& data) {
         return handle;
     }
 
-    // Prepare buffers
-    handle.input_buffer_.assign(data.begin(), data.end());
-    size_t max_compressed_size = data.size() + (data.size() >> 4) + 2048;  // safer heuristic
-    handle.output_buffer_.resize(max_compressed_size);
-    handle.is_decompress_ = false;
-
-    // Allocate and initialize job
-    uint32_t size = 0;
-    qpl_get_job_size(COMPRESSION_PATH, &size);
-    handle.job_ptr_ = (qpl_job*)std::malloc(size);
-    if (!handle.job_ptr_) {
-        std::cerr << "Failed to allocate memory for QPL job (compress)" << std::endl;
-        handle.submit_status_ = static_cast<qpl_status>(1);  // Use non-zero value to indicate error
+    ReusableQplJob* reusable = get_reusable_job(path, false);
+    if (!reusable) {
+        std::cerr << "Failed to get reusable compress job for path" << std::endl;
+        handle.submit_status_ = static_cast<qpl_status>(1);
         handle.submitted_ = false;
         return handle;
     }
-    
-    qpl_status init_status = qpl_init_job(COMPRESSION_PATH, handle.job_ptr_);
-    if (init_status != QPL_STS_OK) {
-        std::cerr << "qpl_init_job (compress) failed with status: " << init_status << std::endl;
-        std::free(handle.job_ptr_);
-        handle.job_ptr_ = nullptr;
-        handle.submit_status_ = init_status;
-        handle.submitted_ = false;
-        return handle;
-    }
+    reusable->wait_idle();
 
-    // Setup job
-    handle.job_ptr_->op = qpl_op_compress;
-    handle.job_ptr_->level = qpl_default_level;
-    handle.job_ptr_->next_in_ptr = handle.input_buffer_.data();
-    handle.job_ptr_->available_in = (uint32_t)handle.input_buffer_.size();
-    handle.job_ptr_->next_out_ptr = handle.output_buffer_.data();
-    handle.job_ptr_->available_out = (uint32_t)handle.output_buffer_.size();
-    // Align software path behavior with hardware: always use dynamic Huffman
+    reusable->input_buffer_.assign(data.begin(), data.end());
+    size_t max_compressed_size = data.size() + (data.size() >> 4) + 2048;
+    reusable->output_buffer_.resize(max_compressed_size);
+
+    reusable->job_ptr_->op = qpl_op_compress;
+    reusable->job_ptr_->level = qpl_default_level;
+    reusable->job_ptr_->next_in_ptr = reusable->input_buffer_.data();
+    reusable->job_ptr_->available_in = (uint32_t)reusable->input_buffer_.size();
+    reusable->job_ptr_->next_out_ptr = reusable->output_buffer_.data();
+    reusable->job_ptr_->available_out = (uint32_t)reusable->output_buffer_.size();
     uint32_t flags = QPL_FLAG_FIRST | QPL_FLAG_LAST | QPL_FLAG_DYNAMIC_HUFFMAN;
-    handle.job_ptr_->flags = flags;
+    reusable->job_ptr_->flags = flags;
 
-    // Submit non-blocking
-    handle.submit_status_ = qpl_submit_job(handle.job_ptr_);
+    handle.set_borrowed(reusable, false);
+    handle.submit_status_ = qpl_submit_job(reusable->job_ptr_);
     handle.submitted_ = (handle.submit_status_ == QPL_STS_OK);
     if (!handle.submitted_) {
         std::cerr << "qpl_submit_job (compress) failed with status: " << handle.submit_status_ << std::endl;
@@ -443,7 +531,7 @@ inline AsyncQplJob submit_compress_job(const std::string& data) {
     return handle;
 }
 
-inline AsyncQplJob submit_decompress_job(const std::string& data) {
+inline AsyncQplJob submit_decompress_job(const std::string& data, qpl_path_t path = COMPRESSION_PATH) {
     AsyncQplJob handle;
     if (data.empty()) {
         handle.is_passthrough_ = true;
@@ -452,67 +540,87 @@ inline AsyncQplJob submit_decompress_job(const std::string& data) {
     }
 
     if (!(data.size() >= 11 && data.substr(0, 11) == "COMPRESSED:")) {
-        // Not a compressed payload, passthrough
         handle.is_passthrough_ = true;
         handle.passthrough_value_ = data;
         return handle;
     }
 
-    // Extract compressed binary data (no hex decoding needed)
     const std::string compressed_binary = data.substr(11);
     if (compressed_binary.empty()) {
         handle.is_passthrough_ = true;
         handle.passthrough_value_ = data;
         return handle;
     }
-    
-    // Convert string to binary buffer
-    handle.input_buffer_.assign(compressed_binary.begin(), compressed_binary.end());
 
-    // Estimate output size (6x as heuristic for highly compressed data)
-    size_t estimated_size = handle.input_buffer_.size() * 6;
-    if (estimated_size == 0) {
-        estimated_size = 8192;
-    }
-    handle.output_buffer_.resize(estimated_size);
-    handle.is_decompress_ = true;
-
-    // Allocate and initialize job
-    uint32_t size = 0;
-    qpl_get_job_size(COMPRESSION_PATH, &size);
-    handle.job_ptr_ = (qpl_job*)std::malloc(size);
-    if (!handle.job_ptr_) {
-        std::cerr << "Failed to allocate memory for QPL job (decompress)" << std::endl;
-        handle.submit_status_ = static_cast<qpl_status>(1);  // Use non-zero value to indicate error
+    ReusableQplJob* reusable = get_reusable_job(path, true);
+    if (!reusable) {
+        std::cerr << "Failed to get reusable decompress job for path" << std::endl;
+        handle.submit_status_ = static_cast<qpl_status>(1);
         handle.submitted_ = false;
         return handle;
     }
-    
-    qpl_status init_status = qpl_init_job(COMPRESSION_PATH, handle.job_ptr_);
-    if (init_status != QPL_STS_OK) {
-        std::cerr << "qpl_init_job (decompress) failed with status: " << init_status << std::endl;
-        std::free(handle.job_ptr_);
-        handle.job_ptr_ = nullptr;
-        handle.submit_status_ = init_status;
-        handle.submitted_ = false;
-        return handle;
+    reusable->wait_idle();
+
+    reusable->input_buffer_.assign(compressed_binary.begin(), compressed_binary.end());
+    size_t estimated_size = reusable->input_buffer_.size() * 256;
+    if (estimated_size < 256 * 1024) {
+        estimated_size = 256 * 1024;
     }
+    reusable->output_buffer_.resize(estimated_size);
 
-    // Setup job
-    handle.job_ptr_->op = qpl_op_decompress;
-    handle.job_ptr_->next_in_ptr = handle.input_buffer_.data();
-    handle.job_ptr_->available_in = (uint32_t)handle.input_buffer_.size();
-    handle.job_ptr_->next_out_ptr = handle.output_buffer_.data();
-    handle.job_ptr_->available_out = (uint32_t)handle.output_buffer_.size();
-    handle.job_ptr_->flags = QPL_FLAG_FIRST | QPL_FLAG_LAST;
+    reusable->job_ptr_->op = qpl_op_decompress;
+    reusable->job_ptr_->next_in_ptr = reusable->input_buffer_.data();
+    reusable->job_ptr_->available_in = (uint32_t)reusable->input_buffer_.size();
+    reusable->job_ptr_->next_out_ptr = reusable->output_buffer_.data();
+    reusable->job_ptr_->available_out = (uint32_t)reusable->output_buffer_.size();
+    reusable->job_ptr_->flags = QPL_FLAG_FIRST | QPL_FLAG_LAST;
 
-    // Submit non-blocking
-    handle.submit_status_ = qpl_submit_job(handle.job_ptr_);
+    handle.set_borrowed(reusable, true);
+    handle.submit_status_ = qpl_submit_job(reusable->job_ptr_);
     handle.submitted_ = (handle.submit_status_ == QPL_STS_OK);
     if (!handle.submitted_) {
         std::cerr << "qpl_submit_job (decompress) failed with status: " << handle.submit_status_ << std::endl;
     }
     return handle;
+}
+
+// ----------------------------------------------------------------------------
+// Sync-compatible API using async path (submit -> wait -> get result)
+// Returns raw compressed bytes, same as CompressionManager::compress_to_string.
+// Use this from decision layer so the service uses the async QPL path with
+// per-request path selection and optional HW latency reporting.
+// ----------------------------------------------------------------------------
+inline std::string compress_to_string_via_async(const std::string& data, qpl_path_t path,
+                                                uint64_t* out_latency_us = nullptr) {
+    if (data.empty()) {
+        return std::string();
+    }
+    AsyncQplJob handle = submit_compress_job(data, path);
+    std::string full = handle.get_result(out_latency_us);
+    if (full.empty()) {
+        return std::string();
+    }
+    // get_result() for compress returns "COMPRESSED:" + binary; return raw bytes only
+    if (full.size() >= 11 && full.substr(0, 11) == "COMPRESSED:") {
+        return full.substr(11);
+    }
+    return full;
+}
+
+// ----------------------------------------------------------------------------
+// Decompress using same async path and path (HW/SW) as compression.
+// Input: string with optional "COMPRESSED:" prefix; output: decompressed string.
+// When path is HW and out_latency_us is non-null, writes wait time (us) there.
+// ----------------------------------------------------------------------------
+inline std::string decompress_from_string_via_async(const std::string& data, qpl_path_t path,
+                                                    uint64_t* out_latency_us = nullptr) {
+    if (data.empty()) {
+        return data;
+    }
+    AsyncQplJob handle = submit_decompress_job(data, path);
+    std::string result = (path == qpl_path_hardware && out_latency_us)
+        ? handle.get_result(out_latency_us) : handle.get_result(nullptr);
+    return result.empty() ? data : result;
 }
 
 // ----------------------------------------------------------------------------

@@ -143,7 +143,7 @@ inline void start_global_hw_logger() {
 					uint64_t pos = idx % SharedCounters::RING_CAPACITY;
 					uint64_t x1 = __atomic_load_n(&g_shared->inflight_at_submit[pos], __ATOMIC_ACQUIRE);
 					uint64_t y = __atomic_load_n(&g_shared->latencies[pos], __ATOMIC_ACQUIRE);
-					std::cout << " [ " << x1 << " , " << y << " ] ";
+					std::cout << "[" << x1 << ", " << y << "] ";
 				}
 				std::cout << std::endl;
 			}

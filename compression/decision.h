@@ -30,33 +30,20 @@ inline bool should_use_hardware_for_request(size_t uncompressed_size) {
 #endif
 }
 
-// Do not modify utils; provide per-path compression helpers here
-thread_local std::unique_ptr<microservice::compression::CompressionManager> g_hw_mgr = nullptr;
-thread_local std::unique_ptr<microservice::compression::CompressionManager> g_sw_mgr = nullptr;
-
-inline microservice::compression::CompressionManager* get_mgr_for(qpl_path_t path) {
-	if (path == qpl_path_hardware) {
-		if (!g_hw_mgr) g_hw_mgr = std::make_unique<microservice::compression::CompressionManager>(qpl_path_hardware);
-		return g_hw_mgr.get();
-	}
-	if (!g_sw_mgr) g_sw_mgr = std::make_unique<microservice::compression::CompressionManager>(qpl_path_software);
-	return g_sw_mgr.get();
-}
-
-inline std::string compress_with_path(const std::string& data, qpl_path_t path) {
-	microservice::compression::CompressionManager* mgr = get_mgr_for(path);
+// Per-path compression uses async QPL (submit -> wait -> get result) via compress_to_string_via_async.
+// When path is HW and out_compress_latency_us is non-null, writes compression wait time (us) there.
+inline std::string compress_with_path(const std::string& data, qpl_path_t path,
+	uint64_t* out_compress_latency_us = nullptr) {
+	// Use async path (submit -> wait -> get result) with per-request path and HW latency sampling
 	if (path == qpl_path_hardware) {
 		record_hw_submission();
 		HwSubmitKey key = record_hw_start_get_inflight_after();
-		// Ensure we always decrement inflight when leaving this path (e.g. on exception)
 		struct InflightGuard {
 			bool committed_ = false;
 			void commit() { committed_ = true; }
 			~InflightGuard() { if (!committed_) record_hw_finish_nosample(); }
 		} hw_guard;
-		// Lightweight sampling: thread-local xorshift, sample if low bits are zero
 		thread_local uint64_t rng = 0x9e3779b97f4a7c15ull;
-		// xorshift64*
 		auto next = [&]() {
 			uint64_t x = rng;
 			x ^= x >> 12;
@@ -66,14 +53,13 @@ inline std::string compress_with_path(const std::string& data, qpl_path_t path) 
 			return x * 2685821657736338717ull;
 		};
 		bool sample = ((next() & ((1ull << HW_LATENCY_SAMPLE_LOG2) - 1ull)) == 0ull);
-		std::string compressed;
+		uint64_t latency_us = 0;
+		std::string compressed = microservice::compression::compress_to_string_via_async(data, path, &latency_us);
+		if (out_compress_latency_us) *out_compress_latency_us = latency_us;
 		if (sample) {
-			uint64_t latency_us = 0;
-			compressed = mgr->compress_to_string(data, &latency_us);
 			record_hw_finish(key, latency_us);
 			hw_guard.commit();
 		} else {
-			compressed = mgr->compress_to_string(data);
 			record_hw_finish_nosample();
 			hw_guard.commit();
 		}
@@ -82,12 +68,19 @@ inline std::string compress_with_path(const std::string& data, qpl_path_t path) 
 		}
 		return data;
 	} else {
-		auto compressed = mgr->compress_to_string(data);
+		std::string compressed = microservice::compression::compress_to_string_via_async(data, path);
 		if (!compressed.empty()) {
 			return std::string("COMPRESSED:") + compressed;
 		}
 		return data;
 	}
+}
+
+// Decompress using the same path (HW/SW) as was used for compression.
+// When path is HW and out_decompress_latency_us is non-null, writes decompression wait time (us) there.
+inline std::string decompress_with_path(const std::string& data, qpl_path_t path,
+	uint64_t* out_decompress_latency_us = nullptr) {
+	return microservice::compression::decompress_from_string_via_async(data, path, out_decompress_latency_us);
 }
 
 } // namespace decision

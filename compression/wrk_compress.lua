@@ -8,10 +8,12 @@ math.random(); math.random(); math.random()
 -- wrk will be invoked with the base URL, e.g.:
 -- wrk -t2 -c64 -d30s -s compression/wrk_compress.lua http://localhost:50060
 
+-- If REQUEST_SIZE (bytes) is set, use it for every request; else random 400-401KB
+local fixed_size = os.getenv("REQUEST_SIZE") and tonumber(os.getenv("REQUEST_SIZE"))
+
 local function compress_request()
   local method = "GET"
-  -- Random size between 64KB and 512KB (bytes)
-  local size = math.random(1000 * 1024, 1007 * 1024)
+  local size = fixed_size or math.random(400 * 1024, 401 * 1024)
   local path = "/compress?size=" .. tostring(size)
   return wrk.format(method, path, nil, nil)
 end
