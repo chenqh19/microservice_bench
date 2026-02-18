@@ -117,24 +117,24 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named run_matmul
+# Target rules for targets named matmul_workload
 
 # Build rule for target.
-run_matmul: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 run_matmul
-.PHONY : run_matmul
+matmul_workload: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 matmul_workload
+.PHONY : matmul_workload
 
 # fast build rule for target.
-run_matmul/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_matmul.dir/build.make CMakeFiles/run_matmul.dir/build
-.PHONY : run_matmul/fast
+matmul_workload/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/build
+.PHONY : matmul_workload/fast
 
 amx_matmul.o: amx_matmul.cpp.o
 .PHONY : amx_matmul.o
 
 # target to build an object file
 amx_matmul.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_matmul.dir/build.make CMakeFiles/run_matmul.dir/amx_matmul.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/amx_matmul.cpp.o
 .PHONY : amx_matmul.cpp.o
 
 amx_matmul.i: amx_matmul.cpp.i
@@ -142,7 +142,7 @@ amx_matmul.i: amx_matmul.cpp.i
 
 # target to preprocess a source file
 amx_matmul.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_matmul.dir/build.make CMakeFiles/run_matmul.dir/amx_matmul.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/amx_matmul.cpp.i
 .PHONY : amx_matmul.cpp.i
 
 amx_matmul.s: amx_matmul.cpp.s
@@ -150,32 +150,32 @@ amx_matmul.s: amx_matmul.cpp.s
 
 # target to generate assembly for a file
 amx_matmul.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_matmul.dir/build.make CMakeFiles/run_matmul.dir/amx_matmul.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/amx_matmul.cpp.s
 .PHONY : amx_matmul.cpp.s
 
-run_matmul.o: run_matmul.cpp.o
-.PHONY : run_matmul.o
+matmul_workload.o: matmul_workload.cpp.o
+.PHONY : matmul_workload.o
 
 # target to build an object file
-run_matmul.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_matmul.dir/build.make CMakeFiles/run_matmul.dir/run_matmul.cpp.o
-.PHONY : run_matmul.cpp.o
+matmul_workload.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/matmul_workload.cpp.o
+.PHONY : matmul_workload.cpp.o
 
-run_matmul.i: run_matmul.cpp.i
-.PHONY : run_matmul.i
+matmul_workload.i: matmul_workload.cpp.i
+.PHONY : matmul_workload.i
 
 # target to preprocess a source file
-run_matmul.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_matmul.dir/build.make CMakeFiles/run_matmul.dir/run_matmul.cpp.i
-.PHONY : run_matmul.cpp.i
+matmul_workload.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/matmul_workload.cpp.i
+.PHONY : matmul_workload.cpp.i
 
-run_matmul.s: run_matmul.cpp.s
-.PHONY : run_matmul.s
+matmul_workload.s: matmul_workload.cpp.s
+.PHONY : matmul_workload.s
 
 # target to generate assembly for a file
-run_matmul.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_matmul.dir/build.make CMakeFiles/run_matmul.dir/run_matmul.cpp.s
-.PHONY : run_matmul.cpp.s
+matmul_workload.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/matmul_workload.cpp.s
+.PHONY : matmul_workload.cpp.s
 
 # Help Target
 help:
@@ -185,13 +185,13 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... run_matmul"
+	@echo "... matmul_workload"
 	@echo "... amx_matmul.o"
 	@echo "... amx_matmul.i"
 	@echo "... amx_matmul.s"
-	@echo "... run_matmul.o"
-	@echo "... run_matmul.i"
-	@echo "... run_matmul.s"
+	@echo "... matmul_workload.o"
+	@echo "... matmul_workload.i"
+	@echo "... matmul_workload.s"
 .PHONY : help
 
 

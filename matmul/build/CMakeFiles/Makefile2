@@ -63,7 +63,7 @@ CMAKE_BINARY_DIR = /home/chenqh23/microservice_bench/matmul/build
 # Directory level rules for the build root directory
 
 # The main recursive "all" target.
-all: CMakeFiles/run_matmul.dir/all
+all: CMakeFiles/matmul_workload.dir/all
 .PHONY : all
 
 # The main recursive "preinstall" target.
@@ -71,34 +71,34 @@ preinstall:
 .PHONY : preinstall
 
 # The main recursive "clean" target.
-clean: CMakeFiles/run_matmul.dir/clean
+clean: CMakeFiles/matmul_workload.dir/clean
 .PHONY : clean
 
 #=============================================================================
-# Target rules for target CMakeFiles/run_matmul.dir
+# Target rules for target CMakeFiles/matmul_workload.dir
 
 # All Build rule for target.
-CMakeFiles/run_matmul.dir/all:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_matmul.dir/build.make CMakeFiles/run_matmul.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_matmul.dir/build.make CMakeFiles/run_matmul.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/chenqh23/microservice_bench/matmul/build/CMakeFiles --progress-num=1,2,3 "Built target run_matmul"
-.PHONY : CMakeFiles/run_matmul.dir/all
+CMakeFiles/matmul_workload.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/chenqh23/microservice_bench/matmul/build/CMakeFiles --progress-num=1,2,3 "Built target matmul_workload"
+.PHONY : CMakeFiles/matmul_workload.dir/all
 
 # Build rule for subdir invocation for target.
-CMakeFiles/run_matmul.dir/rule: cmake_check_build_system
+CMakeFiles/matmul_workload.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/chenqh23/microservice_bench/matmul/build/CMakeFiles 3
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/run_matmul.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/matmul_workload.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/chenqh23/microservice_bench/matmul/build/CMakeFiles 0
-.PHONY : CMakeFiles/run_matmul.dir/rule
+.PHONY : CMakeFiles/matmul_workload.dir/rule
 
 # Convenience name for target.
-run_matmul: CMakeFiles/run_matmul.dir/rule
-.PHONY : run_matmul
+matmul_workload: CMakeFiles/matmul_workload.dir/rule
+.PHONY : matmul_workload
 
 # clean rule for target.
-CMakeFiles/run_matmul.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/run_matmul.dir/build.make CMakeFiles/run_matmul.dir/clean
-.PHONY : CMakeFiles/run_matmul.dir/clean
+CMakeFiles/matmul_workload.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/clean
+.PHONY : CMakeFiles/matmul_workload.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

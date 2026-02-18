@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/matmul_server.dir/matmul_server.cpp.o CMakeFiles/matmul_server.dir/amx_matmul.cpp.o -o matmul_server 

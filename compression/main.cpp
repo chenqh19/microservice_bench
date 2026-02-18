@@ -12,7 +12,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <algorithm>
-#
+
 class CompressFrontendService {
 private:
     std::string pre_generated_random_data_;

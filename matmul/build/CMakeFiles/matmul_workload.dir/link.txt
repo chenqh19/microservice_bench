@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/matmul_workload.dir/matmul_workload.cpp.o CMakeFiles/matmul_workload.dir/amx_matmul.cpp.o -o matmul_workload 
