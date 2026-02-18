@@ -129,12 +129,26 @@ matmul_workload/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/build
 .PHONY : matmul_workload/fast
 
+#=============================================================================
+# Target rules for targets named matmul_server
+
+# Build rule for target.
+matmul_server: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 matmul_server
+.PHONY : matmul_server
+
+# fast build rule for target.
+matmul_server/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/build
+.PHONY : matmul_server/fast
+
 amx_matmul.o: amx_matmul.cpp.o
 .PHONY : amx_matmul.o
 
 # target to build an object file
 amx_matmul.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/amx_matmul.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/amx_matmul.cpp.o
 .PHONY : amx_matmul.cpp.o
 
 amx_matmul.i: amx_matmul.cpp.i
@@ -143,6 +157,7 @@ amx_matmul.i: amx_matmul.cpp.i
 # target to preprocess a source file
 amx_matmul.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/amx_matmul.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/amx_matmul.cpp.i
 .PHONY : amx_matmul.cpp.i
 
 amx_matmul.s: amx_matmul.cpp.s
@@ -151,7 +166,32 @@ amx_matmul.s: amx_matmul.cpp.s
 # target to generate assembly for a file
 amx_matmul.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/amx_matmul.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/amx_matmul.cpp.s
 .PHONY : amx_matmul.cpp.s
+
+matmul_server.o: matmul_server.cpp.o
+.PHONY : matmul_server.o
+
+# target to build an object file
+matmul_server.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/matmul_server.cpp.o
+.PHONY : matmul_server.cpp.o
+
+matmul_server.i: matmul_server.cpp.i
+.PHONY : matmul_server.i
+
+# target to preprocess a source file
+matmul_server.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/matmul_server.cpp.i
+.PHONY : matmul_server.cpp.i
+
+matmul_server.s: matmul_server.cpp.s
+.PHONY : matmul_server.s
+
+# target to generate assembly for a file
+matmul_server.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/matmul_server.cpp.s
+.PHONY : matmul_server.cpp.s
 
 matmul_workload.o: matmul_workload.cpp.o
 .PHONY : matmul_workload.o
@@ -185,10 +225,14 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... matmul_server"
 	@echo "... matmul_workload"
 	@echo "... amx_matmul.o"
 	@echo "... amx_matmul.i"
 	@echo "... amx_matmul.s"
+	@echo "... matmul_server.o"
+	@echo "... matmul_server.i"
+	@echo "... matmul_server.s"
 	@echo "... matmul_workload.o"
 	@echo "... matmul_workload.i"
 	@echo "... matmul_workload.s"

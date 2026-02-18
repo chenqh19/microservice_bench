@@ -64,6 +64,7 @@ CMAKE_BINARY_DIR = /home/chenqh23/microservice_bench/matmul/build
 
 # The main recursive "all" target.
 all: CMakeFiles/matmul_workload.dir/all
+all: CMakeFiles/matmul_server.dir/all
 .PHONY : all
 
 # The main recursive "preinstall" target.
@@ -72,6 +73,7 @@ preinstall:
 
 # The main recursive "clean" target.
 clean: CMakeFiles/matmul_workload.dir/clean
+clean: CMakeFiles/matmul_server.dir/clean
 .PHONY : clean
 
 #=============================================================================
@@ -81,7 +83,7 @@ clean: CMakeFiles/matmul_workload.dir/clean
 CMakeFiles/matmul_workload.dir/all:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/chenqh23/microservice_bench/matmul/build/CMakeFiles --progress-num=1,2,3 "Built target matmul_workload"
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/chenqh23/microservice_bench/matmul/build/CMakeFiles --progress-num=4,5,6 "Built target matmul_workload"
 .PHONY : CMakeFiles/matmul_workload.dir/all
 
 # Build rule for subdir invocation for target.
@@ -99,6 +101,32 @@ matmul_workload: CMakeFiles/matmul_workload.dir/rule
 CMakeFiles/matmul_workload.dir/clean:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/clean
 .PHONY : CMakeFiles/matmul_workload.dir/clean
+
+#=============================================================================
+# Target rules for target CMakeFiles/matmul_server.dir
+
+# All Build rule for target.
+CMakeFiles/matmul_server.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --progress-dir=/home/chenqh23/microservice_bench/matmul/build/CMakeFiles --progress-num=1,2,3 "Built target matmul_server"
+.PHONY : CMakeFiles/matmul_server.dir/all
+
+# Build rule for subdir invocation for target.
+CMakeFiles/matmul_server.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/chenqh23/microservice_bench/matmul/build/CMakeFiles 3
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/matmul_server.dir/all
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/chenqh23/microservice_bench/matmul/build/CMakeFiles 0
+.PHONY : CMakeFiles/matmul_server.dir/rule
+
+# Convenience name for target.
+matmul_server: CMakeFiles/matmul_server.dir/rule
+.PHONY : matmul_server
+
+# clean rule for target.
+CMakeFiles/matmul_server.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/clean
+.PHONY : CMakeFiles/matmul_server.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

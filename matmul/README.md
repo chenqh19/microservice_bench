@@ -26,7 +26,7 @@ Produces `run_matmul` and `matmul_workload`.
 ./matmul_workload [rps] [duration_sec] [num_workers] [M K N]
 ```
 
-- **rps**: Target requests per second. Same as **wrk2 -D exp**: inter-arrival times are exponential with **rate = rps** (i.e. λ = rps, mean inter-arrival = 1/rps seconds). So the distribution matches wrk2’s exponential arrival model.
+- **rps**: Target requests per second (mean); inter-arrival times are exponential(1/rps).
 - **duration_sec**: How long to submit new jobs.
 - **num_workers**: Thread-pool size (concurrent matmuls).
 - **M K N**: Fixed matmul dimensions (default 768 768 768).

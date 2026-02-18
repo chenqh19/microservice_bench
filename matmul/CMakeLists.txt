@@ -13,6 +13,10 @@ add_executable(matmul_workload matmul_workload.cpp amx_matmul.cpp)
 target_include_directories(matmul_workload PRIVATE ${CMAKE_SOURCE_DIR})
 target_link_libraries(matmul_workload PRIVATE Threads::Threads)
 
+add_executable(matmul_server matmul_server.cpp amx_matmul.cpp)
+target_include_directories(matmul_server PRIVATE ${CMAKE_SOURCE_DIR})
+target_link_libraries(matmul_server PRIVATE Threads::Threads)
+
 if(EXISTS ${CMAKE_SOURCE_DIR}/run_matmul.cpp)
   add_executable(run_matmul run_matmul.cpp amx_matmul.cpp)
   target_include_directories(run_matmul PRIVATE ${CMAKE_SOURCE_DIR})
