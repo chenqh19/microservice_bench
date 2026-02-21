@@ -1,4 +1,6 @@
 /home/chenqh23/microservice_bench/matmul/build/CMakeFiles/matmul_workload.dir
 /home/chenqh23/microservice_bench/matmul/build/CMakeFiles/matmul_server.dir
+/home/chenqh23/microservice_bench/matmul/build/CMakeFiles/matmul_workload_partitioned.dir
+/home/chenqh23/microservice_bench/matmul/build/CMakeFiles/matmul_server_partitioned.dir
 /home/chenqh23/microservice_bench/matmul/build/CMakeFiles/edit_cache.dir
 /home/chenqh23/microservice_bench/matmul/build/CMakeFiles/rebuild_cache.dir

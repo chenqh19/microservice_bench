@@ -1,5 +1,18 @@
 #pragma once
+// Optional: include config.h when building with compression (defines USE_HARDWARE_COMPRESSION etc.).
+// When building standalone (e.g. matmul), macros below default so scheduler works without config.h.
+#ifdef __has_include
+#if __has_include("config.h")
 #include "config.h"
+#endif
+#endif
+#ifndef USE_HARDWARE_COMPRESSION
+#define USE_HARDWARE_COMPRESSION 1
+#endif
+#ifndef HW_DECISION_THRESHOLD_BYTES
+#define HW_DECISION_THRESHOLD_BYTES (1004 * 1024)
+#endif
+
 #include <cstdint>
 #include <chrono>
 #include <functional>
@@ -14,12 +27,6 @@ enum class HwSwPath { Software, Hardware };
 // Sampling configuration: record 1 / (2^HW_LATENCY_SAMPLE_LOG2) of HW latencies
 #ifndef HW_LATENCY_SAMPLE_LOG2
 #define HW_LATENCY_SAMPLE_LOG2 0
-#endif
-
-// Threshold in bytes for selecting hardware when USE_HARDWARE_COMPRESSION==2
-// (Used generically for any HW/SW operation decision.)
-#ifndef HW_DECISION_THRESHOLD_BYTES
-#define HW_DECISION_THRESHOLD_BYTES (1004 * 1024)
 #endif
 
 inline bool should_use_hardware_for_request(size_t input_size) {

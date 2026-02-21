@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/matmul_server_partitioned.dir/matmul_server_partitioned.cpp.o CMakeFiles/matmul_server_partitioned.dir/amx_matmul.cpp.o -o matmul_server_partitioned 

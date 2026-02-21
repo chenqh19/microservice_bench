@@ -52,4 +52,6 @@ set(CMAKE_MAKEFILE_PRODUCTS
 set(CMAKE_DEPEND_INFO_FILES
   "CMakeFiles/matmul_workload.dir/DependInfo.cmake"
   "CMakeFiles/matmul_server.dir/DependInfo.cmake"
+  "CMakeFiles/matmul_workload_partitioned.dir/DependInfo.cmake"
+  "CMakeFiles/matmul_server_partitioned.dir/DependInfo.cmake"
   )

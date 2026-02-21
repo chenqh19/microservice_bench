@@ -1,5 +1,4 @@
 #pragma once
-#include "config.h"
 #include "decision.h"
 #include <string>
 #include <algorithm>

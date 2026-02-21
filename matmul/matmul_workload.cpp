@@ -2,6 +2,7 @@
 // No TCP. Run: ./matmul_workload [rps] [duration_sec] [num_workers] [M] [K] [N]
 // Example: ./matmul_workload 2 60 4 768 768 768  -> 2 req/s for 60s, 4 workers, 768^3 matmul
 #include "matmul_utils.h"
+#include "metrics.h"
 #include <iostream>
 #include <vector>
 #include <random>
@@ -14,6 +15,23 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#if defined(__linux__)
+#include <pthread.h>
+#include <sched.h>
+#endif
+
+#if defined(__linux__)
+static void pin_self_to_core(int core_id) {
+  if (core_id < 0) return;
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(core_id, &cpuset);
+  if (pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == 0)
+    std::cout << "[worker] pinned to core " << core_id << std::endl;
+}
+#else
+static void pin_self_to_core(int core_id) { (void)core_id; }
+#endif
 
 struct Job {
   int64_t M, K, N;
@@ -61,12 +79,18 @@ struct JobQueue {
   }
 };
 
-static void worker(JobQueue& queue, std::atomic<uint64_t>& completed, std::atomic<uint64_t>& total_latency_us) {
+static void worker(JobQueue& queue, std::atomic<uint64_t>& completed, std::atomic<uint64_t>& total_latency_us, int worker_index) {
+  int num_cpus = static_cast<int>(std::thread::hardware_concurrency());
+  if (num_cpus > 0)
+    pin_self_to_core(worker_index % num_cpus);
+
   std::mt19937 rng(std::random_device{}());
   std::uniform_int_distribution<int> dist(-128, 127);
   while (true) {
     Job j;
     if (!queue.pop(j)) break;
+    decision::record_hw_submission();
+    auto key = decision::record_hw_start_get_inflight_after();
     size_t szA = static_cast<size_t>(j.M * j.K);
     size_t szB = static_cast<size_t>(j.K * j.N);
     std::vector<int8_t> A(szA), B(szB);
@@ -74,6 +98,7 @@ static void worker(JobQueue& queue, std::atomic<uint64_t>& completed, std::atomi
     for (size_t i = 0; i < szB; ++i) B[i] = static_cast<int8_t>(dist(rng));
     uint64_t latency_us = 0;
     microservice::matmul::amx_matmul_impl(j.M, j.K, j.N, A.data(), B.data(), &latency_us);
+    decision::record_hw_finish(key, latency_us);
     completed++;
     total_latency_us += latency_us;
   }
@@ -140,9 +165,12 @@ int main(int argc, char** argv) {
   std::cout << "rps=" << rps << " duration=" << duration_sec << "s workers=" << num_workers
             << " M=" << M << " K=" << K << " N=" << N << std::endl;
 
+  decision::init_hw_counters_master();
+  decision::start_global_hw_logger_to_file("matmul_ring.log");
+
   std::vector<std::thread> workers;
   for (int i = 0; i < num_workers; ++i)
-    workers.emplace_back(worker, std::ref(queue), std::ref(completed), std::ref(total_latency_us));
+    workers.emplace_back(worker, std::ref(queue), std::ref(completed), std::ref(total_latency_us), i);
 
   std::thread gen_thread(generator, rps, duration_sec, std::ref(queue), Job{M, K, N}, std::ref(submitted));
   gen_thread.join();

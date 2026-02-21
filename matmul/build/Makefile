@@ -142,6 +142,32 @@ matmul_server/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/build
 .PHONY : matmul_server/fast
 
+#=============================================================================
+# Target rules for targets named matmul_workload_partitioned
+
+# Build rule for target.
+matmul_workload_partitioned: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 matmul_workload_partitioned
+.PHONY : matmul_workload_partitioned
+
+# fast build rule for target.
+matmul_workload_partitioned/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload_partitioned.dir/build.make CMakeFiles/matmul_workload_partitioned.dir/build
+.PHONY : matmul_workload_partitioned/fast
+
+#=============================================================================
+# Target rules for targets named matmul_server_partitioned
+
+# Build rule for target.
+matmul_server_partitioned: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 matmul_server_partitioned
+.PHONY : matmul_server_partitioned
+
+# fast build rule for target.
+matmul_server_partitioned/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server_partitioned.dir/build.make CMakeFiles/matmul_server_partitioned.dir/build
+.PHONY : matmul_server_partitioned/fast
+
 amx_matmul.o: amx_matmul.cpp.o
 .PHONY : amx_matmul.o
 
@@ -149,6 +175,8 @@ amx_matmul.o: amx_matmul.cpp.o
 amx_matmul.cpp.o:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/amx_matmul.cpp.o
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/amx_matmul.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload_partitioned.dir/build.make CMakeFiles/matmul_workload_partitioned.dir/amx_matmul.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server_partitioned.dir/build.make CMakeFiles/matmul_server_partitioned.dir/amx_matmul.cpp.o
 .PHONY : amx_matmul.cpp.o
 
 amx_matmul.i: amx_matmul.cpp.i
@@ -158,6 +186,8 @@ amx_matmul.i: amx_matmul.cpp.i
 amx_matmul.cpp.i:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/amx_matmul.cpp.i
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/amx_matmul.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload_partitioned.dir/build.make CMakeFiles/matmul_workload_partitioned.dir/amx_matmul.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server_partitioned.dir/build.make CMakeFiles/matmul_server_partitioned.dir/amx_matmul.cpp.i
 .PHONY : amx_matmul.cpp.i
 
 amx_matmul.s: amx_matmul.cpp.s
@@ -167,6 +197,8 @@ amx_matmul.s: amx_matmul.cpp.s
 amx_matmul.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/amx_matmul.cpp.s
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/amx_matmul.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload_partitioned.dir/build.make CMakeFiles/matmul_workload_partitioned.dir/amx_matmul.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server_partitioned.dir/build.make CMakeFiles/matmul_server_partitioned.dir/amx_matmul.cpp.s
 .PHONY : amx_matmul.cpp.s
 
 matmul_server.o: matmul_server.cpp.o
@@ -193,6 +225,30 @@ matmul_server.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server.dir/build.make CMakeFiles/matmul_server.dir/matmul_server.cpp.s
 .PHONY : matmul_server.cpp.s
 
+matmul_server_partitioned.o: matmul_server_partitioned.cpp.o
+.PHONY : matmul_server_partitioned.o
+
+# target to build an object file
+matmul_server_partitioned.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server_partitioned.dir/build.make CMakeFiles/matmul_server_partitioned.dir/matmul_server_partitioned.cpp.o
+.PHONY : matmul_server_partitioned.cpp.o
+
+matmul_server_partitioned.i: matmul_server_partitioned.cpp.i
+.PHONY : matmul_server_partitioned.i
+
+# target to preprocess a source file
+matmul_server_partitioned.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server_partitioned.dir/build.make CMakeFiles/matmul_server_partitioned.dir/matmul_server_partitioned.cpp.i
+.PHONY : matmul_server_partitioned.cpp.i
+
+matmul_server_partitioned.s: matmul_server_partitioned.cpp.s
+.PHONY : matmul_server_partitioned.s
+
+# target to generate assembly for a file
+matmul_server_partitioned.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_server_partitioned.dir/build.make CMakeFiles/matmul_server_partitioned.dir/matmul_server_partitioned.cpp.s
+.PHONY : matmul_server_partitioned.cpp.s
+
 matmul_workload.o: matmul_workload.cpp.o
 .PHONY : matmul_workload.o
 
@@ -217,6 +273,30 @@ matmul_workload.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload.dir/build.make CMakeFiles/matmul_workload.dir/matmul_workload.cpp.s
 .PHONY : matmul_workload.cpp.s
 
+matmul_workload_partitioned.o: matmul_workload_partitioned.cpp.o
+.PHONY : matmul_workload_partitioned.o
+
+# target to build an object file
+matmul_workload_partitioned.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload_partitioned.dir/build.make CMakeFiles/matmul_workload_partitioned.dir/matmul_workload_partitioned.cpp.o
+.PHONY : matmul_workload_partitioned.cpp.o
+
+matmul_workload_partitioned.i: matmul_workload_partitioned.cpp.i
+.PHONY : matmul_workload_partitioned.i
+
+# target to preprocess a source file
+matmul_workload_partitioned.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload_partitioned.dir/build.make CMakeFiles/matmul_workload_partitioned.dir/matmul_workload_partitioned.cpp.i
+.PHONY : matmul_workload_partitioned.cpp.i
+
+matmul_workload_partitioned.s: matmul_workload_partitioned.cpp.s
+.PHONY : matmul_workload_partitioned.s
+
+# target to generate assembly for a file
+matmul_workload_partitioned.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/matmul_workload_partitioned.dir/build.make CMakeFiles/matmul_workload_partitioned.dir/matmul_workload_partitioned.cpp.s
+.PHONY : matmul_workload_partitioned.cpp.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -226,16 +306,24 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... matmul_server"
+	@echo "... matmul_server_partitioned"
 	@echo "... matmul_workload"
+	@echo "... matmul_workload_partitioned"
 	@echo "... amx_matmul.o"
 	@echo "... amx_matmul.i"
 	@echo "... amx_matmul.s"
 	@echo "... matmul_server.o"
 	@echo "... matmul_server.i"
 	@echo "... matmul_server.s"
+	@echo "... matmul_server_partitioned.o"
+	@echo "... matmul_server_partitioned.i"
+	@echo "... matmul_server_partitioned.s"
 	@echo "... matmul_workload.o"
 	@echo "... matmul_workload.i"
 	@echo "... matmul_workload.s"
+	@echo "... matmul_workload_partitioned.o"
+	@echo "... matmul_workload_partitioned.i"
+	@echo "... matmul_workload_partitioned.s"
 .PHONY : help
 
 

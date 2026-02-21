@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/matmul_workload_partitioned.dir/matmul_workload_partitioned.cpp.o CMakeFiles/matmul_workload_partitioned.dir/amx_matmul.cpp.o -o matmul_workload_partitioned 

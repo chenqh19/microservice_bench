@@ -3,6 +3,7 @@
 // Run: ./matmul_server [port] [num_workers]. Default: port 50061, 4 workers.
 // Send request: echo "768,768,768" | nc localhost 50061
 #include "matmul_utils.h"
+#include "metrics.h"
 #include <iostream>
 #include <vector>
 #include <string>
@@ -19,6 +20,23 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#if defined(__linux__)
+#include <pthread.h>
+#include <sched.h>
+#endif
+
+#if defined(__linux__)
+static void pin_self_to_core(int core_id) {
+  if (core_id < 0) return;
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(core_id, &cpuset);
+  if (pthread_setaffinity_np(pthread_self(), sizeof(cpuset), &cpuset) == 0)
+    std::cout << "[worker] pinned to core " << core_id << std::endl;
+}
+#else
+static void pin_self_to_core(int core_id) { (void)core_id; }
+#endif
 
 static constexpr int64_t kMaxDim = 4096;
 static constexpr int kDefaultPort = 50061;
@@ -56,7 +74,11 @@ struct Queue {
   }
 };
 
-static void worker(Queue& queue) {
+static void worker(Queue& queue, int worker_index) {
+  int num_cpus = static_cast<int>(std::thread::hardware_concurrency());
+  if (num_cpus > 0)
+    pin_self_to_core(worker_index % num_cpus);
+
   std::mt19937 rng(std::random_device{}());
   std::uniform_int_distribution<int> dist(-128, 127);
   while (true) {
@@ -83,6 +105,8 @@ static void worker(Queue& queue) {
       close(client_fd);
       continue;
     }
+    decision::record_hw_submission();
+    auto key = decision::record_hw_start_get_inflight_after();
     size_t szA = static_cast<size_t>(M * K);
     size_t szB = static_cast<size_t>(K * N);
     std::vector<int8_t> A(szA), B(szB);
@@ -90,6 +114,7 @@ static void worker(Queue& queue) {
     for (size_t i = 0; i < szB; ++i) B[i] = static_cast<int8_t>(dist(rng));
     uint64_t latency_us = 0;
     std::string result = microservice::matmul::amx_matmul_impl(M, K, N, A.data(), B.data(), &latency_us);
+    decision::record_hw_finish(key, latency_us);
     std::string reply = (result == "OK") ? ("OK " + std::to_string(latency_us) + "\n") : "ERR " + result + "\n";
     (void)write(client_fd, reply.c_str(), reply.size());
     close(client_fd);
@@ -127,10 +152,13 @@ int main(int argc, char** argv) {
   }
   std::cout << "matmul_server listening on 0.0.0.0:" << port << " workers=" << num_workers << std::endl;
 
+  decision::init_hw_counters_master();
+  decision::start_global_hw_logger_to_file("matmul_ring.log");
+
   Queue client_queue;
   std::vector<std::thread> worker_threads;
   for (int i = 0; i < num_workers; ++i)
-    worker_threads.emplace_back(worker, std::ref(client_queue));
+    worker_threads.emplace_back(worker, std::ref(client_queue), i);
 
   while (true) {
     int client_fd = accept(listen_fd, nullptr, nullptr);

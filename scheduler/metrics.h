@@ -8,6 +8,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
+#include <fstream>
+#include <string>
 
 namespace decision {
 
@@ -110,38 +112,59 @@ inline void record_hw_finish_nosample() {
 	__atomic_fetch_sub(&g_shared->inflight, 1ULL, __ATOMIC_RELAXED);
 }
 
-inline void start_global_hw_logger() {
-	static std::atomic<bool> started{false};
-	bool expected = false;
-	if (started.compare_exchange_strong(expected, true)) {
-		std::thread([](){
-			uint64_t last_total = 0;
-			for (;;) {
-				std::this_thread::sleep_for(std::chrono::seconds(10));
-				if (!g_shared) { map_shared(false); }
-				if (!g_shared) continue;
-				uint64_t current_total = __atomic_load_n(&g_shared->total, __ATOMIC_RELAXED);
-				uint64_t delta_total = current_total - last_total;
-				last_total = current_total;
-				std::cout << "HW submissions (all workers) in last 10s: " << delta_total << std::endl;
-				uint64_t current_ring = __atomic_load_n(&g_shared->ring_write_index, __ATOMIC_ACQUIRE);
-				uint64_t available = (current_ring >= SharedCounters::RING_CAPACITY)
-					? SharedCounters::RING_CAPACITY
-					: static_cast<uint64_t>(current_ring);
-				uint64_t start = (current_ring >= SharedCounters::RING_CAPACITY)
-					? (current_ring - SharedCounters::RING_CAPACITY)
-					: 0;
-				std::cout << "ring (x1, latency_us) n=" << available << ":" << std::endl;
-				for (uint64_t idx = start; idx < start + available; ++idx) {
-					uint64_t pos = idx % SharedCounters::RING_CAPACITY;
-					uint64_t x1 = __atomic_load_n(&g_shared->inflight_at_submit[pos], __ATOMIC_ACQUIRE);
-					uint64_t y = __atomic_load_n(&g_shared->latencies[pos], __ATOMIC_ACQUIRE);
-					std::cout << "[" << x1 << ", " << y << "] ";
-				}
-				std::cout << std::endl;
-			}
-		}).detach();
+namespace {
+inline void emit_hw_log_snapshot(std::ostream& out, uint64_t delta_total, uint64_t current_ring) {
+	uint64_t available = (current_ring >= SharedCounters::RING_CAPACITY)
+		? SharedCounters::RING_CAPACITY
+		: static_cast<uint64_t>(current_ring);
+	uint64_t start = (current_ring >= SharedCounters::RING_CAPACITY)
+		? (current_ring - SharedCounters::RING_CAPACITY)
+		: 0;
+	out << "HW submissions (all workers) in last 10s: " << delta_total << "\n";
+	out << "ring (x1, latency_us) n=" << available << ":\n";
+	for (uint64_t idx = start; idx < start + available; ++idx) {
+		uint64_t pos = idx % SharedCounters::RING_CAPACITY;
+		uint64_t x1 = __atomic_load_n(&g_shared->inflight_at_submit[pos], __ATOMIC_ACQUIRE);
+		uint64_t y = __atomic_load_n(&g_shared->latencies[pos], __ATOMIC_ACQUIRE);
+		out << "[" << x1 << ", " << y << "] ";
 	}
+	out << "\n";
+}
+} // anon
+
+// filepath == nullptr or empty -> log to stdout; otherwise append to file. Only one logger may be started.
+inline void start_global_hw_logger_impl(const char* filepath) {
+	static std::atomic<bool> started{false};
+	bool use_file = (filepath != nullptr && *filepath != '\0');
+	bool expected = false;
+	if (!started.compare_exchange_strong(expected, true)) return;
+	std::string path(use_file ? filepath : "");
+	std::thread([path, use_file](){
+		uint64_t last_total = 0;
+		for (;;) {
+			std::this_thread::sleep_for(std::chrono::seconds(10));
+			if (!g_shared) { map_shared(false); }
+			if (!g_shared) continue;
+			uint64_t current_total = __atomic_load_n(&g_shared->total, __ATOMIC_RELAXED);
+			uint64_t delta_total = current_total - last_total;
+			last_total = current_total;
+			uint64_t current_ring = __atomic_load_n(&g_shared->ring_write_index, __ATOMIC_ACQUIRE);
+			if (use_file) {
+				std::ofstream out(path, std::ios::app);
+				if (out) emit_hw_log_snapshot(out, delta_total, current_ring);
+			} else {
+				emit_hw_log_snapshot(std::cout, delta_total, current_ring);
+			}
+		}
+	}).detach();
+}
+
+inline void start_global_hw_logger() {
+	start_global_hw_logger_impl(nullptr);
+}
+
+inline void start_global_hw_logger_to_file(const char* filepath) {
+	start_global_hw_logger_impl(filepath);
 }
 
 } // namespace decision

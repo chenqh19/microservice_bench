@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = 
 
-CXX_INCLUDES = -I/home/chenqh23/microservice_bench/matmul
+CXX_INCLUDES = -I/home/chenqh23/microservice_bench/matmul -I/home/chenqh23/microservice_bench/matmul/../scheduler
 
 CXX_FLAGS =   -std=c++14 -O3 -march=native -Wall -Wextra
 
