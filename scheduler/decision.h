@@ -12,6 +12,9 @@
 #ifndef HW_DECISION_THRESHOLD_BYTES
 #define HW_DECISION_THRESHOLD_BYTES (1004 * 1024)
 #endif
+#ifndef HW_INFLIGHT_THRESHOLD
+#define HW_INFLIGHT_THRESHOLD 4
+#endif
 
 #include <cstdint>
 #include <chrono>
@@ -30,6 +33,7 @@ enum class HwSwPath { Software, Hardware };
 #endif
 
 inline bool should_use_hardware_for_request(size_t input_size) {
+	if (get_hw_inflight() >= static_cast<uint64_t>(HW_INFLIGHT_THRESHOLD)) return false;
 #if USE_HARDWARE_COMPRESSION == 1
 	return true;
 #elif USE_HARDWARE_COMPRESSION == 0
